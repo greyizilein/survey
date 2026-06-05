@@ -9,7 +9,7 @@ import { Users, FolderKanban, MessageSquare, Activity } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/_authenticated/app")({
   head: () => ({ meta: [{ title: "Overview · Surveyor" }] }),
   component: Dashboard,
 });
