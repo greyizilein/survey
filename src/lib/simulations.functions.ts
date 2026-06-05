@@ -47,7 +47,7 @@ export const runSimulation = createServerFn({ method: "POST" })
       .from("surveys").select("*").eq("id", data.survey_id).single();
     if (surveyErr || !survey) throw new Error("Survey not found");
 
-    const questions = (survey.parsed_questions as Question[]) ?? [];
+    const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     if (!questions.length) throw new Error("Survey has no questions");
 
     const { data: personas, error: pErr } = await context.supabase
@@ -90,7 +90,7 @@ export const runSimulation = createServerFn({ method: "POST" })
       simulation_id: sim.id,
       persona_id: r.persona_id,
       user_id: context.userId,
-      answers: r.answers,
+      answers: r.answers as any,
     }));
     await context.supabase.from("responses").insert(rows);
     await context.supabase
@@ -128,7 +128,7 @@ export const generateVtt = createServerFn({ method: "POST" })
     const { data: persona } = await context.supabase.from("personas").select("*").eq("id", data.persona_id).single();
     if (!survey || !persona) throw new Error("Not found");
 
-    const questions = (survey.parsed_questions as Question[]) ?? [];
+    const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     const qList = questions.map((q, i) => `${i + 1}. ${q.text}`).join("\n");
 
     const prompt = `${personaPrompt(persona as Persona)}\n\nYou are being interviewed about: "${survey.title}". The interviewer (Researcher) will ask these questions:\n${qList}\n\nWrite a realistic interview transcript. Use natural conversational filler ("um", "uh", "like", "you know", "I mean") and brief pauses. Each turn should feel spontaneous. Format as alternating lines:\nResearcher: ...\n${persona.name}: ...\n\nReturn ONLY the transcript text, no preamble. Keep total response under 1500 words.`;

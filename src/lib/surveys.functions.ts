@@ -65,7 +65,7 @@ If the content has no clear questions, infer 5-10 reasonable ones based on the t
         source_type: data.source_type,
         source_url: data.source_url ?? null,
         raw_input: data.raw_input ?? null,
-        parsed_questions: questions,
+        parsed_questions: questions as any,
       })
       .select()
       .single();
