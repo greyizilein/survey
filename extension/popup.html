@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Surveyor Filler</title>
+  <style>
+    body { width: 340px; margin: 0; padding: 14px; font: 13px/1.4 -apple-system, system-ui, sans-serif; color: #111; background: #fafafa; }
+    h1 { font-size: 14px; margin: 0 0 8px; }
+    p { color: #555; margin: 0 0 10px; }
+    textarea { width: 100%; height: 140px; box-sizing: border-box; font: 12px ui-monospace, monospace; border: 1px solid #ddd; border-radius: 6px; padding: 8px; resize: vertical; }
+    button { width: 100%; margin-top: 8px; padding: 8px 12px; background: #111; color: #fff; border: 0; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button.secondary { background: #fff; color: #111; border: 1px solid #ddd; }
+    .row { display: flex; gap: 6px; }
+    .row button { flex: 1; }
+    #status { margin-top: 8px; color: #555; min-height: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Surveyor Filler</h1>
+  <p>Paste a Surveyor response JSON, then fill the form in the active tab.</p>
+  <textarea id="payload" placeholder='[{"question_id":"q1","answer":"..."}]'></textarea>
+  <div class="row">
+    <button id="fill">Fill form</button>
+    <button id="save" class="secondary">Save</button>
+  </div>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
