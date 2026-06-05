@@ -7,10 +7,9 @@ export function createAi() {
     name: "lovable",
     baseURL: "https://ai.gateway.lovable.dev/v1",
     headers: {
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+      Authorization: `Bearer ${key}`,
     },
   });
 }
 
-export const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+export const DEFAULT_MODEL = "google/gemini-2.5-flash";
