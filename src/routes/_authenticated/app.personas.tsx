@@ -13,7 +13,7 @@ import { listPersonas, generatePersonas, deletePersona } from "@/lib/personas.fu
 import { toast } from "sonner";
 import { Trash2, Sparkles, Search } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/personas")({
+export const Route = createFileRoute("/_authenticated/app/personas")({
   head: () => ({ meta: [{ title: "Persona Studio · Surveyor" }] }),
   component: PersonaStudio,
 });

@@ -13,7 +13,7 @@ import { listProjects, createProject, deleteProject } from "@/lib/projects.funct
 import { Plus, Trash2, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/projects")({
+export const Route = createFileRoute("/_authenticated/app/projects")({
   head: () => ({ meta: [{ title: "Projects · Surveyor" }] }),
   component: Projects,
 });

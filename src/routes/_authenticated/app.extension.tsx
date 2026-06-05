@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Chrome } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/extension")({
+export const Route = createFileRoute("/_authenticated/app/extension")({
   head: () => ({ meta: [{ title: "Extension · Surveyor" }] }),
   component: ExtensionPage,
 });

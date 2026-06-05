@@ -19,7 +19,7 @@ import { runSimulation, getSimulationResults, generateVtt } from "@/lib/simulati
 import { toast } from "sonner";
 import { ChevronLeft, Play, Download, FileDown, Link2, FileText } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/projects/$id")({
+export const Route = createFileRoute("/_authenticated/app/projects/$id")({
   head: () => ({ meta: [{ title: "Project · Surveyor" }] }),
   component: ProjectWorkspace,
 });
