@@ -14,7 +14,280 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      personas: {
+        Row: {
+          age: number | null
+          bio: string | null
+          city: string | null
+          core_values: string[] | null
+          country: string | null
+          created_at: string
+          education: string | null
+          gender: string | null
+          id: string
+          income_bracket: string | null
+          language_style: string | null
+          name: string
+          occupation: string | null
+          political_sentiment: string | null
+          tags: string[] | null
+          user_id: string
+        }
+        Insert: {
+          age?: number | null
+          bio?: string | null
+          city?: string | null
+          core_values?: string[] | null
+          country?: string | null
+          created_at?: string
+          education?: string | null
+          gender?: string | null
+          id?: string
+          income_bracket?: string | null
+          language_style?: string | null
+          name: string
+          occupation?: string | null
+          political_sentiment?: string | null
+          tags?: string[] | null
+          user_id: string
+        }
+        Update: {
+          age?: number | null
+          bio?: string | null
+          city?: string | null
+          core_values?: string[] | null
+          country?: string | null
+          created_at?: string
+          education?: string | null
+          gender?: string | null
+          id?: string
+          income_bracket?: string | null
+          language_style?: string | null
+          name?: string
+          occupation?: string | null
+          political_sentiment?: string | null
+          tags?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      responses: {
+        Row: {
+          answers: Json
+          created_at: string
+          id: string
+          persona_id: string
+          simulation_id: string
+          user_id: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          persona_id: string
+          simulation_id: string
+          user_id: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          id?: string
+          persona_id?: string
+          simulation_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "responses_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "responses_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      simulations: {
+        Row: {
+          completed_count: number
+          created_at: string
+          id: string
+          status: string
+          survey_id: string
+          total_personas: number
+          user_id: string
+        }
+        Insert: {
+          completed_count?: number
+          created_at?: string
+          id?: string
+          status?: string
+          survey_id: string
+          total_personas?: number
+          user_id: string
+        }
+        Update: {
+          completed_count?: number
+          created_at?: string
+          id?: string
+          status?: string
+          survey_id?: string
+          total_personas?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulations_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surveys: {
+        Row: {
+          created_at: string
+          id: string
+          parsed_questions: Json
+          project_id: string
+          raw_input: string | null
+          source_type: string
+          source_url: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          parsed_questions?: Json
+          project_id: string
+          raw_input?: string | null
+          source_type?: string
+          source_url?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          parsed_questions?: Json
+          project_id?: string
+          raw_input?: string | null
+          source_type?: string
+          source_url?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surveys_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcripts: {
+        Row: {
+          created_at: string
+          id: string
+          persona_id: string
+          survey_id: string
+          user_id: string
+          vtt_content: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          persona_id: string
+          survey_id: string
+          user_id: string
+          vtt_content: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          persona_id?: string
+          survey_id?: string
+          user_id?: string
+          vtt_content?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transcripts_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
