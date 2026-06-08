@@ -17,7 +17,7 @@ import { parseSurvey } from "@/lib/surveys.functions";
 import { listPersonas } from "@/lib/personas.functions";
 import { runSimulation, getSimulationResults, generateVtt } from "@/lib/simulations.functions";
 import { toast } from "sonner";
-import { ChevronLeft, Play, Download, FileDown, Link2, FileText } from "lucide-react";
+import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Braces } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/projects/$id")({
   head: () => ({ meta: [{ title: "Project · Surveyor" }] }),
@@ -112,20 +112,29 @@ function ProjectWorkspace() {
     downloadFile(csv, `responses-${activeSurvey.slice(0, 8)}.csv`, "text/csv");
   }
 
+  function exportExtensionJson() {
+    if (!resultsQ.data?.length) return;
+    const payload = resultsQ.data.map((r: any) => ({
+      persona: r.personas?.name,
+      answers: r.answers ?? [],
+    }));
+    downloadFile(JSON.stringify(payload, null, 2), `extension-payload-${activeSurvey?.slice(0, 8) ?? "survey"}.json`, "application/json");
+  }
+
   const personas = personasQ.data ?? [];
   const surveys = projQ.data?.surveys ?? [];
   const project = projQ.data?.project;
 
   return (
     <AppShell>
-      <div className="p-6 max-w-[1600px] mx-auto">
+      <div className="mx-auto max-w-[1600px] p-4 sm:p-6">
         <Link to="/app/projects" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
           <ChevronLeft className="size-4" /> All projects
         </Link>
         <h1 className="text-2xl font-semibold mb-1">{project?.name ?? "..."}</h1>
         <p className="text-sm text-muted-foreground mb-6">{project?.description}</p>
 
-        <div className="grid lg:grid-cols-[360px,1fr,360px] gap-4">
+        <div className="grid gap-4 xl:grid-cols-[360px,minmax(0,1fr),360px]">
           {/* Left: Survey input + persona selection */}
           <div className="space-y-4">
             <Card className="p-4">
@@ -192,9 +201,9 @@ function ProjectWorkspace() {
 
           {/* Middle: Simulation log + results */}
           <Card className="p-4 min-h-[500px]">
-            <div className="flex items-center justify-between mb-3">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-semibold text-sm">Simulation</h3>
-              <Button onClick={handleRun} disabled={!activeSurvey || selectedPersonas.size === 0 || running} size="sm">
+              <Button onClick={handleRun} disabled={!activeSurvey || selectedPersonas.size === 0 || running} size="sm" className="w-full sm:w-auto">
                 <Play className="size-3.5 mr-1.5" /> {running ? "Running..." : "Run"}
               </Button>
             </div>
@@ -237,6 +246,9 @@ function ProjectWorkspace() {
               <Button variant="outline" className="w-full justify-start" onClick={exportCsv} disabled={!resultsQ.data?.length}>
                 <FileDown className="size-4 mr-2" /> Download CSV
               </Button>
+              <Button variant="outline" className="w-full justify-start" onClick={exportExtensionJson} disabled={!resultsQ.data?.length}>
+                <Braces className="size-4 mr-2" /> Download extension JSON
+              </Button>
               <div className="pt-3 border-t">
                 <p className="text-xs font-medium mb-2">VTT interview transcripts</p>
                 <p className="text-xs text-muted-foreground mb-2">Generate a conversational transcript for any persona.</p>
@@ -259,7 +271,7 @@ function ProjectWorkspace() {
               <div className="pt-3 border-t">
                 <p className="text-xs font-medium mb-1">Auto-fill external forms</p>
                 <p className="text-xs text-muted-foreground mb-2">Download the Surveyor extension to type responses directly into Google/MS Forms.</p>
-                <Link to="/app/extension"><Button variant="outline" size="sm" className="w-full">Get extension</Button></Link>
+                <Button asChild variant="outline" size="sm" className="w-full"><Link to="/app/extension">Get extension</Link></Button>
               </div>
             </div>
           </Card>
