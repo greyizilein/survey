@@ -25,22 +25,22 @@ function ExtensionPage() {
 
   return (
     <AppShell>
-      <div className="max-w-3xl mx-auto p-8">
-        <h1 className="text-3xl font-semibold">Browser extension</h1>
-        <p className="text-muted-foreground mt-1">Auto-fill Google Forms, Microsoft Forms, Typeform, and similar tools.</p>
+      <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Browser extension</h1>
+        <p className="mt-1 text-sm text-muted-foreground sm:text-base">Auto-fill Google Forms, Microsoft Forms, Typeform, and similar tools.</p>
 
-        <Card className="p-6 mt-6">
-          <div className="flex items-start gap-4">
+        <Card className="mt-6 p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center"><Chrome className="size-6 text-primary" /></div>
             <div className="flex-1">
               <h2 className="font-semibold">Surveyor Filler</h2>
               <p className="text-sm text-muted-foreground mt-1">Loads a JSON response file you exported from Surveyor and types each answer into the live form, with randomized human delays.</p>
-              <Button className="mt-4" onClick={download}><Download className="size-4 mr-2" /> Download .zip</Button>
+              <Button className="mt-4 w-full sm:w-auto" onClick={download}><Download className="size-4 mr-2" /> Download .zip</Button>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6 mt-4">
+        <Card className="mt-4 p-4 sm:p-6">
           <h3 className="font-semibold mb-3">Install</h3>
           <ol className="text-sm space-y-2 text-muted-foreground list-decimal pl-5">
             <li>Unzip the downloaded file.</li>

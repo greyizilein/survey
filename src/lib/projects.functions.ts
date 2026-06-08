@@ -5,12 +5,38 @@ import { z } from "zod";
 export const listProjects = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { data: projects, error } = await context.supabase
       .from("projects")
-      .select("*, surveys(id, title), simulations(id, status, completed_count, total_personas)")
+      .select("*")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    if (!projects?.length) return [];
+
+    const projectIds = projects.map((p) => p.id);
+    const { data: surveys, error: surveyError } = await context.supabase
+      .from("surveys")
+      .select("id, title, project_id")
+      .in("project_id", projectIds);
+    if (surveyError) throw new Error(surveyError.message);
+
+    const surveyIds = (surveys ?? []).map((s) => s.id);
+    const { data: simulations, error: simError } = surveyIds.length
+      ? await context.supabase
+          .from("simulations")
+          .select("id, survey_id, status, completed_count, total_personas")
+          .in("survey_id", surveyIds)
+      : { data: [], error: null };
+    if (simError) throw new Error(simError.message);
+
+    return projects.map((project) => {
+      const projectSurveys = (surveys ?? []).filter((survey) => survey.project_id === project.id);
+      const projectSurveyIds = new Set(projectSurveys.map((survey) => survey.id));
+      return {
+        ...project,
+        surveys: projectSurveys,
+        simulations: (simulations ?? []).filter((sim) => projectSurveyIds.has(sim.survey_id)),
+      };
+    });
   });
 
 export const getProject = createServerFn({ method: "GET" })

@@ -11,6 +11,7 @@ $("fill").addEventListener("click", async () => {
   try { answers = JSON.parse($("payload").value); }
   catch { $("status").textContent = "Invalid JSON."; return; }
   if (!Array.isArray(answers)) { $("status").textContent = "Expected an array."; return; }
+  answers = answers.flatMap((item) => Array.isArray(item.answers) ? item.answers : [item]);
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   $("status").textContent = "Filling...";
   try {
@@ -25,13 +26,14 @@ $("fill").addEventListener("click", async () => {
   }
 });
 
-function fillForm(answers) {
+async function fillForm(answers) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const fields = Array.from(document.querySelectorAll(
     'input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, [role="radio"], [role="checkbox"], select'
   ));
   let filled = 0;
-  const total = answers.length;
+  const flatAnswers = answers.flatMap((item) => Array.isArray(item.answers) ? item.answers : [item]);
+  const total = flatAnswers.length;
 
   function setNative(el, value) {
     const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -41,33 +43,32 @@ function fillForm(answers) {
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  (async () => {
-    for (let i = 0; i < answers.length; i++) {
-      const ans = answers[i];
-      const value = String(ans.answer ?? "");
-      const target = fields[i];
-      if (!target) continue;
-      const tag = target.tagName;
-      const type = (target.getAttribute("type") || "").toLowerCase();
-      const role = target.getAttribute("role");
-      try {
-        if (role === "radio" || role === "checkbox" || type === "radio" || type === "checkbox") {
-          const group = target.closest('[role="radiogroup"], form, body');
-          const opts = group ? Array.from(group.querySelectorAll(`[role="${role || type}"], input[type="${type || role}"]`)) : [target];
-          const match = opts.find((o) => (o.getAttribute("aria-label") || o.value || o.parentElement?.innerText || "").toLowerCase().includes(value.toLowerCase())) || target;
-          match.click();
-        } else if (tag === "SELECT") {
-          const opt = Array.from(target.options).find((o) => o.text.toLowerCase().includes(value.toLowerCase()));
-          if (opt) { target.value = opt.value; target.dispatchEvent(new Event("change", { bubbles: true })); }
-        } else {
-          target.focus();
-          setNative(target, value);
-        }
-        filled++;
-        await sleep(120 + Math.random() * 220);
-      } catch (e) {}
-    }
-  })();
+  for (let i = 0; i < flatAnswers.length; i++) {
+    const ans = flatAnswers[i];
+    const value = String(ans.answer ?? ans.value ?? ans ?? "");
+    const target = fields[i];
+    if (!target) continue;
+    const tag = target.tagName;
+    const type = (target.getAttribute("type") || "").toLowerCase();
+    const role = target.getAttribute("role");
+    try {
+      if (role === "radio" || role === "checkbox" || type === "radio" || type === "checkbox") {
+        const group = target.closest('[role="radiogroup"], form, body');
+        const selector = role ? `[role="${role}"]` : `input[type="${type}"]`;
+        const opts = group ? Array.from(group.querySelectorAll(selector)) : [target];
+        const match = opts.find((o) => (o.getAttribute("aria-label") || o.value || o.parentElement?.innerText || "").toLowerCase().includes(value.toLowerCase())) || target;
+        match.click();
+      } else if (tag === "SELECT") {
+        const opt = Array.from(target.options).find((o) => o.text.toLowerCase().includes(value.toLowerCase())) || target.options[0];
+        if (opt) { target.value = opt.value; target.dispatchEvent(new Event("change", { bubbles: true })); }
+      } else {
+        target.focus();
+        setNative(target, value);
+      }
+      filled++;
+      await sleep(120 + Math.random() * 220);
+    } catch (e) {}
+  }
 
   return { filled, total };
 }

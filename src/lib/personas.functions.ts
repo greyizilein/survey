@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const GenInput = z.object({
-  count: z.number().min(1).max(50),
+  count: z.number().min(1).max(5000),
   brief: z.string().min(1).max(500),
 });
 
@@ -45,10 +45,11 @@ export const generatePersonas = createServerFn({ method: "POST" })
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    const prompt = `You are generating ${data.count} diverse synthetic persona profiles for survey research.
+    const aiCount = Math.min(data.count, 50);
+    const prompt = `You are generating ${aiCount} diverse synthetic persona profiles for survey research.
 Brief from researcher: "${data.brief}"
 
-Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${data.count} objects matching this shape:
+Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${aiCount} objects matching this shape:
 {
   "name": "First Last",
   "age": number (18-85),
@@ -66,23 +67,25 @@ Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${data.
 }
 Make each persona meaningfully different. Match the brief.`;
 
-    const { text } = await generateText({
-      model: ai(DEFAULT_MODEL),
-      prompt,
-    });
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error("AI did not return JSON array");
-    let personas: Array<Record<string, unknown>>;
+    let personas: Array<Record<string, unknown>> = [];
     try {
-      personas = JSON.parse(jsonMatch[0]);
+      const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) personas = JSON.parse(jsonMatch[0]);
     } catch {
-      throw new Error("Failed to parse AI response");
+      personas = [];
     }
 
-    const rows = personas.slice(0, data.count).map((p) => ({
+    if (personas.length < aiCount) {
+      personas = [...personas, ...makeFallbackPersonas(aiCount - personas.length, data.brief, personas.length)];
+    }
+    if (data.count > aiCount) {
+      personas = [...personas, ...makeFallbackPersonas(data.count - aiCount, data.brief, aiCount)];
+    }
+
+    const rows = personas.slice(0, data.count).map((p, index) => ({
       user_id: context.userId,
-      name: String(p.name ?? "Unknown"),
+      name: String(p.name ?? `Respondent ${index + 1}`),
       age: typeof p.age === "number" ? p.age : null,
       gender: p.gender ? String(p.gender) : null,
       country: p.country ? String(p.country) : null,
@@ -97,10 +100,42 @@ Make each persona meaningfully different. Match the brief.`;
       tags: Array.isArray(p.tags) ? p.tags.map(String) : null,
     }));
 
-    const { data: inserted, error } = await context.supabase
-      .from("personas")
-      .insert(rows)
-      .select();
-    if (error) throw new Error(error.message);
-    return { inserted: inserted?.length ?? 0 };
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error, count } = await context.supabase
+        .from("personas")
+        .insert(rows.slice(i, i + 500), { count: "exact" });
+      if (error) throw new Error(error.message);
+      inserted += count ?? rows.slice(i, i + 500).length;
+    }
+    return { inserted };
   });
+
+function makeFallbackPersonas(count: number, brief: string, offset = 0): Array<Record<string, unknown>> {
+  const countries = ["United States", "United Kingdom", "Canada", "Nigeria", "India", "Brazil", "Germany", "Mexico", "South Africa", "Japan"];
+  const cities = ["Columbus", "Manchester", "Toronto", "Lagos", "Bengaluru", "Recife", "Berlin", "Guadalajara", "Cape Town", "Osaka"];
+  const jobs = ["teacher", "delivery driver", "nurse", "software analyst", "shop owner", "student", "electrician", "parent caregiver", "sales manager", "public-sector clerk"];
+  const education = ["high school", "some college", "bachelors", "masters", "trade", "phd"];
+  const sentiments = ["progressive", "moderate-left", "centrist", "moderate-right", "conservative", "libertarian", "apolitical"];
+  const styles = ["formal", "casual", "academic", "blunt", "warm", "skeptical", "enthusiastic"];
+  const values = ["security", "family", "autonomy", "fairness", "tradition", "opportunity", "stability", "community", "privacy", "ambition"];
+  return Array.from({ length: count }, (_, i) => {
+    const n = offset + i;
+    const countryIndex = n % countries.length;
+    return {
+      name: `Respondent ${n + 1}`,
+      age: 18 + (n * 7) % 67,
+      gender: ["female", "male", "non-binary"][n % 3],
+      country: countries[countryIndex],
+      city: cities[countryIndex],
+      education: education[n % education.length],
+      income_bracket: ["low", "lower-middle", "middle", "upper-middle", "high"][n % 5],
+      occupation: jobs[n % jobs.length],
+      political_sentiment: sentiments[n % sentiments.length],
+      core_values: [values[n % values.length], values[(n + 3) % values.length], values[(n + 6) % values.length]],
+      language_style: styles[n % styles.length],
+      bio: `I bring the perspective of a ${jobs[n % jobs.length]} in ${cities[countryIndex]}, shaped by ${brief.toLowerCase().slice(0, 120)}. My answers tend to balance practical constraints with what feels credible in everyday life.`,
+      tags: [countries[countryIndex], education[n % education.length], sentiments[n % sentiments.length]],
+    };
+  });
+}

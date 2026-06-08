@@ -51,36 +51,36 @@ function PersonaStudio() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto p-8">
-        <h1 className="text-3xl font-semibold">Persona Studio</h1>
-        <p className="text-muted-foreground mt-1">Generate diverse synthetic respondents on demand.</p>
+        <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Persona Studio</h1>
+        <p className="mt-1 text-sm text-muted-foreground sm:text-base">Generate diverse synthetic respondents on demand.</p>
 
-        <Card className="p-6 mt-6">
+        <Card className="mt-6 p-4 sm:p-6">
           <h2 className="font-semibold mb-3 flex items-center gap-2"><Sparkles className="size-4 text-primary" /> Generate personas</h2>
-          <div className="grid md:grid-cols-[1fr,140px,auto] gap-3 items-end">
+          <div className="grid gap-3 md:grid-cols-[1fr,150px,auto] md:items-end">
             <div>
               <Label>Brief</Label>
               <Textarea placeholder="e.g. 'Mid-income Ohio voters, mix of tech-skeptic and curious' or '1,000 globally diverse Gen Z students'"
                 value={brief} onChange={(e) => setBrief(e.target.value)} rows={2} />
             </div>
             <div>
-              <Label>Count (1–50)</Label>
-              <Input type="number" min={1} max={50} value={count} onChange={(e) => setCount(Math.min(50, Math.max(1, +e.target.value || 1)))} />
+              <Label>Count (1–5,000)</Label>
+              <Input type="number" min={1} max={5000} value={count} onChange={(e) => setCount(Math.min(5000, Math.max(1, +e.target.value || 1)))} />
             </div>
-            <Button onClick={generate} disabled={busy}>{busy ? "Generating..." : "Generate"}</Button>
+            <Button onClick={generate} disabled={busy} className="w-full md:w-auto">{busy ? "Generating..." : "Generate"}</Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">Batches of up to 50 per run. Run again to add more — your library is cumulative.</p>
+          <p className="text-xs text-muted-foreground mt-2">Large runs are inserted in backend chunks. The first 500 most recent personas are shown here for speed.</p>
         </Card>
 
-        <div className="flex items-center gap-3 mt-8 mb-4">
-          <div className="relative flex-1 max-w-sm">
+        <div className="mt-8 mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1 sm:max-w-sm">
             <Search className="size-4 absolute left-3 top-2.5 text-muted-foreground" />
             <Input placeholder="Filter by name, country, occupation..." value={filter} onChange={(e) => setFilter(e.target.value)} className="pl-9" />
           </div>
           <span className="text-sm text-muted-foreground">{filtered.length} personas</span>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p: any) => (
             <Card key={p.id} className="p-4">
               <div className="flex items-start justify-between">
