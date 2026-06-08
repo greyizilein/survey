@@ -30,22 +30,22 @@ function Landing() {
         </div>
       </header>
 
-      <section className="max-w-4xl mx-auto px-6 py-24 text-center">
+      <section className="max-w-4xl mx-auto px-6 py-16 md:py-24 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-medium mb-6">
           <Sparkles className="size-3" /> Powered by Lovable AI
         </div>
-        <h1 className="text-5xl md:text-6xl font-semibold tracking-tighter">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tighter">
           Synthetic respondents,<br />for real research.
         </h1>
-        <p className="text-lg text-muted-foreground mt-6 max-w-2xl mx-auto">
+        <p className="text-base md:text-lg text-muted-foreground mt-6 max-w-2xl mx-auto">
           Generate thousands of distinct personas. Paste any survey. Get authentic, human-feeling answers — plus CSVs, VTT transcripts, and a browser extension that fills live forms for you.
         </p>
         <div className="flex items-center justify-center gap-3 mt-8">
-          <Link to="/auth"><Button size="lg">Start free <ArrowRight className="size-4 ml-1" /></Button></Link>
+          <Button asChild size="lg"><Link to="/auth">Start free <ArrowRight className="size-4 ml-1" /></Link></Button>
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-6 pb-24 grid md:grid-cols-4 gap-4">
+      <section className="max-w-5xl mx-auto px-6 pb-16 md:pb-24 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <Feature icon={Users} title="5,000+ personas" desc="LLM-generated, demographically rich, opinionated." />
         <Feature icon={Globe} title="Parse any survey" desc="Paste text or drop a Google/MS Forms URL." />
         <Feature icon={Sparkles} title="Authentic voice" desc="Each persona answers in their own register." />
