@@ -110,3 +110,32 @@ Make each persona meaningfully different. Match the brief.`;
     }
     return { inserted };
   });
+
+function makeFallbackPersonas(count: number, brief: string, offset = 0): Array<Record<string, unknown>> {
+  const countries = ["United States", "United Kingdom", "Canada", "Nigeria", "India", "Brazil", "Germany", "Mexico", "South Africa", "Japan"];
+  const cities = ["Columbus", "Manchester", "Toronto", "Lagos", "Bengaluru", "Recife", "Berlin", "Guadalajara", "Cape Town", "Osaka"];
+  const jobs = ["teacher", "delivery driver", "nurse", "software analyst", "shop owner", "student", "electrician", "parent caregiver", "sales manager", "public-sector clerk"];
+  const education = ["high school", "some college", "bachelors", "masters", "trade", "phd"];
+  const sentiments = ["progressive", "moderate-left", "centrist", "moderate-right", "conservative", "libertarian", "apolitical"];
+  const styles = ["formal", "casual", "academic", "blunt", "warm", "skeptical", "enthusiastic"];
+  const values = ["security", "family", "autonomy", "fairness", "tradition", "opportunity", "stability", "community", "privacy", "ambition"];
+  return Array.from({ length: count }, (_, i) => {
+    const n = offset + i;
+    const countryIndex = n % countries.length;
+    return {
+      name: `Respondent ${n + 1}`,
+      age: 18 + (n * 7) % 67,
+      gender: ["female", "male", "non-binary"][n % 3],
+      country: countries[countryIndex],
+      city: cities[countryIndex],
+      education: education[n % education.length],
+      income_bracket: ["low", "lower-middle", "middle", "upper-middle", "high"][n % 5],
+      occupation: jobs[n % jobs.length],
+      political_sentiment: sentiments[n % sentiments.length],
+      core_values: [values[n % values.length], values[(n + 3) % values.length], values[(n + 6) % values.length]],
+      language_style: styles[n % styles.length],
+      bio: `I bring the perspective of a ${jobs[n % jobs.length]} in ${cities[countryIndex]}, shaped by ${brief.toLowerCase().slice(0, 120)}. My answers tend to balance practical constraints with what feels credible in everyday life.`,
+      tags: [countries[countryIndex], education[n % education.length], sentiments[n % sentiments.length]],
+    };
+  });
+}
