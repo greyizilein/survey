@@ -11,6 +11,7 @@ $("fill").addEventListener("click", async () => {
   try { answers = JSON.parse($("payload").value); }
   catch { $("status").textContent = "Invalid JSON."; return; }
   if (!Array.isArray(answers)) { $("status").textContent = "Expected an array."; return; }
+  answers = answers.flatMap((item) => Array.isArray(item.answers) ? item.answers : [item]);
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   $("status").textContent = "Filling...";
   try {
@@ -31,7 +32,8 @@ async function fillForm(answers) {
     'input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, [role="radio"], [role="checkbox"], select'
   ));
   let filled = 0;
-  const total = answers.length;
+  const flatAnswers = answers.flatMap((item) => Array.isArray(item.answers) ? item.answers : [item]);
+  const total = flatAnswers.length;
 
   function setNative(el, value) {
     const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
@@ -41,8 +43,8 @@ async function fillForm(answers) {
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
-  for (let i = 0; i < answers.length; i++) {
-    const ans = answers[i];
+  for (let i = 0; i < flatAnswers.length; i++) {
+    const ans = flatAnswers[i];
     const value = String(ans.answer ?? ans.value ?? ans ?? "");
     const target = fields[i];
     if (!target) continue;
