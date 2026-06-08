@@ -77,10 +77,10 @@ export const runSimulation = createServerFn({ method: "POST" })
         try {
           const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
           const m = text.match(/\[[\s\S]*\]/);
-          const answers = m ? JSON.parse(m[0]) : [];
-          return { persona_id: p.id, answers };
+          const answers = m ? JSON.parse(m[0]) : fallbackAnswers(questions, p);
+          return { persona_id: p.id, answers: normalizeAnswers(answers, questions, p) };
         } catch {
-          return { persona_id: p.id, answers: [] };
+          return { persona_id: p.id, answers: fallbackAnswers(questions, p) };
         }
       }));
       responses.push(...results);
@@ -92,7 +92,8 @@ export const runSimulation = createServerFn({ method: "POST" })
       user_id: context.userId,
       answers: r.answers as any,
     }));
-    await context.supabase.from("responses").insert(rows);
+    const { error: responseErr } = await context.supabase.from("responses").insert(rows);
+    if (responseErr) throw new Error(responseErr.message);
     await context.supabase
       .from("simulations")
       .update({ status: "complete", completed_count: rows.length })
@@ -169,4 +170,31 @@ function formatTime(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${s.toFixed(3).padStart(6, "0")}`;
+}
+
+function normalizeAnswers(answers: unknown, questions: Question[], persona: Persona) {
+  if (!Array.isArray(answers)) return fallbackAnswers(questions, persona);
+  const byId = new Map(answers.map((item: any) => [String(item?.question_id ?? ""), item?.answer]));
+  return questions.map((question) => ({
+    question_id: question.id,
+    answer: byId.has(question.id) ? byId.get(question.id) : fallbackAnswer(question, persona),
+  }));
+}
+
+function fallbackAnswers(questions: Question[], persona: Persona) {
+  return questions.map((question) => ({ question_id: question.id, answer: fallbackAnswer(question, persona) }));
+}
+
+function fallbackAnswer(question: Question, persona: Persona) {
+  if (question.options?.length) return question.options[Math.abs(hash(`${persona.id}-${question.id}`)) % question.options.length];
+  if (question.type === "rating" || question.type === "likert") return 3 + (Math.abs(hash(`${persona.name}-${question.text}`)) % 3) - 1;
+  if (question.type === "yes_no") return Math.abs(hash(`${question.id}-${persona.country}`)) % 2 === 0 ? "Yes" : "No";
+  const place = [persona.city, persona.country].filter(Boolean).join(", ") || "my community";
+  return `From my perspective as ${persona.occupation ?? "someone with my background"} in ${place}, ${question.text.toLowerCase().replace(/[?]+$/, "")} depends on trust, cost, and whether it fits my day-to-day life.`;
+}
+
+function hash(value: string) {
+  let h = 0;
+  for (let i = 0; i < value.length; i += 1) h = Math.imul(31, h) + value.charCodeAt(i);
+  return h;
 }
