@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Chrome } from "lucide-react";
+import { ArrowRight, Clipboard, Download, Chrome } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/extension")({
   head: () => ({ meta: [{ title: "Extension · Surveyor" }] }),
@@ -27,16 +27,25 @@ function ExtensionPage() {
     <AppShell>
       <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
         <h1 className="text-2xl font-semibold sm:text-3xl">Browser extension</h1>
-        <p className="mt-1 text-sm text-muted-foreground sm:text-base">Auto-fill Google Forms, Microsoft Forms, Typeform, and similar tools.</p>
+        <p className="mt-1 text-sm text-muted-foreground sm:text-base">This is the part that types Surveyor's generated answers into the real survey page.</p>
 
         <Card className="mt-6 p-4 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center"><Chrome className="size-6 text-primary" /></div>
             <div className="flex-1">
               <h2 className="font-semibold">Surveyor Filler</h2>
-              <p className="text-sm text-muted-foreground mt-1">Loads a JSON response file you exported from Surveyor and types each answer into the live form, with randomized human delays.</p>
+              <p className="text-sm text-muted-foreground mt-1">Paste the response JSON from the Fill a survey screen, then it writes into text boxes, picks radio/checkbox options, and selects dropdown values with randomized human delays.</p>
               <Button className="mt-4 w-full sm:w-auto" onClick={download}><Download className="size-4 mr-2" /> Download .zip</Button>
             </div>
+          </div>
+        </Card>
+
+        <Card className="mt-4 p-4 sm:p-6">
+          <h3 className="font-semibold mb-3">Daily workflow</h3>
+          <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+            <div className="rounded-md border p-3"><Clipboard className="mb-2 size-4 text-primary" />Paste a form link in Surveyor and generate answers.</div>
+            <div className="rounded-md border p-3"><ArrowRight className="mb-2 size-4 text-primary" />Open the real Google/MS/Typeform survey.</div>
+            <div className="rounded-md border p-3"><Chrome className="mb-2 size-4 text-primary" />Click the extension, paste JSON, then Fill form.</div>
           </div>
         </Card>
 

@@ -1,91 +1,178 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { Activity, FolderKanban, MessageSquare, Users } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, CheckCircle2, Clipboard, Download, ExternalLink, Loader2, Wand2 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { countPersonas } from "@/lib/personas.functions";
-import { listProjects } from "@/lib/projects.functions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { createFillRunFromLink } from "@/lib/fill-flow.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  head: () => ({ meta: [{ title: "Overview · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Fill a survey · Surveyor" }] }),
   component: Dashboard,
 });
 
 function Dashboard() {
-  const countFn = useServerFn(countPersonas);
-  const projFn = useServerFn(listProjects);
-  const personasQ = useQuery({ queryKey: ["personas-count"], queryFn: () => countFn() });
-  const projectsQ = useQuery({ queryKey: ["projects"], queryFn: () => projFn() });
+  const fillFn = useServerFn(createFillRunFromLink);
+  const [url, setUrl] = useState("");
+  const [brief, setBrief] = useState("");
+  const [count, setCount] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const [run, setRun] = useState<any>(null);
 
-  const projects = projectsQ.data ?? [];
-  const totalSims = projects.reduce((acc: number, p: any) => acc + (p.simulations?.length ?? 0), 0);
-  const completed = projects.reduce(
-    (acc: number, p: any) => acc + ((p.simulations ?? []).filter((s: any) => s.status === "complete").length),
-    0,
-  );
-  const successRate = totalSims ? Math.round((completed / totalSims) * 100) : 0;
+  async function startFill() {
+    if (!url.trim()) { toast.error("Paste a survey link first"); return; }
+    setLoading(true);
+    setRun(null);
+    try {
+      const result = await fillFn({ data: { survey_url: url.trim(), respondent_count: count, audience_brief: brief.trim() || undefined } });
+      setRun(result);
+      toast.success("Answers generated. Open the form and use the extension to fill it.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not generate answers");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function copyPayload() {
+    if (!run?.primary_payload) return;
+    navigator.clipboard.writeText(JSON.stringify(run.primary_payload, null, 2));
+    toast.success("Response JSON copied");
+  }
+
+  function downloadPayload() {
+    if (!run?.extension_payload) return;
+    downloadFile(JSON.stringify(run.extension_payload, null, 2), "surveyor-fill-payload.json", "application/json");
+  }
 
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-        <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold sm:text-3xl">Overview</h1>
-            <p className="mt-1 text-sm text-muted-foreground sm:text-base">Synthetic respondents at the speed of thought.</p>
-          </div>
-          <Button asChild className="w-full sm:w-auto">
-            <Link to="/app/projects">New project</Link>
-          </Button>
+        <div className="mb-6 max-w-3xl">
+          <Badge variant="outline" className="mb-3">Core workflow</Badge>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Paste a survey link. Generate answers. Fill the live form.</h1>
+          <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+            Surveyor creates realistic respondents, writes answers for text fields, then hands you a payload the browser extension types into Google Forms, Microsoft Forms, Typeform, and similar pages.
+          </p>
         </div>
 
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 lg:grid-cols-4 lg:gap-4">
-          <Stat icon={Users} label="Personas" value={personasQ.data ?? 0} />
-          <Stat icon={FolderKanban} label="Projects" value={projects.length} />
-          <Stat icon={MessageSquare} label="Simulations" value={totalSims} />
-          <Stat icon={Activity} label="Fill rate" value={`${successRate}%`} />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),380px]">
+          <Card className="p-4 sm:p-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="survey-url">Survey link</Label>
+                <Input
+                  id="survey-url"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://forms.google.com/..."
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-[120px,minmax(0,1fr)]">
+                <div className="space-y-2">
+                  <Label htmlFor="respondents">Responses</Label>
+                  <Input
+                    id="respondents"
+                    type="number"
+                    min={1}
+                    max={25}
+                    value={count}
+                    onChange={(event) => setCount(Math.max(1, Math.min(25, Number(event.target.value) || 1)))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="audience">Who should answer?</Label>
+                  <Textarea
+                    id="audience"
+                    rows={3}
+                    placeholder="Example: UK university students, busy parents in Lagos, enterprise software buyers..."
+                    value={brief}
+                    onChange={(event) => setBrief(event.target.value)}
+                  />
+                </div>
+              </div>
+              <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto">
+                {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+                {loading ? "Generating fill-ready answers..." : "Generate answers for this form"}
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-4 sm:p-6">
+            <h2 className="text-sm font-semibold">How it works now</h2>
+            <div className="mt-4 space-y-3 text-sm">
+              <Step done={!!run} label="1. Paste the form URL" />
+              <Step done={!!run} label="2. Surveyor extracts the questions" />
+              <Step done={!!run} label="3. AI respondents write answers" />
+              <Step done={!!run} label="4. Open the form and fill with the extension" />
+            </div>
+            <Button asChild variant="outline" className="mt-5 w-full justify-between">
+              <Link to="/app/extension">Install extension <ArrowRight className="size-4" /></Link>
+            </Button>
+          </Card>
         </div>
 
-        <Card className="p-4 sm:p-6">
-          <h2 className="mb-4 text-base font-semibold sm:text-lg">Recent projects</h2>
-          {projects.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground sm:py-12">
-              No projects yet. <Link to="/app/projects" className="text-primary hover:underline">Create one</Link> to start.
+        {run && (
+          <Card className="mt-4 p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-semibold">Ready to fill</h2>
+                <p className="text-sm text-muted-foreground">{run.questions.length} questions · {run.responses.length} generated respondents</p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button variant="outline" onClick={copyPayload}><Clipboard className="mr-2 size-4" /> Copy first response</Button>
+                <Button variant="outline" onClick={downloadPayload}><Download className="mr-2 size-4" /> Download all responses</Button>
+                <Button asChild><a href={run.survey_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 size-4" /> Open form</a></Button>
+              </div>
             </div>
-          ) : (
-            <div className="divide-y">
-              {projects.slice(0, 6).map((p: any) => (
-                <Link
-                  key={p.id}
-                  to="/app/projects/$id"
-                  params={{ id: p.id }}
-                  className="flex flex-col gap-1 rounded px-2 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">{p.surveys?.length ?? 0} surveys · {p.simulations?.length ?? 0} sims</div>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</span>
-                </Link>
-              ))}
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-sm font-medium">Detected questions</h3>
+                <div className="max-h-72 overflow-auto rounded-md border bg-muted/20 p-3 text-sm">
+                  {run.questions.map((question: any, index: number) => (
+                    <div key={question.id} className="border-b py-2 last:border-0">
+                      <div className="font-medium">{index + 1}. {question.text}</div>
+                      <div className="text-xs text-muted-foreground">{question.type}{question.options?.length ? ` · ${question.options.join(" / ")}` : ""}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-medium">First response to paste into the extension</h3>
+                <pre className="max-h-72 overflow-auto rounded-md border bg-muted/20 p-3 text-xs whitespace-pre-wrap">{JSON.stringify(run.primary_payload, null, 2)}</pre>
+              </div>
             </div>
-          )}
-        </Card>
+          </Card>
+        )}
       </div>
     </AppShell>
   );
 }
 
-function Stat({ icon: Icon, label, value }: { icon: any; label: string; value: number | string }) {
+function Step({ done, label }: { done: boolean; label: string }) {
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[0.68rem] uppercase text-muted-foreground sm:text-xs">{label}</span>
-        <Icon className="size-4 text-muted-foreground" />
-      </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums sm:text-3xl">{value}</div>
-    </Card>
+    <div className="flex items-center gap-2">
+      <CheckCircle2 className={done ? "size-4 text-primary" : "size-4 text-muted-foreground"} />
+      <span className={done ? "text-foreground" : "text-muted-foreground"}>{label}</span>
+    </div>
   );
+}
+
+function downloadFile(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const anchor = document.createElement("a");
+  anchor.href = URL.createObjectURL(blob);
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(anchor.href);
 }
