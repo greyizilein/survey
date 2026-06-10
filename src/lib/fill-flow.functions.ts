@@ -217,12 +217,20 @@ function normalizeAnswers(answers: unknown, questions: Question[], persona: Pers
   return questions.map((question) => ({
     question_id: question.id,
     question: question.text,
+    type: question.type,
+    options: question.options ?? [],
     answer: byId.has(question.id) ? String(byId.get(question.id) ?? "") : fallbackAnswer(question, persona),
   }));
 }
 
 function fallbackAnswers(questions: Question[], persona: Persona) {
-  return questions.map((question) => ({ question_id: question.id, question: question.text, answer: fallbackAnswer(question, persona) }));
+  return questions.map((question) => ({
+    question_id: question.id,
+    question: question.text,
+    type: question.type,
+    options: question.options ?? [],
+    answer: fallbackAnswer(question, persona),
+  }));
 }
 
 function fallbackAnswer(question: Question, persona: Persona) {
