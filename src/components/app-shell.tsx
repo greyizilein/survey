@@ -1,11 +1,11 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, FolderKanban, Download, LogOut, Menu, X } from "lucide-react";
+import { ClipboardPenLine, Users, FolderKanban, Download, LogOut, Menu, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, type ReactNode } from "react";
 
 const nav = [
-  { to: "/app", label: "Overview", icon: LayoutDashboard },
+  { to: "/app", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/personas", label: "Persona Studio", icon: Users },
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/extension", label: "Extension", icon: Download },
