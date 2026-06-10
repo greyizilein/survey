@@ -28,7 +28,7 @@ $("fill").addEventListener("click", async () => {
 
 async function fillForm(answers) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const fields = Array.from(document.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select'));
+  const fields = Array.from(document.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select, [role="radio"], [role="checkbox"]'));
   const choiceGroups = Array.from(document.querySelectorAll('[role="radiogroup"], [role="group"], fieldset'));
   let filled = 0;
   const flatAnswers = answers.flatMap((item) => Array.isArray(item.answers) ? item.answers : [item]);
@@ -56,10 +56,12 @@ async function fillForm(answers) {
     return words.reduce((score, word) => score + (label.includes(word) ? 1 : 0), 0);
   }
 
+  const used = new WeakSet();
+
   for (let i = 0; i < flatAnswers.length; i++) {
     const ans = flatAnswers[i];
     const value = String(ans.answer ?? ans.value ?? ans ?? "");
-    const target = [...fields].sort((a, b) => scoreField(b, ans, i) - scoreField(a, ans, i))[0] || fields[i];
+    const target = fields.filter((el) => !used.has(el)).sort((a, b) => scoreField(b, ans, i) - scoreField(a, ans, i))[0] || fields[i];
     if (!target) continue;
     const tag = target.tagName;
     const type = (target.getAttribute("type") || "").toLowerCase();
@@ -71,12 +73,15 @@ async function fillForm(answers) {
         const opts = group ? Array.from(group.querySelectorAll(selector)) : [target];
         const match = opts.find((o) => (o.getAttribute("aria-label") || o.value || o.parentElement?.innerText || "").toLowerCase().includes(value.toLowerCase())) || target;
         match.click();
+        opts.forEach((option) => used.add(option));
       } else if (tag === "SELECT") {
         const opt = Array.from(target.options).find((o) => o.text.toLowerCase().includes(value.toLowerCase())) || target.options[0];
         if (opt) { target.value = opt.value; target.dispatchEvent(new Event("change", { bubbles: true })); }
+        used.add(target);
       } else {
         target.focus();
         setNative(target, value);
+        used.add(target);
       }
       filled++;
       await sleep(120 + Math.random() * 220);
