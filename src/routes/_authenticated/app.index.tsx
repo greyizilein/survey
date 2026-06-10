@@ -14,7 +14,7 @@ import { createFillRunFromLink } from "@/lib/fill-flow.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  head: () => ({ meta: [{ title: "Overview · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Fill a survey · Surveyor" }] }),
   component: Dashboard,
 });
 
@@ -148,7 +148,7 @@ function Dashboard() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-sm font-medium">First response the extension will type</h3>
+                <h3 className="mb-2 text-sm font-medium">First response to paste into the extension</h3>
                 <pre className="max-h-72 overflow-auto rounded-md border bg-muted/20 p-3 text-xs whitespace-pre-wrap">{JSON.stringify(run.primary_payload, null, 2)}</pre>
               </div>
             </div>
