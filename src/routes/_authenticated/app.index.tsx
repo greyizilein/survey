@@ -74,6 +74,7 @@ function Dashboard() {
           if (run.direct_submit && run.form_action) {
             await directFillFn({ data: {
               form_action: run.form_action,
+              page_history: run.page_history,
               answers: (response.answers ?? []).map((a: any) => ({
                 question_id: String(a.question_id),
                 answer: String(a.answer ?? ""),

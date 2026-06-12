@@ -17,6 +17,7 @@ export interface GFormInfo {
   formAction: string;
   title: string;
   questions: GFormQuestion[];
+  pageHistory: string;
 }
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
@@ -53,10 +54,12 @@ export async function fetchGoogleForm(url: string): Promise<GFormInfo> {
   const title = String(data?.[1]?.[8] ?? data?.[3] ?? "Google Form");
   const items: any[] = Array.isArray(data?.[1]?.[1]) ? data[1][1] : [];
   const questions: GFormQuestion[] = [];
+  let pageCount = 1;
 
   for (const item of items) {
     const itemTitle = String(item?.[1] ?? "").trim();
     const type = Number(item?.[3]);
+    if (type === 8) { pageCount++; continue; } // PAGE_BREAK — start of a new section
     const fields = item?.[4];
     if (!Array.isArray(fields)) continue; // section header / image / video
     for (const field of fields) {
@@ -78,7 +81,8 @@ export async function fetchGoogleForm(url: string): Promise<GFormInfo> {
   }
 
   const actionBase = finalUrl.replace(/\/viewform.*$/, "/formResponse");
-  return { formAction: actionBase, title, questions };
+  const pageHistory = Array.from({ length: pageCount }, (_, i) => i).join(",");
+  return { formAction: actionBase, title, questions, pageHistory };
 }
 
 export interface AnswerForEntry {
@@ -86,13 +90,13 @@ export interface AnswerForEntry {
   values: string[];
 }
 
-export async function submitGoogleForm(formAction: string, answers: AnswerForEntry[]): Promise<boolean> {
+export async function submitGoogleForm(formAction: string, answers: AnswerForEntry[], pageHistory = "0"): Promise<boolean> {
   const body = new URLSearchParams();
   for (const a of answers) {
     for (const v of a.values) body.append(`entry.${a.entryId}`, v);
   }
   body.append("fvv", "1");
-  body.append("pageHistory", "0");
+  body.append("pageHistory", pageHistory);
 
   const res = await fetch(formAction, {
     method: "POST",

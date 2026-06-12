@@ -45,10 +45,12 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
     let questions: Question[];
     let formAction: string | null = null;
     let formTitle = title;
+    let pageHistory = "0";
     if (isGoogleFormUrl(data.survey_url)) {
       const form = await fetchGoogleForm(data.survey_url);
       formAction = form.formAction;
       formTitle = form.title || title;
+      pageHistory = form.pageHistory;
       questions = form.questions.map((q) => ({
         id: q.entryId,
         text: q.title,
@@ -120,6 +122,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       survey_url: data.survey_url,
       title: formTitle,
       form_action: formAction,
+      page_history: pageHistory,
       direct_submit: Boolean(formAction),
       questions,
       responses,
@@ -133,6 +136,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
 
 const DirectSubmitInput = z.object({
   form_action: z.string().url(),
+  page_history: z.string().optional(),
   answers: z.array(z.object({
     question_id: z.string(),
     answer: z.string(),
@@ -168,7 +172,7 @@ export const submitDirectFill = createServerFn({ method: "POST" })
       }
       return { entryId: a.question_id, values };
     });
-    const ok = await submitGoogleForm(data.form_action, entries);
+    const ok = await submitGoogleForm(data.form_action, entries, data.page_history);
     if (!ok) throw new Error("Google rejected the submission");
     return { submitted: true };
   });
