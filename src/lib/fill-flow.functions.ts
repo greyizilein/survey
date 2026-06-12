@@ -123,8 +123,15 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       title: formTitle,
       form_action: formAction,
       page_history: pageHistory,
+      direct_submit: Boolean(formAction),
       questions,
+      responses,
       total_responses: responses.length,
+      primary_payload: responses[0]?.answers ?? [],
+      extension_payload: responses.map((response) => ({
+        persona: response.persona.name,
+        answers: response.answers,
+      })),
     };
   });
 
