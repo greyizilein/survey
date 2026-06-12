@@ -27,8 +27,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="size-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">S</div>
-          <span className="font-semibold tracking-tight">Surveyor</span>
+          <div className="size-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-sm shadow-[0_0_16px_-2px_var(--accent)]">S</div>
+          <span className="font-semibold tracking-tight font-mono">Surveyor</span>
         </div>
         <button
           onClick={() => setOpen(false)}
@@ -43,9 +43,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           const active = n.to === "/app" ? pathname === "/app" : pathname.startsWith(n.to);
           return (
             <Link key={n.to} to={n.to} className={cn(
-              "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm transition-colors",
+              "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm transition-colors border border-transparent",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-primary/30 shadow-[0_0_16px_-6px_var(--primary)]"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
             )}>
               <n.icon className="size-4" />
@@ -95,12 +95,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Menu className="size-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">S</div>
-            <span className="font-semibold tracking-tight text-sm">Surveyor</span>
+            <div className="size-6 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-xs shadow-[0_0_12px_-2px_var(--accent)]">S</div>
+            <span className="font-semibold tracking-tight text-sm font-mono">Surveyor</span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto tech-grid-bg">{children}</main>
       </div>
     </div>
   );

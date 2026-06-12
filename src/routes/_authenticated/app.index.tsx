@@ -127,14 +127,16 @@ function Dashboard() {
     <AppShell>
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         <div className="mb-6 max-w-3xl">
-          <Badge variant="outline" className="mb-3">Core workflow</Badge>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Paste a survey link. Generate answers. Fill the live form.</h1>
+          <Badge variant="outline" className="mb-3 font-mono text-xs border-primary/40 text-primary">// core_workflow</Badge>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Paste a survey link. <span className="gradient-text">Generate answers.</span> Fill the live form.
+          </h1>
           <p className="mt-3 text-sm text-muted-foreground sm:text-base">
             Surveyor creates realistic respondents and fills the form for you — questions, choices, and open-ended answers, written in character.
           </p>
         </div>
 
-        <Card className="p-4 sm:p-6">
+        <Card className="p-4 sm:p-6 glow-border">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="survey-url">Survey link</Label>
@@ -254,7 +256,7 @@ function Dashboard() {
               />
             </div>
 
-            <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto">
+            <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 shadow-[0_0_24px_-6px_var(--accent)]">
               {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
               {loading ? "Generating fill-ready answers..." : "Generate answers for this form"}
             </Button>
@@ -262,7 +264,7 @@ function Dashboard() {
         </Card>
 
         {run && (
-          <Card className="mt-4 p-4 sm:p-6">
+          <Card className="mt-4 p-4 sm:p-6 glow-border">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="font-semibold">Ready to fill</h2>
