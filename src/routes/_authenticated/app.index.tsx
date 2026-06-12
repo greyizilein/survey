@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ClipboardPenLine, Users, FolderKanban, Download, ArrowRight } from "lucide-react";
+import { ClipboardPenLine, Users, FolderKanban, Download, ArrowUpRight } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
-import { Card } from "@/components/ui/card";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({ meta: [{ title: "Home · Surveyor" }] }),
@@ -15,6 +14,7 @@ const cards = [
     icon: ClipboardPenLine,
     title: "Fill a survey",
     description: "Paste a survey link and generate realistic answers from AI respondents.",
+    big: true,
   },
   {
     to: "/app/personas",
@@ -40,30 +40,33 @@ function Home() {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Welcome to Surveyor</h1>
-          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-            Generate realistic survey responses and fill forms using AI-driven personas.
+        <div className="mb-8 border-2 border-foreground bg-accent p-6 sm:p-10 hard-shadow">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em]">Welcome back</p>
+          <h1 className="mt-2 text-4xl sm:text-5xl font-extrabold tracking-tight">
+            Let's run a survey.
+          </h1>
+          <p className="mt-3 max-w-xl text-sm sm:text-base text-accent-foreground/80">
+            Generate realistic survey responses and fill live forms with AI-driven personas — built from scratch for every audience.
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           {cards.map((card) => (
-            <Link key={card.to} to={card.to}>
-              <Card className="p-5 h-full transition-colors hover:bg-accent/50">
-                <div className="flex items-start gap-4">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary">
-                    <card.icon className="size-5 text-secondary-foreground" />
+            <Link
+              key={card.to}
+              to={card.to}
+              className={"big" in card ? "sm:col-span-2" : ""}
+            >
+              <div className="group h-full border-2 border-foreground bg-card p-6 hard-shadow-sm hard-shadow-hover">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex size-12 items-center justify-center border-2 border-foreground bg-primary text-primary-foreground">
+                    <card.icon className="size-6" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 className="font-medium">{card.title}</h2>
-                      <ArrowRight className="size-4 text-muted-foreground" />
-                    </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
-                  </div>
+                  <ArrowUpRight className="size-6 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
                 </div>
-              </Card>
+                <h2 className="mt-4 text-xl font-bold">{card.title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
+              </div>
             </Link>
           ))}
         </div>

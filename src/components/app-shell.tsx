@@ -26,28 +26,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const SidebarBody = (
     <>
-      <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="size-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">S</div>
-          <span className="font-semibold tracking-tight">Surveyor</span>
+      <div className="px-5 py-5 border-b-2 border-sidebar-border flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="size-8 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">S</div>
+          <span className="font-bold tracking-tight text-lg">Surveyor</span>
         </div>
         <button
           onClick={() => setOpen(false)}
-          className="md:hidden p-1.5 rounded-md hover:bg-sidebar-accent/60"
+          className="md:hidden p-1.5 hover:bg-sidebar-accent/60"
           aria-label="Close menu"
         >
           <X className="size-4" />
         </button>
       </div>
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1.5">
         {nav.map((n) => {
           const active = n.to === "/app" ? pathname === "/app" : pathname.startsWith(n.to);
           return (
             <Link key={n.to} to={n.to} className={cn(
-              "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm transition-colors border border-transparent",
+              "flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all border-2",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
+                : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground"
             )}>
               <n.icon className="size-4" />
               {n.label}
@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           );
         })}
       </nav>
-      <button onClick={signOut} className="m-3 flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground transition-colors">
+      <button onClick={signOut} className="m-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all">
         <LogOut className="size-4" /> Sign out
       </button>
     </>
@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 border-r border-sidebar-border bg-sidebar flex-col">
+      <aside className="hidden md:flex w-60 border-r-2 border-sidebar-border bg-sidebar flex-col">
         {SidebarBody}
       </aside>
 
@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
       <aside
         className={cn(
-          "md:hidden fixed inset-y-0 left-0 z-50 w-64 border-r border-sidebar-border bg-sidebar flex flex-col transition-transform duration-200",
+          "md:hidden fixed inset-y-0 left-0 z-50 w-64 border-r-2 border-sidebar-border bg-sidebar flex flex-col transition-transform duration-200",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -87,17 +87,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b bg-background/90 backdrop-blur px-4 h-14">
+        <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
           <button
             onClick={() => setOpen(true)}
-            className="p-2 -ml-2 rounded-md hover:bg-accent"
+            className="p-2 -ml-2 hover:bg-accent"
             aria-label="Open menu"
           >
             <Menu className="size-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">S</div>
-            <span className="font-semibold tracking-tight text-sm">Surveyor</span>
+            <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">S</div>
+            <span className="font-bold tracking-tight text-sm">Surveyor</span>
           </div>
         </header>
 
