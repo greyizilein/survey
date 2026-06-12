@@ -45,10 +45,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
     let questions: Question[];
     let formAction: string | null = null;
     let formTitle = title;
-    if (isGoogleFormUrl(data.survey_url)) {
-      const form = await fetchGoogleForm(data.survey_url);
-      formAction = form.formAction;
-      formTitle = form.title || title;
+    let pageHistory = "0";
       questions = form.questions.map((q) => ({
         id: q.entryId,
         text: q.title,
@@ -120,19 +117,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       survey_url: data.survey_url,
       title: formTitle,
       form_action: formAction,
-      direct_submit: Boolean(formAction),
-      questions,
-      responses,
-      primary_payload: responses[0]?.answers ?? [],
-      extension_payload: responses.map((response) => ({
-        persona: response.persona.name,
-        answers: response.answers,
-      })),
-    };
-  });
-
-const DirectSubmitInput = z.object({
-  form_action: z.string().url(),
+      page_history: pageHistory,
   answers: z.array(z.object({
     question_id: z.string(),
     answer: z.string(),
@@ -168,7 +153,7 @@ export const submitDirectFill = createServerFn({ method: "POST" })
       }
       return { entryId: a.question_id, values };
     });
-    const ok = await submitGoogleForm(data.form_action, entries);
+    const ok = await submitGoogleForm(data.form_action, entries, data.page_history);
     if (!ok) throw new Error("Google rejected the submission");
     return { submitted: true };
   });
@@ -246,10 +231,10 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
-    const questionList = questions.map((q, i) => `${i + 1}. [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
+    const questionList = questions.map((q) => `- id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
 
     const responses = await Promise.all(personas.map(async (persona) => {
-      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\nQuestions:\n${questionList}\n\nReturn ONLY JSON in this shape, one answer for each question:\n[{"question_id":"q1","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and be 1-3 sentences.`;
+      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\nQuestions:\n${questionList}\n\nReturn ONLY JSON, an array with exactly one entry per question, using the exact "id" value given for each question as "question_id":\n[{"question_id":"<copy the id exactly as given>","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and be 1-3 sentences.`;
       try {
         const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
         const match = text.match(/\[[\s\S]*\]/);
