@@ -117,13 +117,28 @@ function ProjectWorkspace() {
     const survey = surveys.find((s: any) => s.id === activeSurvey);
     const surveyUrl = survey?.source_url;
     if (!surveyUrl) { toast.error("This survey has no link to open"); return; }
-    const bookmarklet = buildFillScript(answers);
-    navigator.clipboard.writeText(`javascript:${encodeURIComponent(bookmarklet)}`).then(() => {
-      toast.success("Auto-fill link copied! Opening the form...", { duration: 6000 });
-    }).catch(() => {
-      toast("Open the form, then paste the auto-fill script into the address bar.", { duration: 6000 });
-    });
-    window.open(surveyUrl, "_blank");
+
+    let acked = false;
+    const onAck = (event: MessageEvent) => {
+      if (event.data?.type !== "SURVEYOR_AUTOFILL_ACK") return;
+      acked = true;
+      window.removeEventListener("message", onAck);
+      toast.success("Opening the form — it will fill and submit automatically.", { duration: 6000 });
+    };
+    window.addEventListener("message", onAck);
+    window.postMessage({ type: "SURVEYOR_AUTOFILL", url: surveyUrl, answers }, "*");
+
+    setTimeout(() => {
+      if (acked) return;
+      window.removeEventListener("message", onAck);
+      const bookmarklet = buildFillScript(answers);
+      navigator.clipboard.writeText(`javascript:${encodeURIComponent(bookmarklet)}`).then(() => {
+        toast("No Surveyor extension found. Copied an auto-fill script — paste it into the address bar of the form tab that just opened and press Enter.", { duration: 9000 });
+      }).catch(() => {
+        toast("No Surveyor extension found. Get it from the Extension page for fully automatic filling.", { duration: 9000 });
+      });
+      window.open(surveyUrl, "_blank");
+    }, 400);
   }
 
   function exportExtensionJson() {
@@ -290,11 +305,11 @@ function ProjectWorkspace() {
               <div className="pt-3 border-t">
                 <p className="text-xs font-medium mb-1">Auto-fill external forms</p>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Click <strong className="text-foreground">Auto-fill</strong> on any response above — it opens the
-                  real form and copies a one-click script to your clipboard. Paste it into the address bar of the
-                  new tab and press Enter; it fills every answer and submits automatically.
+                  Install the <Link to="/app/extension" className="text-primary hover:underline">Surveyor extension</Link> once.
+                  Then click <strong className="text-foreground">Auto-fill</strong> on any response above — it opens the
+                  real form in a new tab and fills + submits it automatically.
                 </p>
-                <p className="text-xs text-muted-foreground">No installs needed. Prefer an extension? <Link to="/app/extension" className="text-primary hover:underline">Get it here</Link>.</p>
+                <p className="text-xs text-muted-foreground">Without the extension, Auto-fill falls back to a copy-paste script.</p>
               </div>
             </div>
           </Card>

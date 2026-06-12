@@ -34,7 +34,7 @@ function ExtensionPage() {
             <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center"><Chrome className="size-6 text-primary" /></div>
             <div className="flex-1">
               <h2 className="font-semibold">Surveyor Filler</h2>
-              <p className="text-sm text-muted-foreground mt-1">Paste the response JSON from the Fill a survey screen, then it writes into text boxes, picks radio/checkbox options, and selects dropdown values with randomized human delays.</p>
+              <p className="text-sm text-muted-foreground mt-1">Once installed, clicking "Auto-fill" on a response in a project opens the real form and the extension fills text boxes, picks radio/checkbox/Likert options, navigates multi-page forms, and submits — all with randomized human delays. No copy-paste needed.</p>
               <Button className="mt-4 w-full sm:w-auto" onClick={download}><Download className="size-4 mr-2" /> Download .zip</Button>
             </div>
           </div>
@@ -44,8 +44,8 @@ function ExtensionPage() {
           <h3 className="font-semibold mb-3">Daily workflow</h3>
           <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
             <div className="rounded-md border p-3"><Clipboard className="mb-2 size-4 text-primary" />Paste a form link in Surveyor and generate answers.</div>
-            <div className="rounded-md border p-3"><ArrowRight className="mb-2 size-4 text-primary" />Open the real Google/MS/Typeform survey.</div>
-            <div className="rounded-md border p-3"><Chrome className="mb-2 size-4 text-primary" />Click the extension, paste JSON, then Fill form.</div>
+            <div className="rounded-md border p-3"><ArrowRight className="mb-2 size-4 text-primary" />Click "Auto-fill" on any response.</div>
+            <div className="rounded-md border p-3"><Chrome className="mb-2 size-4 text-primary" />The form opens and fills + submits itself.</div>
           </div>
         </Card>
 
@@ -56,7 +56,8 @@ function ExtensionPage() {
             <li>Open <code className="text-foreground bg-muted px-1.5 py-0.5 rounded text-xs">chrome://extensions</code> in Chrome, Edge, Brave, or Arc.</li>
             <li>Toggle <strong className="text-foreground">Developer mode</strong> on (top-right).</li>
             <li>Click <strong className="text-foreground">Load unpacked</strong> and pick the unzipped folder.</li>
-            <li>Open the target form, click the Surveyor icon, paste a response JSON, and hit Fill.</li>
+            <li>Refresh any open Surveyor tabs, then click "Auto-fill" on a response — the form opens and fills itself.</li>
+            <li>(Optional manual mode: open the target form, click the Surveyor icon, paste a response JSON, and hit Fill.)</li>
           </ol>
         </Card>
       </div>
