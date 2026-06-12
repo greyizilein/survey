@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: surveyor-automation
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: AUTOFILL_API_TOKEN
+        generateValue: true
+      - key: AUTOFILL_MAX_CONCURRENCY
+        value: "3"
+    healthCheckPath: /health

@@ -1,10 +1,19 @@
 {
   "manifest_version": 3,
   "name": "Surveyor Filler",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Auto-fill Google Forms, Microsoft Forms, Typeform and similar tools with Surveyor responses.",
-  "permissions": ["activeTab", "storage", "scripting"],
+  "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
   "action": { "default_popup": "popup.html", "default_title": "Surveyor Filler" },
   "icons": { "48": "icon.png", "128": "icon.png" }
 }

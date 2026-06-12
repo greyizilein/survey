@@ -16,6 +16,7 @@ import { getProject } from "@/lib/projects.functions";
 import { parseSurvey } from "@/lib/surveys.functions";
 import { listPersonas } from "@/lib/personas.functions";
 import { runSimulation, getSimulationResults, generateVtt } from "@/lib/simulations.functions";
+import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
 import { toast } from "sonner";
 import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Braces, Wand2 } from "lucide-react";
 import { buildFillScript } from "@/lib/fill-script";
@@ -35,8 +36,12 @@ function ProjectWorkspace() {
   const resultsFn = useServerFn(getSimulationResults);
   const vttFn = useServerFn(generateVtt);
 
+  const autoFillFn = useServerFn(autoFillForm);
+  const autoFillConfiguredFn = useServerFn(isAutofillServiceConfigured);
+
   const projQ = useQuery({ queryKey: ["project", id], queryFn: () => projFn({ data: { id } }) });
   const personasQ = useQuery({ queryKey: ["personas"], queryFn: () => personasFn() });
+  const autoFillConfigQ = useQuery({ queryKey: ["autofill-configured"], queryFn: () => autoFillConfiguredFn() });
 
   const [title, setTitle] = useState("");
   const [sourceType, setSourceType] = useState<"text" | "url">("text");
@@ -113,17 +118,46 @@ function ProjectWorkspace() {
     downloadFile(csv, `responses-${activeSurvey.slice(0, 8)}.csv`, "text/csv");
   }
 
-  function openAndFill(answers: unknown[]) {
+  async function openAndFill(answers: unknown[]) {
     const survey = surveys.find((s: any) => s.id === activeSurvey);
     const surveyUrl = survey?.source_url;
     if (!surveyUrl) { toast.error("This survey has no link to open"); return; }
-    const bookmarklet = buildFillScript(answers);
-    navigator.clipboard.writeText(`javascript:${encodeURIComponent(bookmarklet)}`).then(() => {
-      toast.success("Auto-fill link copied! Opening the form...", { duration: 6000 });
-    }).catch(() => {
-      toast("Open the form, then paste the auto-fill script into the address bar.", { duration: 6000 });
-    });
-    window.open(surveyUrl, "_blank");
+
+    if (autoFillConfigQ.data?.configured) {
+      toast.loading("Opening the form in a background browser and filling it...", { id: "autofill" });
+      try {
+        const result = await autoFillFn({ data: { url: surveyUrl, answers } });
+        toast.success(
+          result.submitted ? `Done — filled ${result.filled} fields and submitted.` : `Filled ${result.filled} fields, but couldn't find a Submit button.`,
+          { id: "autofill" },
+        );
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Auto-fill failed", { id: "autofill" });
+      }
+      return;
+    }
+
+    let acked = false;
+    const onAck = (event: MessageEvent) => {
+      if (event.data?.type !== "SURVEYOR_AUTOFILL_ACK") return;
+      acked = true;
+      window.removeEventListener("message", onAck);
+      toast.success("Opening the form — it will fill and submit automatically.", { duration: 6000 });
+    };
+    window.addEventListener("message", onAck);
+    window.postMessage({ type: "SURVEYOR_AUTOFILL", url: surveyUrl, answers }, "*");
+
+    setTimeout(() => {
+      if (acked) return;
+      window.removeEventListener("message", onAck);
+      const bookmarklet = buildFillScript(answers);
+      navigator.clipboard.writeText(`javascript:${encodeURIComponent(bookmarklet)}`).then(() => {
+        toast("No Surveyor extension found. Copied an auto-fill script — paste it into the address bar of the form tab that just opened and press Enter.", { duration: 9000 });
+      }).catch(() => {
+        toast("No Surveyor extension found. Get it from the Extension page for fully automatic filling.", { duration: 9000 });
+      });
+      window.open(surveyUrl, "_blank");
+    }, 400);
   }
 
   function exportExtensionJson() {
@@ -289,12 +323,19 @@ function ProjectWorkspace() {
               </div>
               <div className="pt-3 border-t">
                 <p className="text-xs font-medium mb-1">Auto-fill external forms</p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Click <strong className="text-foreground">Auto-fill</strong> on any response above — it opens the
-                  real form and copies a one-click script to your clipboard. Paste it into the address bar of the
-                  new tab and press Enter; it fills every answer and submits automatically.
-                </p>
-                <p className="text-xs text-muted-foreground">No installs needed. Prefer an extension? <Link to="/app/extension" className="text-primary hover:underline">Get it here</Link>.</p>
+                {autoFillConfigQ.data?.configured ? (
+                  <p className="text-xs text-muted-foreground">
+                    Click <strong className="text-foreground">Auto-fill</strong> on any response — a background
+                    browser opens the real form, fills it, and submits it. Nothing to install.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Install the <Link to="/app/extension" className="text-primary hover:underline">Surveyor extension</Link> once.
+                    Then click <strong className="text-foreground">Auto-fill</strong> on any response — it opens the
+                    real form in a new tab and fills + submits it automatically. Without the extension, it falls back
+                    to a copy-paste script.
+                  </p>
+                )}
               </div>
             </div>
           </Card>
