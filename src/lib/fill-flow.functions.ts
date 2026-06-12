@@ -46,6 +46,11 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
     let formAction: string | null = null;
     let formTitle = title;
     let pageHistory = "0";
+    if (isGoogleFormUrl(data.survey_url)) {
+      const form = await fetchGoogleForm(data.survey_url);
+      formAction = form.action;
+      formTitle = form.title || title;
+      pageHistory = form.pageHistory || "0";
       questions = form.questions.map((q) => ({
         id: q.entryId,
         text: q.title,
@@ -118,6 +123,14 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       title: formTitle,
       form_action: formAction,
       page_history: pageHistory,
+      questions,
+      total_responses: responses.length,
+    };
+  });
+
+const DirectSubmitInput = z.object({
+  form_action: z.string().url(),
+  page_history: z.string().default("0"),
   answers: z.array(z.object({
     question_id: z.string(),
     answer: z.string(),
