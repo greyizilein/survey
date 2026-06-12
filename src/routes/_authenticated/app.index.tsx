@@ -71,7 +71,7 @@ function Home() {
     <AppShell>
       <div className="overflow-x-hidden">
         {/* Hero */}
-        <section className="relative overflow-hidden border-b-2 border-foreground bg-foreground px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+        <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden border-b-2 border-foreground bg-foreground px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
           <div
             className="absolute -left-16 top-10 size-40 rounded-full bg-primary/30 blur-2xl animate-float"
             aria-hidden
