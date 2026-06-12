@@ -1,11 +1,12 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ClipboardPenLine, Users, FolderKanban, Download, LogOut, Menu, X } from "lucide-react";
+import { Home, ClipboardPenLine, Users, FolderKanban, Download, LogOut, Menu, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useEffect, useState, type ReactNode } from "react";
 
 const nav = [
-  { to: "/app", label: "Fill a survey", icon: ClipboardPenLine },
+  { to: "/app", label: "Home", icon: Home },
+  { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/personas", label: "Persona Studio", icon: Users },
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/extension", label: "Extension", icon: Download },
@@ -27,8 +28,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="size-7 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-sm shadow-[0_0_16px_-2px_var(--accent)]">S</div>
-          <span className="font-semibold tracking-tight font-mono">Surveyor</span>
+          <div className="size-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">S</div>
+          <span className="font-semibold tracking-tight">Surveyor</span>
         </div>
         <button
           onClick={() => setOpen(false)}
@@ -45,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link key={n.to} to={n.to} className={cn(
               "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm transition-colors border border-transparent",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-primary/30 shadow-[0_0_16px_-6px_var(--primary)]"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
             )}>
               <n.icon className="size-4" />
@@ -95,12 +96,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Menu className="size-5" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="size-6 rounded-md bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-xs shadow-[0_0_12px_-2px_var(--accent)]">S</div>
-            <span className="font-semibold tracking-tight text-sm font-mono">Surveyor</span>
+            <div className="size-6 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs">S</div>
+            <span className="font-semibold tracking-tight text-sm">Surveyor</span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto tech-grid-bg">{children}</main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
