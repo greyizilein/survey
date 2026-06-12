@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createFillRunFromLink } from "@/lib/fill-flow.functions";
+import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/")({
@@ -20,11 +22,15 @@ export const Route = createFileRoute("/_authenticated/app/")({
 
 function Dashboard() {
   const fillFn = useServerFn(createFillRunFromLink);
+  const autoFillFn = useServerFn(autoFillForm);
+  const autoFillConfiguredFn = useServerFn(isAutofillServiceConfigured);
+  const autoFillConfigQ = useQuery({ queryKey: ["autofill-configured"], queryFn: () => autoFillConfiguredFn() });
   const [url, setUrl] = useState("");
   const [brief, setBrief] = useState("");
   const [count, setCount] = useState(5);
   const [loading, setLoading] = useState(false);
   const [run, setRun] = useState<any>(null);
+  const [filling, setFilling] = useState(false);
 
   async function startFill() {
     if (!url.trim()) { toast.error("Paste a survey link first"); return; }
@@ -33,7 +39,11 @@ function Dashboard() {
     try {
       const result = await fillFn({ data: { survey_url: url.trim(), respondent_count: count, audience_brief: brief.trim() || undefined } });
       setRun(result);
-      toast.success("Answers generated. Open the form and use the extension to fill it.");
+      toast.success(
+        autoFillConfigQ.data?.configured
+          ? "Answers generated. Click \"Auto-fill form\" to submit them."
+          : "Answers generated. Open the form and use the extension to fill it.",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not generate answers");
     } finally {
@@ -50,6 +60,25 @@ function Dashboard() {
   function downloadPayload() {
     if (!run?.extension_payload) return;
     downloadFile(JSON.stringify(run.extension_payload, null, 2), "surveyor-fill-payload.json", "application/json");
+  }
+
+  async function autoFillAll() {
+    if (!run?.responses?.length) return;
+    setFilling(true);
+    let submitted = 0;
+    try {
+      for (const response of run.responses) {
+        try {
+          const result = await autoFillFn({ data: { url: run.survey_url, answers: response.answers } });
+          if (result.submitted) submitted++;
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Auto-fill failed for one respondent");
+        }
+      }
+      toast.success(`Submitted ${submitted}/${run.responses.length} responses to the form.`);
+    } finally {
+      setFilling(false);
+    }
   }
 
   return (
@@ -113,11 +142,13 @@ function Dashboard() {
               <Step done={!!run} label="1. Paste the form URL" />
               <Step done={!!run} label="2. Surveyor extracts the questions" />
               <Step done={!!run} label="3. AI respondents write answers" />
-              <Step done={!!run} label="4. Open the form and fill with the extension" />
+              <Step done={!!run} label={autoFillConfigQ.data?.configured ? "4. Auto-fill submits the live form" : "4. Open the form and fill with the extension"} />
             </div>
-            <Button asChild variant="outline" className="mt-5 w-full justify-between">
-              <Link to="/app/extension">Install extension <ArrowRight className="size-4" /></Link>
-            </Button>
+            {!autoFillConfigQ.data?.configured && (
+              <Button asChild variant="outline" className="mt-5 w-full justify-between">
+                <Link to="/app/extension">Install extension <ArrowRight className="size-4" /></Link>
+              </Button>
+            )}
           </Card>
         </div>
 
@@ -129,9 +160,16 @@ function Dashboard() {
                 <p className="text-sm text-muted-foreground">{run.questions.length} questions · {run.responses.length} generated respondents</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
+                {autoFillConfigQ.data?.configured ? (
+                  <Button onClick={autoFillAll} disabled={filling}>
+                    {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+                    {filling ? "Filling and submitting..." : `Auto-fill form (${run.responses.length})`}
+                  </Button>
+                ) : (
+                  <Button asChild><a href={run.survey_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 size-4" /> Open form</a></Button>
+                )}
                 <Button variant="outline" onClick={copyPayload}><Clipboard className="mr-2 size-4" /> Copy first response</Button>
                 <Button variant="outline" onClick={downloadPayload}><Download className="mr-2 size-4" /> Download all responses</Button>
-                <Button asChild><a href={run.survey_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 size-4" /> Open form</a></Button>
               </div>
             </div>
 
