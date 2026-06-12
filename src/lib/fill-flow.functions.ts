@@ -246,10 +246,10 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
-    const questionList = questions.map((q, i) => `${i + 1}. [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
+    const questionList = questions.map((q) => `- id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
 
     const responses = await Promise.all(personas.map(async (persona) => {
-      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\nQuestions:\n${questionList}\n\nReturn ONLY JSON in this shape, one answer for each question:\n[{"question_id":"q1","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and be 1-3 sentences.`;
+      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\nQuestions:\n${questionList}\n\nReturn ONLY JSON, an array with exactly one entry per question, using the exact "id" value given for each question as "question_id":\n[{"question_id":"<copy the id exactly as given>","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and be 1-3 sentences.`;
       try {
         const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
         const match = text.match(/\[[\s\S]*\]/);
