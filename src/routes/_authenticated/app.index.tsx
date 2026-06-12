@@ -88,6 +88,10 @@ function Dashboard() {
           } else {
             const result: any = await autoFillFn({ data: { url: run.survey_url, answers: response.answers } });
             if (result.submitted) submitted++;
+            if (!result.submitted && result.debug) {
+              console.log("Auto-fill debug:", result);
+              toast(`Filled ${result.filled} fields, no submit found. Page: "${result.debug.title}" · ${result.debug.radiogroups} question groups, ${result.debug.textFields} text fields. Buttons: ${result.debug.buttons.join(", ") || "none"}`, { duration: 12000 });
+            }
           }
         } catch (e) {
           toast.error(e instanceof Error ? e.message : "Auto-fill failed for one respondent");
