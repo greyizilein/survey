@@ -10,9 +10,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createFillRunFromLink, submitDirectFill } from "@/lib/fill-flow.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
+import { listPopulations } from "@/lib/personas.functions";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -27,12 +29,16 @@ function Dashboard() {
   const autoFillFn = useServerFn(autoFillForm);
   const autoFillConfiguredFn = useServerFn(isAutofillServiceConfigured);
   const autoFillConfigQ = useQuery({ queryKey: ["autofill-configured"], queryFn: () => autoFillConfiguredFn() });
+  const populationsFn = useServerFn(listPopulations);
+  const populationsQ = useQuery({ queryKey: ["populations"], queryFn: () => populationsFn() });
   const [url, setUrl] = useState("");
   const [brief, setBrief] = useState("");
   const [count, setCount] = useState(5);
   const [responseLength, setResponseLength] = useState<"short" | "medium" | "long">("medium");
   const [variation, setVariation] = useState(50);
   const [personality, setPersonality] = useState("");
+  const [populationId, setPopulationId] = useState<string>("none");
+  const [samplingMethod, setSamplingMethod] = useState<"random" | "stratified">("random");
   const [loading, setLoading] = useState(false);
   const [run, setRun] = useState<any>(null);
   const [filling, setFilling] = useState(false);
@@ -49,6 +55,8 @@ function Dashboard() {
         response_length: responseLength,
         variation,
         personality: personality.trim() || undefined,
+        population_id: populationId !== "none" ? populationId : undefined,
+        sampling_method: samplingMethod,
       } });
       setRun(result);
       toast.success(
@@ -139,9 +147,27 @@ function Dashboard() {
                 onChange={(event) => setUrl(event.target.value)}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Respondent population</Label>
+              <Select value={populationId} onValueChange={setPopulationId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Generate fresh respondents for this survey" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Generate fresh respondents for this survey</SelectItem>
+                  {(populationsQ.data ?? []).map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name} ({p.persona_count} people)</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Create reusable populations of 1,000s of people in <a href="/app/personas" className="underline">Persona Studio</a>, then sample from them here.
+              </p>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-[120px,minmax(0,1fr)]">
               <div className="space-y-2">
-                <Label htmlFor="respondents">Responses</Label>
+                <Label htmlFor="respondents">{populationId !== "none" ? "Sample size" : "Responses"}</Label>
                 <Input
                   id="respondents"
                   type="number"
@@ -151,16 +177,31 @@ function Dashboard() {
                   onChange={(event) => setCount(Math.max(1, Math.min(25, Number(event.target.value) || 1)))}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="audience">Who should answer?</Label>
-                <Textarea
-                  id="audience"
-                  rows={3}
-                  placeholder="Example: UK university students, busy parents in Lagos, enterprise software buyers..."
-                  value={brief}
-                  onChange={(event) => setBrief(event.target.value)}
-                />
-              </div>
+              {populationId !== "none" ? (
+                <div className="space-y-2">
+                  <Label>Sampling method</Label>
+                  <Select value={samplingMethod} onValueChange={(v) => setSamplingMethod(v as "random" | "stratified")}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="random">Random sample</SelectItem>
+                      <SelectItem value="stratified">Stratified (balance gender & country)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="audience">Who should answer?</Label>
+                  <Textarea
+                    id="audience"
+                    rows={3}
+                    placeholder="Example: UK university students, busy parents in Lagos, enterprise software buyers..."
+                    value={brief}
+                    onChange={(event) => setBrief(event.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

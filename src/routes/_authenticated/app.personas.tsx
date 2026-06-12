@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { listPersonas, generatePersonas, deletePersona } from "@/lib/personas.functions";
+import { listPersonas, generatePersonas, deletePersona, listPopulations, createPopulation, deletePopulation } from "@/lib/personas.functions";
 import { toast } from "sonner";
-import { Trash2, Sparkles, Search } from "lucide-react";
+import { Trash2, Sparkles, Search, Users } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/personas")({
   head: () => ({ meta: [{ title: "Persona Studio · Surveyor" }] }),
@@ -24,11 +24,35 @@ function PersonaStudio() {
   const genFn = useServerFn(generatePersonas);
   const delFn = useServerFn(deletePersona);
 
+  const populationsFn = useServerFn(listPopulations);
+  const createPopulationFn = useServerFn(createPopulation);
+  const deletePopulationFn = useServerFn(deletePopulation);
+
   const personasQ = useQuery({ queryKey: ["personas"], queryFn: () => listFn() });
+  const populationsQ = useQuery({ queryKey: ["populations"], queryFn: () => populationsFn() });
   const [brief, setBrief] = useState("");
   const [count, setCount] = useState(10);
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("");
+
+  const [popName, setPopName] = useState("");
+  const [popBrief, setPopBrief] = useState("");
+  const [popSize, setPopSize] = useState(5000);
+  const [popBusy, setPopBusy] = useState(false);
+
+  async function createPop() {
+    if (!popName.trim() || !popBrief.trim()) { toast.error("Add a name and a brief"); return; }
+    setPopBusy(true);
+    try {
+      const r = await createPopulationFn({ data: { name: popName.trim(), brief: popBrief.trim(), size: popSize } });
+      toast.success(`Created "${popName.trim()}" with ${r.inserted} personas`);
+      setPopName("");
+      setPopBrief("");
+      qc.invalidateQueries({ queryKey: ["populations"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create population");
+    } finally { setPopBusy(false); }
+  }
 
   async function generate() {
     if (!brief.trim()) { toast.error("Add a brief"); return; }
@@ -54,6 +78,49 @@ function PersonaStudio() {
         <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
         <h1 className="text-2xl font-semibold sm:text-3xl">Persona Studio</h1>
         <p className="mt-1 text-sm text-muted-foreground sm:text-base">Generate diverse synthetic respondents on demand.</p>
+
+        <Card className="mt-6 p-4 sm:p-6">
+          <h2 className="font-semibold mb-3 flex items-center gap-2"><Users className="size-4 text-primary" /> Populations</h2>
+          <p className="text-sm text-muted-foreground mb-3">
+            A population is a large, reusable group of personas for a location or audience (e.g. "5,000 adults in Lagos, Nigeria").
+            When filling a survey, sample respondents from a population instead of generating new ones each time.
+          </p>
+          <div className="grid gap-3 md:grid-cols-[1fr,1fr,140px,auto] md:items-end">
+            <div>
+              <Label>Name</Label>
+              <Input placeholder="e.g. Lagos adults 2026" value={popName} onChange={(e) => setPopName(e.target.value)} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input placeholder="Mixed-income adults in Lagos, Nigeria" value={popBrief} onChange={(e) => setPopBrief(e.target.value)} />
+            </div>
+            <div>
+              <Label>Size</Label>
+              <Input type="number" min={1} max={5000} value={popSize} onChange={(e) => setPopSize(Math.min(5000, Math.max(1, +e.target.value || 1)))} />
+            </div>
+            <Button onClick={createPop} disabled={popBusy} className="w-full md:w-auto">{popBusy ? "Creating..." : "Create population"}</Button>
+          </div>
+
+          {(populationsQ.data ?? []).length > 0 && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {(populationsQ.data ?? []).map((p: any) => (
+                <div key={p.id} className="flex items-start justify-between rounded-md border p-3">
+                  <div>
+                    <div className="font-medium text-sm">{p.name}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-2">{p.brief}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{p.persona_count} / {p.target_size} personas</div>
+                  </div>
+                  <button onClick={async () => {
+                    await deletePopulationFn({ data: { id: p.id } });
+                    qc.invalidateQueries({ queryKey: ["populations"] });
+                  }} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         <Card className="mt-6 p-4 sm:p-6">
           <h2 className="font-semibold mb-3 flex items-center gap-2"><Sparkles className="size-4 text-primary" /> Generate personas</h2>

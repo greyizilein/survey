@@ -9,6 +9,8 @@ const QuickFillInput = z.object({
   response_length: z.enum(["short", "medium", "long"]).default("medium"),
   variation: z.number().min(0).max(100).default(50),
   personality: z.string().max(300).optional(),
+  population_id: z.string().uuid().optional(),
+  sampling_method: z.enum(["random", "stratified"]).default("random"),
 });
 
 interface Question {
@@ -93,7 +95,14 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       .single();
     if (surveyError || !survey) throw new Error(surveyError?.message ?? "Could not save survey");
 
-    const personas = await ensurePersonas(context.supabase, context.userId, data.respondent_count, data.audience_brief ?? title);
+    let personas: Persona[];
+    if (data.population_id) {
+      const { samplePersonas } = await import("./personas.functions");
+      personas = await samplePersonas(context.supabase, data.population_id, data.respondent_count, data.sampling_method);
+      if (!personas.length) throw new Error("This population has no personas yet.");
+    } else {
+      personas = await ensurePersonas(context.supabase, context.userId, data.respondent_count, data.audience_brief ?? title);
+    }
     const responses = await answerSurvey(questions, personas, data.audience_brief ?? title, {
       responseLength: data.response_length,
       variation: data.variation,
