@@ -9,18 +9,26 @@ which cannot launch a browser.
 
 ```bash
 cd automation-service
-npm install   # also installs the Playwright Chromium binary
+npm install && npx playwright install --with-deps chromium
 npm start
 ```
 
 The service listens on `PORT` (default `8787`).
 
-## Deploy
+## Deploy on Render (recommended, free tier works)
 
-Deploy this folder to any Node host that allows running a browser, e.g.
-Render, Fly.io, Railway, or a small VPS (Docker). Set:
+1. Push this repo to GitHub (already done if you're reading this from the repo).
+2. In Render, click **New > Blueprint**, point it at this repo, and select
+   the `automation-service` directory — Render will read `render.yaml` and
+   build the included `Dockerfile` automatically.
+3. After it deploys, copy the service URL (e.g. `https://surveyor-automation.onrender.com`)
+   and the auto-generated `AUTOFILL_API_TOKEN` value from the service's
+   Environment tab.
 
-- `PORT` — port to listen on
+Alternatively deploy the `Dockerfile` to Fly.io, Railway, or any small VPS.
+Set these env vars on whichever host you use:
+
+- `PORT` — port to listen on (Render sets this automatically)
 - `AUTOFILL_API_TOKEN` — shared secret; the main app must send it as
   `Authorization: Bearer <token>`
 - `AUTOFILL_MAX_CONCURRENCY` — max parallel browser fills (default 3)
@@ -40,12 +48,16 @@ Render, Fly.io, Railway, or a small VPS (Docker). Set:
 
 Returns `{ "filled": number, "submitted": boolean, "pages": number }`.
 
-## Wire it up to the main app
+## Wire it up to the main app (Lovable)
 
-In the main app's environment, set:
+The main Surveyor app stays deployed on Lovable exactly as-is — only this
+small service needs a host that can run a browser.
 
-- `AUTOFILL_SERVICE_URL` — base URL of this service (e.g. `https://surveyor-fill.example.com`)
-- `AUTOFILL_API_TOKEN` — same token as above
+In your Lovable project's environment variables / secrets, set:
 
-Once set, the "Auto-fill" button in a project's response list calls this
-service directly — no browser extension required.
+- `AUTOFILL_SERVICE_URL` — base URL of this service (e.g. `https://surveyor-automation.onrender.com`)
+- `AUTOFILL_API_TOKEN` — same token shown in Render's Environment tab for this service
+
+Once both are set and the app redeploys, the "Auto-fill" button in a
+project's response list calls this service directly — a background browser
+opens the real form, fills it, and submits it. No browser extension needed.
