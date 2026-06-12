@@ -52,11 +52,29 @@ app.post("/fill", async (req, res) => {
 
   try {
     const result = await withSlot(async () => {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await chromium.launch({ headless: true, args: ["--disable-blink-features=AutomationControlled"] });
       try {
-        const page = await browser.newPage();
-        await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
-        return await page.evaluate(fillEngine, answers);
+        const context = await browser.newContext({
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+          viewport: { width: 1366, height: 900 },
+        });
+        const page = await context.newPage();
+        await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 45000 });
+        try {
+          await page.waitForSelector('[role="radiogroup"], [role="checkbox"], input, textarea', { timeout: 15000 });
+        } catch {
+          // proceed anyway — page may be slow or use unusual markup
+        }
+        await page.waitForTimeout(1500);
+        const fillResult = await page.evaluate(fillEngine, answers);
+        const debugInfo = await page.evaluate(() => ({
+          title: document.title,
+          radiogroups: document.querySelectorAll('[role="radiogroup"]').length,
+          checkboxes: document.querySelectorAll('[role="checkbox"]').length,
+          textFields: document.querySelectorAll('input[type="text"], textarea').length,
+          buttons: Array.from(document.querySelectorAll('[role="button"], button')).map((b) => b.textContent?.trim()).filter(Boolean).slice(0, 10),
+        }));
+        return { ...fillResult, debug: debugInfo };
       } finally {
         await browser.close();
       }
