@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ClipboardPenLine, Users, Wand2, Sparkles, Globe, Gauge, FileDown } from "lucide-react";
+import { ArrowRight, ClipboardPenLine, Users, Wand2, Sparkles, Globe, Gauge, FileDown, Zap, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,29 +13,57 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
+// Fixed dark palette for the hero so contrast is correct in any theme.
+const INK = "#0a0a0a";
+const PAPER = "#f4f4ef";
+const LIME = "#c6f24e";
+
+const marqueeItems = [
+  { icon: ClipboardPenLine, label: "Google Forms" },
+  { icon: Sparkles, label: "1,243 personas live" },
+  { icon: Wand2, label: "Auto-fill engaged" },
+  { icon: Globe, label: "Submitting in EU-West" },
+  { icon: Gauge, label: "12s avg / response" },
+  { icon: Users, label: "Persona: Maya, 27, designer" },
+  { icon: Zap, label: "Streaming answers" },
+  { icon: ShieldCheck, label: "Human-grade text" },
+  { icon: ClipboardPenLine, label: "Typeform · MS Forms · Qualtrics" },
+  { icon: FileDown, label: "CSV + transcripts exported" },
+];
+
 function Landing() {
   return (
-    <div className="min-h-screen bg-foreground text-background">
+    <div className="min-h-screen" style={{ background: INK, color: PAPER }}>
       {/* HERO — near-fullscreen */}
-      <section className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-10 pt-5 sm:px-8">
+      <section
+        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8"
+        style={{ background: INK, color: PAPER }}
+      >
         {/* Header */}
         <header className="relative z-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center border-2 border-primary bg-background text-foreground font-extrabold">
+            <div
+              className="flex size-9 items-center justify-center border-2 font-extrabold"
+              style={{ background: LIME, borderColor: LIME, color: INK }}
+            >
               S
             </div>
-            <span className="text-sm font-bold tracking-tight">Surveyor</span>
+            <span className="text-sm font-bold tracking-tight" style={{ color: PAPER }}>
+              Surveyor
+            </span>
           </Link>
           <div className="flex items-center gap-2">
             <Link
               to="/auth"
-              className="hidden sm:inline-flex border-2 border-background/30 px-4 py-2 text-xs font-bold uppercase tracking-widest text-background hover:border-background"
+              className="hidden sm:inline-flex border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors"
+              style={{ borderColor: "rgba(244,244,239,0.25)", color: PAPER }}
             >
               Sign in
             </Link>
             <Link
               to="/auth"
-              className="border-2 border-primary bg-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-primary-foreground hard-shadow-sm hard-shadow-hover"
+              className="border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest hard-shadow-sm hard-shadow-hover"
+              style={{ background: LIME, borderColor: LIME, color: INK }}
             >
               Get started
             </Link>
@@ -43,55 +71,75 @@ function Landing() {
         </header>
 
         {/* Ambient glows */}
-        <div className="pointer-events-none absolute -left-32 top-1/4 size-[28rem] rounded-full bg-primary/20 blur-[120px]" aria-hidden />
-        <div className="pointer-events-none absolute -right-24 top-10 size-[22rem] rounded-full bg-accent/25 blur-[100px]" aria-hidden />
         <div
-          className="pointer-events-none absolute left-1/2 top-0 h-[60vh] w-[80vw] -translate-x-1/2 opacity-60"
-          style={{ background: "radial-gradient(ellipse at top, color-mix(in oklab, var(--color-primary) 30%, transparent), transparent 60%)" }}
+          className="pointer-events-none absolute -left-32 top-1/4 size-[28rem] rounded-full blur-[120px]"
+          style={{ background: `${LIME}33` }}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -right-24 top-10 size-[22rem] rounded-full blur-[100px]"
+          style={{ background: `${LIME}22` }}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute left-1/2 top-0 h-[60vh] w-[80vw] -translate-x-1/2 opacity-70"
+          style={{ background: `radial-gradient(ellipse at top, ${LIME}33, transparent 60%)` }}
           aria-hidden
         />
 
         {/* Floating chips top */}
         <div className="pointer-events-none absolute inset-x-0 top-24 mx-auto hidden max-w-3xl sm:block">
           <div className="relative h-32">
-            <Chip className="absolute left-4 top-2 rotate-[-8deg] animate-float">
+            <FloatChip className="absolute left-4 top-2 rotate-[-8deg] animate-float">
               <ClipboardPenLine className="size-4" /> Google Forms
-            </Chip>
-            <Chip className="absolute right-6 top-0 rotate-[6deg] animate-float-delay">
+            </FloatChip>
+            <FloatChip className="absolute right-6 top-0 rotate-[6deg] animate-float-delay">
               <Sparkles className="size-4" /> 1,243 personas
-            </Chip>
-            <Chip className="absolute left-1/2 top-16 -translate-x-1/2 animate-float">
+            </FloatChip>
+            <FloatChip className="absolute left-1/2 top-16 -translate-x-1/2 animate-float">
               <Wand2 className="size-4" /> Auto-fill
-            </Chip>
+            </FloatChip>
           </div>
         </div>
 
         {/* Centered headline */}
         <div className="relative z-10 mx-auto flex flex-1 max-w-3xl flex-col items-center justify-center text-center animate-fade-up">
-          <span className="inline-flex items-center gap-2 border-2 border-primary/70 bg-background/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-primary backdrop-blur">
+          <span
+            className="inline-flex items-center gap-2 border-2 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur"
+            style={{ borderColor: LIME, color: LIME, background: "rgba(198,242,78,0.08)" }}
+          >
             <Sparkles className="size-3" /> Surveys, on autopilot
           </span>
 
-          <h1 className="mt-6 text-[clamp(2.75rem,11vw,6rem)] font-extrabold leading-[0.95] tracking-tight">
-            Paste a link.<br />
-            <span className="text-primary">Fill the survey.</span>
+          <h1
+            className="mt-6 text-[clamp(2.75rem,11vw,6rem)] font-extrabold leading-[0.95] tracking-tight"
+            style={{ color: PAPER }}
+          >
+            Paste a link.
+            <br />
+            <span style={{ color: LIME }}>Fill the survey.</span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-xl text-base text-background/70 sm:text-lg">
+          <p
+            className="mx-auto mt-6 max-w-xl text-base sm:text-lg"
+            style={{ color: "rgba(244,244,239,0.78)" }}
+          >
             Drop in any Google Forms link. Surveyor reads every question, writes real, in-character answers, and submits — for one persona or a thousand.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/auth"
-              className="group inline-flex items-center gap-2 border-2 border-primary bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
+              className="group inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold hard-shadow-sm hard-shadow-hover"
+              style={{ background: LIME, borderColor: LIME, color: INK }}
             >
               Start filling free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               to="/auth"
-              className="inline-flex items-center gap-2 border-2 border-background/40 px-6 py-3.5 text-sm font-bold text-background hover:border-background"
+              className="inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold"
+              style={{ borderColor: "rgba(244,244,239,0.5)", color: PAPER }}
             >
               See a demo
             </Link>
@@ -99,35 +147,51 @@ function Landing() {
         </div>
 
         {/* Floating chips bottom */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-24 mx-auto hidden max-w-3xl sm:block">
+        <div className="pointer-events-none absolute inset-x-0 bottom-32 mx-auto hidden max-w-3xl sm:block">
           <div className="relative h-24">
-            <Chip className="absolute left-2 bottom-0 rotate-[7deg] animate-float-delay">
+            <FloatChip className="absolute left-2 bottom-0 rotate-[7deg] animate-float-delay">
               <Globe className="size-4" /> Live submit
-            </Chip>
-            <Chip className="absolute right-2 bottom-6 rotate-[-5deg] animate-float">
+            </FloatChip>
+            <FloatChip className="absolute right-2 bottom-6 rotate-[-5deg] animate-float">
               <Gauge className="size-4" /> 12s / response
-            </Chip>
+            </FloatChip>
           </div>
         </div>
 
-        {/* Trust strip */}
-        <div className="relative z-10 mt-auto pt-8 text-center">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-background/50">
+        {/* Scrolling marquee — bottom of hero */}
+        <div className="relative z-10 mt-auto">
+          <p
+            className="mb-3 text-center text-[11px] uppercase tracking-[0.3em]"
+            style={{ color: "rgba(244,244,239,0.55)" }}
+          >
             Trusted by researchers, founders & students
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-sm font-bold tracking-widest text-background/70">
-            <span>GOOGLE FORMS</span>
-            <span className="hidden sm:inline">·</span>
-            <span>MS FORMS</span>
-            <span className="hidden sm:inline">·</span>
-            <span>TYPEFORM</span>
-            <span className="hidden sm:inline">·</span>
-            <span>QUALTRICS</span>
+          <div
+            className="relative overflow-hidden border-y-2 py-3"
+            style={{
+              borderColor: "rgba(244,244,239,0.15)",
+              maskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)",
+              WebkitMaskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)",
+            }}
+          >
+            <div className="flex w-max animate-marquee gap-10 pr-10">
+              {[...marqueeItems, ...marqueeItems].map((item, i) => (
+                <div
+                  key={i}
+                  className="flex shrink-0 items-center gap-2 text-sm font-bold uppercase tracking-widest"
+                  style={{ color: "rgba(244,244,239,0.75)" }}
+                >
+                  <item.icon className="size-4" style={{ color: LIME }} />
+                  <span>{item.label}</span>
+                  <span style={{ color: LIME }}>·</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Light panel below — kept minimal */}
+      {/* Light panel below */}
       <section className="bg-background text-foreground">
         <div className="mx-auto max-w-5xl px-6 py-20">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
@@ -162,9 +226,12 @@ function Landing() {
   );
 }
 
-function Chip({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function FloatChip({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`pointer-events-auto inline-flex items-center gap-2 border-2 border-primary bg-background px-3 py-1.5 text-xs font-bold text-foreground hard-shadow-sm ${className}`}>
+    <div
+      className={`pointer-events-auto inline-flex items-center gap-2 border-2 px-3 py-1.5 text-xs font-bold hard-shadow-sm ${className}`}
+      style={{ background: PAPER, borderColor: LIME, color: INK, boxShadow: `4px 4px 0 0 ${LIME}` }}
+    >
       {children}
     </div>
   );
