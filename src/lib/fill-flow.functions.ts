@@ -123,6 +123,14 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       title: formTitle,
       form_action: formAction,
       page_history: pageHistory,
+      questions,
+      total_responses: responses.length,
+    };
+  });
+
+const DirectSubmitInput = z.object({
+  form_action: z.string().url(),
+  page_history: z.string().default("0"),
   answers: z.array(z.object({
     question_id: z.string(),
     answer: z.string(),
