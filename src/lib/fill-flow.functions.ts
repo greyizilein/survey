@@ -6,6 +6,11 @@ const QuickFillInput = z.object({
   survey_url: z.string().url(),
   respondent_count: z.number().int().min(1).max(25).default(5),
   audience_brief: z.string().max(500).optional(),
+  response_length: z.enum(["short", "medium", "long"]).default("medium"),
+  variation: z.number().min(0).max(100).default(50),
+  personality: z.string().max(300).optional(),
+  population_id: z.string().uuid().optional(),
+  sampling_method: z.enum(["random", "stratified"]).default("random"),
 });
 
 interface Question {
@@ -90,8 +95,19 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       .single();
     if (surveyError || !survey) throw new Error(surveyError?.message ?? "Could not save survey");
 
-    const personas = await ensurePersonas(context.supabase, context.userId, data.respondent_count, data.audience_brief ?? title);
-    const responses = await answerSurvey(questions, personas, data.audience_brief ?? title);
+    let personas: Persona[];
+    if (data.population_id) {
+      const { samplePersonas } = await import("./personas.functions");
+      personas = await samplePersonas(context.supabase, data.population_id, data.respondent_count, data.sampling_method);
+      if (!personas.length) throw new Error("This population has no personas yet.");
+    } else {
+      personas = await ensurePersonas(context.supabase, context.userId, data.respondent_count, data.audience_brief ?? title);
+    }
+    const responses = await answerSurvey(questions, personas, data.audience_brief ?? title, {
+      responseLength: data.response_length,
+      variation: data.variation,
+      personality: data.personality,
+    });
 
     const { data: sim, error: simError } = await context.supabase
       .from("simulations")
@@ -246,15 +262,35 @@ async function ensurePersonas(supabase: any, userId: string, count: number, brie
   return [...(existing ?? []), ...(inserted ?? [])].slice(0, count);
 }
 
-async function answerSurvey(questions: Question[], personas: Persona[], brief: string) {
+interface AnswerStyle {
+  responseLength: "short" | "medium" | "long";
+  variation: number;
+  personality?: string;
+}
+
+async function answerSurvey(questions: Question[], personas: Persona[], brief: string, style?: AnswerStyle) {
   try {
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
     const questionList = questions.map((q) => `- id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
 
+    const lengthGuide = {
+      short: "Keep open-text answers very brief — a phrase or one short sentence.",
+      medium: "Open-text answers should be 1-3 natural sentences.",
+      long: "Open-text answers should be detailed — 3-6 sentences with specific examples or reasoning.",
+    }[style?.responseLength ?? "medium"];
+    const variationGuide = (style?.variation ?? 50) >= 70
+      ? "Make wording, sentence length, and tone vary noticeably between respondents — some terse, some chatty, some hedging."
+      : (style?.variation ?? 50) <= 30
+        ? "Keep answers fairly consistent and to-the-point across respondents."
+        : "Vary phrasing naturally between respondents.";
+    const personalityGuide = style?.personality?.trim()
+      ? `Personality/voice direction for all respondents: ${style.personality.trim()}`
+      : "";
+
     const responses = await Promise.all(personas.map(async (persona) => {
-      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\nQuestions:\n${questionList}\n\nReturn ONLY JSON, an array with exactly one entry per question, using the exact "id" value given for each question as "question_id":\n[{"question_id":"<copy the id exactly as given>","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and be 1-3 sentences.`;
+      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\n${lengthGuide}\n${variationGuide}\n${personalityGuide}\nQuestions:\n${questionList}\n\nReturn ONLY JSON, an array with exactly one entry per question, using the exact "id" value given for each question as "question_id":\n[{"question_id":"<copy the id exactly as given>","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and follow the length and tone guidance above.`;
       try {
         const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
         const match = text.match(/\[[\s\S]*\]/);

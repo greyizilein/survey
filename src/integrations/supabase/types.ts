@@ -30,6 +30,7 @@ export type Database = {
           name: string
           occupation: string | null
           political_sentiment: string | null
+          population_id: string | null
           tags: string[] | null
           user_id: string
         }
@@ -48,6 +49,7 @@ export type Database = {
           name: string
           occupation?: string | null
           political_sentiment?: string | null
+          population_id?: string | null
           tags?: string[] | null
           user_id: string
         }
@@ -66,7 +68,43 @@ export type Database = {
           name?: string
           occupation?: string | null
           political_sentiment?: string | null
+          population_id?: string | null
           tags?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personas_population_id_fkey"
+            columns: ["population_id"]
+            isOneToOne: false
+            referencedRelation: "populations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      populations: {
+        Row: {
+          brief: string
+          created_at: string
+          id: string
+          name: string
+          target_size: number
+          user_id: string
+        }
+        Insert: {
+          brief: string
+          created_at?: string
+          id?: string
+          name: string
+          target_size?: number
+          user_id: string
+        }
+        Update: {
+          brief?: string
+          created_at?: string
+          id?: string
+          name?: string
+          target_size?: number
           user_id?: string
         }
         Relationships: []

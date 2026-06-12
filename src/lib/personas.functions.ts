@@ -5,6 +5,7 @@ import { z } from "zod";
 const GenInput = z.object({
   count: z.number().min(1).max(5000),
   brief: z.string().min(1).max(500),
+  population_id: z.string().uuid().optional(),
 });
 
 export const listPersonas = createServerFn({ method: "GET" })
@@ -37,10 +38,62 @@ export const deletePersona = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const CreatePopulationInput = z.object({
+  name: z.string().min(1).max(120),
+  brief: z.string().min(1).max(500),
+  size: z.number().min(1).max(5000),
+});
+
+export const listPopulations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("populations")
+      .select("*, personas(count)")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((p: any) => ({
+      ...p,
+      persona_count: p.personas?.[0]?.count ?? 0,
+      personas: undefined,
+    }));
+  });
+
+export const deletePopulation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("populations").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Create a named population, then generate `size` personas into it.
+export const createPopulation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => CreatePopulationInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: population, error } = await context.supabase
+      .from("populations")
+      .insert({ user_id: context.userId, name: data.name, brief: data.brief, target_size: data.size })
+      .select()
+      .single();
+    if (error || !population) throw new Error(error?.message ?? "Could not create population");
+
+    const result = await generatePersonasInternal(context, { count: data.size, brief: data.brief, population_id: population.id });
+    return { population, inserted: result.inserted };
+  });
+
 export const generatePersonas = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => GenInput.parse(d))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data, context }) => generatePersonasInternal(context, data));
+
+async function generatePersonasInternal(
+  context: { userId: string; supabase: any },
+  data: { count: number; brief: string; population_id?: string },
+) {
+  {
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
@@ -85,6 +138,7 @@ Make each persona meaningfully different. Match the brief.`;
 
     const rows = personas.slice(0, data.count).map((p, index) => ({
       user_id: context.userId,
+      population_id: data.population_id ?? null,
       name: String(p.name ?? `Respondent ${index + 1}`),
       age: typeof p.age === "number" ? p.age : null,
       gender: normalizeGender(p.gender),
@@ -109,7 +163,49 @@ Make each persona meaningfully different. Match the brief.`;
       inserted += count ?? rows.slice(i, i + 500).length;
     }
     return { inserted };
-  });
+  }
+}
+
+// Draw `count` personas from a population. "stratified" balances the sample
+// evenly across gender and country combinations present in the population.
+export async function samplePersonas(
+  supabase: any,
+  populationId: string,
+  count: number,
+  method: "random" | "stratified" = "random",
+) {
+  const { data: all, error } = await supabase
+    .from("personas")
+    .select("*")
+    .eq("population_id", populationId);
+  if (error) throw new Error(error.message);
+  const pool: any[] = all ?? [];
+  if (!pool.length) return [];
+
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  if (method === "random" || pool.length <= count) {
+    return shuffled.slice(0, count);
+  }
+
+  // Stratified: group by gender+country, then take proportionally from each group.
+  const groups = new Map<string, any[]>();
+  for (const persona of shuffled) {
+    const key = `${persona.gender ?? "unknown"}::${persona.country ?? "unknown"}`;
+    const group = groups.get(key) ?? [];
+    group.push(persona);
+    groups.set(key, group);
+  }
+  const groupKeys = [...groups.keys()];
+  const sample: any[] = [];
+  let i = 0;
+  while (sample.length < count && sample.length < pool.length) {
+    const key = groupKeys[i % groupKeys.length];
+    const group = groups.get(key)!;
+    if (group.length) sample.push(group.shift());
+    i++;
+  }
+  return sample;
+}
 
 function normalizeGender(value: unknown): "male" | "female" {
   const s = String(value ?? "").toLowerCase();
