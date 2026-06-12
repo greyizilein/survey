@@ -255,7 +255,7 @@ function makePersonas(count: number, brief: string, offset = 0) {
     return {
       name: `Respondent ${n + 1}`,
       age: 18 + (n * 7) % 67,
-      gender: ["female", "male", "non-binary"][n % 3],
+      gender: ["female", "male"][n % 2],
       country: countries[c],
       city: cities[c],
       education: ["high school", "some college", "bachelors", "masters", "trade", "phd"][n % 6],

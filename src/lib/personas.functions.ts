@@ -53,7 +53,7 @@ Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${aiCou
 {
   "name": "First Last",
   "age": number (18-85),
-  "gender": "male" | "female" | "non-binary",
+  "gender": "male" | "female",
   "country": "Country",
   "city": "City",
   "education": "high school" | "some college" | "bachelors" | "masters" | "phd" | "trade",
@@ -87,7 +87,7 @@ Make each persona meaningfully different. Match the brief.`;
       user_id: context.userId,
       name: String(p.name ?? `Respondent ${index + 1}`),
       age: typeof p.age === "number" ? p.age : null,
-      gender: p.gender ? String(p.gender) : null,
+      gender: normalizeGender(p.gender),
       country: p.country ? String(p.country) : null,
       city: p.city ? String(p.city) : null,
       education: p.education ? String(p.education) : null,
@@ -111,6 +111,11 @@ Make each persona meaningfully different. Match the brief.`;
     return { inserted };
   });
 
+function normalizeGender(value: unknown): "male" | "female" {
+  const s = String(value ?? "").toLowerCase();
+  return s.startsWith("f") ? "female" : "male";
+}
+
 function makeFallbackPersonas(count: number, brief: string, offset = 0): Array<Record<string, unknown>> {
   const countries = ["United States", "United Kingdom", "Canada", "Nigeria", "India", "Brazil", "Germany", "Mexico", "South Africa", "Japan"];
   const cities = ["Columbus", "Manchester", "Toronto", "Lagos", "Bengaluru", "Recife", "Berlin", "Guadalajara", "Cape Town", "Osaka"];
@@ -125,7 +130,7 @@ function makeFallbackPersonas(count: number, brief: string, offset = 0): Array<R
     return {
       name: `Respondent ${n + 1}`,
       age: 18 + (n * 7) % 67,
-      gender: ["female", "male", "non-binary"][n % 3],
+      gender: ["female", "male"][n % 2],
       country: countries[countryIndex],
       city: cities[countryIndex],
       education: education[n % education.length],
