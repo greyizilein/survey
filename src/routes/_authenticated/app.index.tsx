@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowRight, CheckCircle2, Clipboard, Download, ExternalLink, Loader2, Wand2 } from "lucide-react";
+import { Clipboard, Download, ExternalLink, Loader2, Wand2 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { createFillRunFromLink, submitDirectFill } from "@/lib/fill-flow.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
@@ -29,6 +30,9 @@ function Dashboard() {
   const [url, setUrl] = useState("");
   const [brief, setBrief] = useState("");
   const [count, setCount] = useState(5);
+  const [responseLength, setResponseLength] = useState<"short" | "medium" | "long">("medium");
+  const [variation, setVariation] = useState(50);
+  const [personality, setPersonality] = useState("");
   const [loading, setLoading] = useState(false);
   const [run, setRun] = useState<any>(null);
   const [filling, setFilling] = useState(false);
@@ -38,12 +42,19 @@ function Dashboard() {
     setLoading(true);
     setRun(null);
     try {
-      const result = await fillFn({ data: { survey_url: url.trim(), respondent_count: count, audience_brief: brief.trim() || undefined } });
+      const result = await fillFn({ data: {
+        survey_url: url.trim(),
+        respondent_count: count,
+        audience_brief: brief.trim() || undefined,
+        response_length: responseLength,
+        variation,
+        personality: personality.trim() || undefined,
+      } });
       setRun(result);
       toast.success(
-        autoFillConfigQ.data?.configured
-          ? "Answers generated. Click \"Auto-fill form\" to submit them."
-          : "Answers generated. Open the form and use the extension to fill it.",
+        autoFillConfigQ.data?.configured || result.direct_submit
+          ? "Answers generated. Click \"Submit\" to fill the form."
+          : "Answers generated. Open the form to fill it in manually.",
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not generate answers");
@@ -111,69 +122,103 @@ function Dashboard() {
           <Badge variant="outline" className="mb-3">Core workflow</Badge>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Paste a survey link. Generate answers. Fill the live form.</h1>
           <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-            Surveyor creates realistic respondents, writes answers for text fields, then hands you a payload the browser extension types into Google Forms, Microsoft Forms, Typeform, and similar pages.
+            Surveyor creates realistic respondents and fills the form for you — questions, choices, and open-ended answers, written in character.
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),380px]">
-          <Card className="p-4 sm:p-6">
-            <div className="space-y-4">
+        <Card className="p-4 sm:p-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="survey-url">Survey link</Label>
+              <Input
+                id="survey-url"
+                type="url"
+                inputMode="url"
+                placeholder="https://forms.google.com/..."
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-[120px,minmax(0,1fr)]">
               <div className="space-y-2">
-                <Label htmlFor="survey-url">Survey link</Label>
+                <Label htmlFor="respondents">Responses</Label>
                 <Input
-                  id="survey-url"
-                  type="url"
-                  inputMode="url"
-                  placeholder="https://forms.google.com/..."
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
+                  id="respondents"
+                  type="number"
+                  min={1}
+                  max={25}
+                  value={count}
+                  onChange={(event) => setCount(Math.max(1, Math.min(25, Number(event.target.value) || 1)))}
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-[120px,minmax(0,1fr)]">
-                <div className="space-y-2">
-                  <Label htmlFor="respondents">Responses</Label>
-                  <Input
-                    id="respondents"
-                    type="number"
-                    min={1}
-                    max={25}
-                    value={count}
-                    onChange={(event) => setCount(Math.max(1, Math.min(25, Number(event.target.value) || 1)))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="audience">Who should answer?</Label>
-                  <Textarea
-                    id="audience"
-                    rows={3}
-                    placeholder="Example: UK university students, busy parents in Lagos, enterprise software buyers..."
-                    value={brief}
-                    onChange={(event) => setBrief(event.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="audience">Who should answer?</Label>
+                <Textarea
+                  id="audience"
+                  rows={3}
+                  placeholder="Example: UK university students, busy parents in Lagos, enterprise software buyers..."
+                  value={brief}
+                  onChange={(event) => setBrief(event.target.value)}
+                />
               </div>
-              <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto">
-                {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
-                {loading ? "Generating fill-ready answers..." : "Generate answers for this form"}
-              </Button>
             </div>
-          </Card>
 
-          <Card className="p-4 sm:p-6">
-            <h2 className="text-sm font-semibold">How it works now</h2>
-            <div className="mt-4 space-y-3 text-sm">
-              <Step done={!!run} label="1. Paste the form URL" />
-              <Step done={!!run} label="2. Surveyor extracts the questions" />
-              <Step done={!!run} label="3. AI respondents write answers" />
-              <Step done={!!run} label={autoFillConfigQ.data?.configured ? "4. Auto-fill submits the live form" : "4. Open the form and fill with the extension"} />
+            <div className="space-y-2">
+              <Label>Answer length</Label>
+              <div className="flex gap-2">
+                {(["short", "medium", "long"] as const).map((opt) => (
+                  <Button
+                    key={opt}
+                    type="button"
+                    size="sm"
+                    variant={responseLength === opt ? "default" : "outline"}
+                    onClick={() => setResponseLength(opt)}
+                    className="capitalize"
+                  >
+                    {opt}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                How detailed open-ended / interview-style answers should be.
+              </p>
             </div>
-            {!autoFillConfigQ.data?.configured && (
-              <Button asChild variant="outline" className="mt-5 w-full justify-between">
-                <Link to="/app/extension">Install extension <ArrowRight className="size-4" /></Link>
-              </Button>
-            )}
-          </Card>
-        </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="variation">Variation between respondents</Label>
+                <span className="text-xs text-muted-foreground">{variation}%</span>
+              </div>
+              <Slider
+                id="variation"
+                min={0}
+                max={100}
+                step={10}
+                value={[variation]}
+                onValueChange={([v]) => setVariation(v)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Higher = more varied tone, phrasing, and sentence length across respondents.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="personality">Personality / voice (optional)</Label>
+              <Textarea
+                id="personality"
+                rows={2}
+                placeholder="Example: casual and a bit skeptical, formal and concise, warm and chatty..."
+                value={personality}
+                onChange={(event) => setPersonality(event.target.value)}
+              />
+            </div>
+
+            <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto">
+              {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+              {loading ? "Generating fill-ready answers..." : "Generate answers for this form"}
+            </Button>
+          </div>
+        </Card>
 
         {run && (
           <Card className="mt-4 p-4 sm:p-6">
@@ -209,7 +254,7 @@ function Dashboard() {
                 </div>
               </div>
               <div>
-                <h3 className="mb-2 text-sm font-medium">First response to paste into the extension</h3>
+                <h3 className="mb-2 text-sm font-medium">First response (preview)</h3>
                 <pre className="max-h-72 overflow-auto rounded-md border bg-muted/20 p-3 text-xs whitespace-pre-wrap">{JSON.stringify(run.primary_payload, null, 2)}</pre>
               </div>
             </div>
@@ -217,15 +262,6 @@ function Dashboard() {
         )}
       </div>
     </AppShell>
-  );
-}
-
-function Step({ done, label }: { done: boolean; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <CheckCircle2 className={done ? "size-4 text-primary" : "size-4 text-muted-foreground"} />
-      <span className={done ? "text-foreground" : "text-muted-foreground"}>{label}</span>
-    </div>
   );
 }
 
