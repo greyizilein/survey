@@ -88,13 +88,36 @@ async function fillForm(answers) {
     } catch (e) {}
   }
 
+  // Checkbox groups ("select all that apply") — supports comma/and-separated multi-answers
+  const checkboxContainers = Array.from(document.querySelectorAll('[role="list"], [role="group"]'))
+    .filter((c) => c.querySelectorAll('[role="checkbox"]').length > 0);
   for (const ans of flatAnswers) {
-    const value = String(ans.answer ?? ans.value ?? "").toLowerCase();
-    if (!value) continue;
-    const group = choiceGroups.find((g) => textFor(g).includes(String(ans.question || ans.question_id || "").toLowerCase().split(/\W+/).find((w) => w.length > 3) || "__none__"));
-    const opts = group ? Array.from(group.querySelectorAll('[role="radio"], [role="checkbox"]')) : [];
-    const match = opts.find((o) => (o.getAttribute("aria-label") || o.innerText || o.parentElement?.innerText || "").toLowerCase().includes(value));
-    if (match) { match.click(); await sleep(80 + Math.random() * 160); }
+    const raw = String(ans.answer ?? ans.value ?? "");
+    if (!raw) continue;
+    const values = raw.split(/,|;| and |\n/i).map((v) => v.trim().toLowerCase()).filter(Boolean);
+    if (values.length === 0) continue;
+    const words = String(ans.question || ans.text || ans.question_text || ans.question_id || "").toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+    const container = checkboxContainers
+      .filter((c) => !used.has(c))
+      .sort((a, b) => {
+        const score = (c) => words.reduce((s, w) => s + (textFor(c).includes(w) ? 1 : 0), 0);
+        return score(b) - score(a);
+      })[0];
+    if (!container) continue;
+    const score = words.reduce((s, w) => s + (textFor(container).includes(w) ? 1 : 0), 0);
+    if (score === 0 && words.length > 0) continue;
+    const boxes = Array.from(container.querySelectorAll('[role="checkbox"]'));
+    let matchedAny = false;
+    for (const value of values) {
+      const box = boxes.find((o) => (o.getAttribute("aria-label") || o.getAttribute("data-answer-value") || o.innerText || "").toLowerCase().includes(value));
+      if (box && box.getAttribute("aria-checked") !== "true") {
+        box.scrollIntoView({ block: "center" });
+        box.click();
+        matchedAny = true;
+        await sleep(100 + Math.random() * 180);
+      }
+    }
+    if (matchedAny) { used.add(container); filled++; }
   }
 
   return { filled, total };

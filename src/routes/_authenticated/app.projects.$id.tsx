@@ -17,7 +17,8 @@ import { parseSurvey } from "@/lib/surveys.functions";
 import { listPersonas } from "@/lib/personas.functions";
 import { runSimulation, getSimulationResults, generateVtt } from "@/lib/simulations.functions";
 import { toast } from "sonner";
-import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Braces } from "lucide-react";
+import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Braces, Wand2 } from "lucide-react";
+import { buildFillScript } from "@/lib/fill-script";
 
 export const Route = createFileRoute("/_authenticated/app/projects/$id")({
   head: () => ({ meta: [{ title: "Project · Surveyor" }] }),
@@ -110,6 +111,19 @@ function ProjectWorkspace() {
     });
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
     downloadFile(csv, `responses-${activeSurvey.slice(0, 8)}.csv`, "text/csv");
+  }
+
+  function openAndFill(answers: unknown[]) {
+    const survey = surveys.find((s: any) => s.id === activeSurvey);
+    const surveyUrl = survey?.source_url;
+    if (!surveyUrl) { toast.error("This survey has no link to open"); return; }
+    const bookmarklet = buildFillScript(answers);
+    navigator.clipboard.writeText(`javascript:${encodeURIComponent(bookmarklet)}`).then(() => {
+      toast.success("Auto-fill link copied! Opening the form...", { duration: 6000 });
+    }).catch(() => {
+      toast("Open the form, then paste the auto-fill script into the address bar.", { duration: 6000 });
+    });
+    window.open(surveyUrl, "_blank");
   }
 
   function exportExtensionJson() {
@@ -219,7 +233,12 @@ function ProjectWorkspace() {
                     <Card key={r.id} className="p-3 bg-muted/20">
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium text-sm">{r.personas?.name}</div>
-                        <Badge variant="outline" className="text-xs">{r.personas?.country}</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">{r.personas?.country}</Badge>
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => openAndFill(r.answers ?? [])}>
+                            <Wand2 className="size-3 mr-1" /> Auto-fill
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
                         {(r.answers ?? []).slice(0, 5).map((a: any, i: number) => (
@@ -270,8 +289,12 @@ function ProjectWorkspace() {
               </div>
               <div className="pt-3 border-t">
                 <p className="text-xs font-medium mb-1">Auto-fill external forms</p>
-                <p className="text-xs text-muted-foreground mb-2">Download the Surveyor extension to type responses directly into Google/MS Forms.</p>
-                <Button asChild variant="outline" size="sm" className="w-full"><Link to="/app/extension">Get extension</Link></Button>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Click <strong className="text-foreground">Auto-fill</strong> on any response above — it opens the
+                  real form and copies a one-click script to your clipboard. Paste it into the address bar of the
+                  new tab and press Enter; it fills every answer and submits automatically.
+                </p>
+                <p className="text-xs text-muted-foreground">No installs needed. Prefer an extension? <Link to="/app/extension" className="text-primary hover:underline">Get it here</Link>.</p>
               </div>
             </div>
           </Card>
