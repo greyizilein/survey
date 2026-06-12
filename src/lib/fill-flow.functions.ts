@@ -38,8 +38,29 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const url = new URL(data.survey_url);
     const title = `Fill run · ${url.hostname.replace(/^www\./, "")}`;
-    const sourceText = await fetchSurveyText(data.survey_url);
-    const questions = await parseQuestions(title, sourceText, data.survey_url);
+
+    // Google Forms expose their exact structure (questions + entry IDs), which
+    // lets us submit responses directly — no browser or extension needed.
+    const { isGoogleFormUrl, fetchGoogleForm } = await import("./google-forms.server");
+    let questions: Question[];
+    let formAction: string | null = null;
+    let formTitle = title;
+    if (isGoogleFormUrl(data.survey_url)) {
+      const form = await fetchGoogleForm(data.survey_url);
+      formAction = form.formAction;
+      formTitle = form.title || title;
+      questions = form.questions.map((q) => ({
+        id: q.entryId,
+        text: q.title,
+        type: mapGoogleType(q.type, q.options),
+        options: q.options.length ? q.options : undefined,
+        required: q.required,
+      }));
+      if (!questions.length) throw new Error("No questions found in this form.");
+    } else {
+      const sourceText = await fetchSurveyText(data.survey_url);
+      questions = await parseQuestions(title, sourceText, data.survey_url);
+    }
 
     const { data: project, error: projectError } = await context.supabase
       .from("projects")
@@ -60,7 +81,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
         title,
         source_type: "url",
         source_url: data.survey_url,
-        raw_input: sourceText.slice(0, 50000),
+        raw_input: formAction ? `Google Form: ${formTitle}` : null,
         parsed_questions: questions as any,
       })
       .select()
@@ -97,7 +118,9 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       survey_id: survey.id,
       simulation_id: sim.id,
       survey_url: data.survey_url,
-      title,
+      title: formTitle,
+      form_action: formAction,
+      direct_submit: Boolean(formAction),
       questions,
       responses,
       primary_payload: responses[0]?.answers ?? [],
@@ -107,6 +130,61 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       })),
     };
   });
+
+const DirectSubmitInput = z.object({
+  form_action: z.string().url(),
+  answers: z.array(z.object({
+    question_id: z.string(),
+    answer: z.string(),
+    type: z.string().optional(),
+    options: z.array(z.string()).optional(),
+  })),
+});
+
+// Submit one respondent's answers straight to a Google Form — no browser.
+export const submitDirectFill = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => DirectSubmitInput.parse(d))
+  .handler(async ({ data }) => {
+    const { submitGoogleForm } = await import("./google-forms.server");
+    const entries = data.answers.map((a) => {
+      const options = a.options ?? [];
+      let values: string[];
+      if (a.type === "multiple_choice" && options.length) {
+        // Checkbox question — answer may contain several options
+        const parts = a.answer.split(/,|;| and |\n/i).map((v) => v.trim()).filter(Boolean);
+        values = parts
+          .map((p) => options.find((o) => o.toLowerCase() === p.toLowerCase())
+            ?? options.find((o) => o.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(o.toLowerCase())))
+          .filter((v): v is string => Boolean(v));
+        if (!values.length && options.length) values = [options[0]];
+      } else if (options.length) {
+        // Choice/scale/dropdown — value must be one of the options
+        const match = options.find((o) => o.toLowerCase() === a.answer.toLowerCase())
+          ?? options.find((o) => o.toLowerCase().includes(a.answer.toLowerCase()) || a.answer.toLowerCase().includes(o.toLowerCase()));
+        values = [match ?? options[0]];
+      } else {
+        values = [a.answer];
+      }
+      return { entryId: a.question_id, values };
+    });
+    const ok = await submitGoogleForm(data.form_action, entries);
+    if (!ok) throw new Error("Google rejected the submission");
+    return { submitted: true };
+  });
+
+function mapGoogleType(type: number, options: string[]): Question["type"] {
+  switch (type) {
+    case 0: return "open_ended";
+    case 1: return "open_ended";
+    case 2: return "single_choice";
+    case 3: return "single_choice";
+    case 4: return "multiple_choice";
+    case 5: return "likert";
+    case 7: return options.length ? "likert" : "matrix";
+    default: return "open_ended";
+  }
+}
 
 async function fetchSurveyText(url: string) {
   try {

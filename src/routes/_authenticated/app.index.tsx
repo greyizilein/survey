@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createFillRunFromLink } from "@/lib/fill-flow.functions";
+import { createFillRunFromLink, submitDirectFill } from "@/lib/fill-flow.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/app/")({
 
 function Dashboard() {
   const fillFn = useServerFn(createFillRunFromLink);
+  const directFillFn = useServerFn(submitDirectFill);
   const autoFillFn = useServerFn(autoFillForm);
   const autoFillConfiguredFn = useServerFn(isAutofillServiceConfigured);
   const autoFillConfigQ = useQuery({ queryKey: ["autofill-configured"], queryFn: () => autoFillConfiguredFn() });
@@ -67,19 +68,32 @@ function Dashboard() {
     setFilling(true);
     let submitted = 0;
     try {
-      for (const response of run.responses) {
+      for (let i = 0; i < run.responses.length; i++) {
+        const response = run.responses[i];
         try {
-          const result: any = await autoFillFn({ data: { url: run.survey_url, answers: response.answers } });
-          if (result.submitted) submitted++;
-          if (!result.submitted && result.debug) {
-            console.log("Auto-fill debug:", result);
-            toast(`Filled ${result.filled} fields, no submit found. Page: "${result.debug.title}" · ${result.debug.radiogroups} question groups, ${result.debug.textFields} text fields. Buttons: ${result.debug.buttons.join(", ") || "none"}`, { duration: 12000 });
+          if (run.direct_submit && run.form_action) {
+            await directFillFn({ data: {
+              form_action: run.form_action,
+              answers: (response.answers ?? []).map((a: any) => ({
+                question_id: String(a.question_id),
+                answer: String(a.answer ?? ""),
+                type: a.type ? String(a.type) : undefined,
+                options: Array.isArray(a.options) ? a.options.map(String) : undefined,
+              })),
+            }});
+            submitted++;
+            toast.success(`Submitted ${submitted}/${run.responses.length}...`, { id: "fill-progress" });
+            // Small human-like gap between submissions
+            await new Promise((r) => setTimeout(r, 800 + Math.random() * 1500));
+          } else {
+            const result: any = await autoFillFn({ data: { url: run.survey_url, answers: response.answers } });
+            if (result.submitted) submitted++;
           }
         } catch (e) {
           toast.error(e instanceof Error ? e.message : "Auto-fill failed for one respondent");
         }
       }
-      toast.success(`Submitted ${submitted}/${run.responses.length} responses to the form.`);
+      toast.success(`Submitted ${submitted}/${run.responses.length} responses to the form.`, { id: "fill-progress" });
     } finally {
       setFilling(false);
     }
@@ -164,10 +178,10 @@ function Dashboard() {
                 <p className="text-sm text-muted-foreground">{run.questions.length} questions · {run.responses.length} generated respondents</p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                {autoFillConfigQ.data?.configured ? (
+                {run.direct_submit || autoFillConfigQ.data?.configured ? (
                   <Button onClick={autoFillAll} disabled={filling}>
                     {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
-                    {filling ? "Filling and submitting..." : `Auto-fill form (${run.responses.length})`}
+                    {filling ? "Submitting..." : `Submit ${run.responses.length} responses to the form`}
                   </Button>
                 ) : (
                   <Button asChild><a href={run.survey_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 size-4" /> Open form</a></Button>
