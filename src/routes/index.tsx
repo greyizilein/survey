@@ -87,21 +87,6 @@ function Landing() {
           aria-hidden
         />
 
-        {/* Floating chips top */}
-        <div className="pointer-events-none absolute inset-x-0 top-24 mx-auto hidden max-w-3xl sm:block">
-          <div className="relative h-32">
-            <FloatChip className="absolute left-4 top-2 rotate-[-8deg] animate-float">
-              <ClipboardPenLine className="size-4" /> Google Forms
-            </FloatChip>
-            <FloatChip className="absolute right-6 top-0 rotate-[6deg] animate-float-delay">
-              <Sparkles className="size-4" /> 1,243 personas
-            </FloatChip>
-            <FloatChip className="absolute left-1/2 top-16 -translate-x-1/2 animate-float">
-              <Wand2 className="size-4" /> Auto-fill
-            </FloatChip>
-          </div>
-        </div>
-
         {/* Centered headline */}
         <div className="relative z-10 mx-auto flex flex-1 max-w-3xl flex-col items-center justify-center text-center animate-fade-up">
           <span
@@ -143,18 +128,6 @@ function Landing() {
             >
               See a demo
             </Link>
-          </div>
-        </div>
-
-        {/* Floating chips bottom */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-32 mx-auto hidden max-w-3xl sm:block">
-          <div className="relative h-24">
-            <FloatChip className="absolute left-2 bottom-0 rotate-[7deg] animate-float-delay">
-              <Globe className="size-4" /> Live submit
-            </FloatChip>
-            <FloatChip className="absolute right-2 bottom-6 rotate-[-5deg] animate-float">
-              <Gauge className="size-4" /> 12s / response
-            </FloatChip>
           </div>
         </div>
 
