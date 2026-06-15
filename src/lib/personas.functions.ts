@@ -99,26 +99,32 @@ async function generatePersonasInternal(
     const ai = createAi();
 
     const aiCount = Math.min(data.count, 50);
-    const prompt = `You are generating ${aiCount} diverse synthetic persona profiles for survey research.
-Brief from researcher: "${data.brief}"
+    const prompt = `You are generating ${aiCount} synthetic persona profiles for a survey research population.
 
-Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${aiCount} objects matching this shape:
-{
+POPULATION BRIEF: "${data.brief}"
+
+STRICT RULES — violating any of these is an error:
+• country and city MUST reflect the location stated in the brief — do NOT place any persona in a different country or city
+• occupation MUST reflect the role or group stated in the brief — do NOT use unrelated jobs or roles
+• Diversity should come ONLY from: age, gender, education level, income bracket, political views, personality, values, and biography
+• Names must be culturally appropriate for the location in the brief
+
+Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${aiCount} objects:
+[{
   "name": "First Last",
-  "age": number (18-85),
+  "age": <18-85>,
   "gender": "male" | "female",
-  "country": "Country",
-  "city": "City",
+  "country": "<country from the brief>",
+  "city": "<city from the brief, or nearest major city if not specified>",
   "education": "high school" | "some college" | "bachelors" | "masters" | "phd" | "trade",
   "income_bracket": "low" | "lower-middle" | "middle" | "upper-middle" | "high",
-  "occupation": "concise job title",
+  "occupation": "<specific role matching the brief>",
   "political_sentiment": "progressive" | "moderate-left" | "centrist" | "moderate-right" | "conservative" | "libertarian" | "apolitical",
   "core_values": ["3-5 concise value words"],
   "language_style": "formal" | "casual" | "academic" | "blunt" | "warm" | "skeptical" | "enthusiastic",
-  "bio": "2-3 sentence first-person backstory hinting at lived experience",
-  "tags": ["3-5 short demographic/psychographic tags"]
-}
-Make each persona meaningfully different. Match the brief.`;
+  "bio": "2-3 sentence first-person backstory grounded in the specific location and role from the brief",
+  "tags": ["3-5 demographic/psychographic tags relevant to the brief"]
+}]`;
 
     let personas: Array<Record<string, unknown>> = [];
     try {
@@ -212,31 +218,44 @@ function normalizeGender(value: unknown): "male" | "female" {
   return s.startsWith("f") ? "female" : "male";
 }
 
+function parseBriefHints(brief: string): { city: string; country: string; occupation: string } {
+  // Match "in [City], [Country]" or "in [Location]"
+  const inMatch = brief.match(/\bin\s+([\w\s\-]+?)(?:,\s*([\w\s\-]+?))?(?:\s*(?:district|lga|area|region|province|state)\b|\s*$|[.!?,])/i);
+  // Match the role/group before "in" / "from" / "of"
+  const roleMatch = brief.match(/^([\w\s\-']+?)\s+(?:in|from|of|across)\s+/i);
+
+  const loc1 = inMatch?.[1]?.trim() ?? "";
+  const loc2 = inMatch?.[2]?.trim() ?? "";
+
+  return {
+    city: loc1 || "the location in the brief",
+    country: loc2 || loc1 || "the country in the brief",
+    occupation: roleMatch?.[1]?.trim() || "professional",
+  };
+}
+
 function makeFallbackPersonas(count: number, brief: string, offset = 0): Array<Record<string, unknown>> {
-  const countries = ["United States", "United Kingdom", "Canada", "Nigeria", "India", "Brazil", "Germany", "Mexico", "South Africa", "Japan"];
-  const cities = ["Columbus", "Manchester", "Toronto", "Lagos", "Bengaluru", "Recife", "Berlin", "Guadalajara", "Cape Town", "Osaka"];
-  const jobs = ["teacher", "delivery driver", "nurse", "software analyst", "shop owner", "student", "electrician", "parent caregiver", "sales manager", "public-sector clerk"];
+  const { city, country, occupation } = parseBriefHints(brief);
   const education = ["high school", "some college", "bachelors", "masters", "trade", "phd"];
   const sentiments = ["progressive", "moderate-left", "centrist", "moderate-right", "conservative", "libertarian", "apolitical"];
   const styles = ["formal", "casual", "academic", "blunt", "warm", "skeptical", "enthusiastic"];
   const values = ["security", "family", "autonomy", "fairness", "tradition", "opportunity", "stability", "community", "privacy", "ambition"];
   return Array.from({ length: count }, (_, i) => {
     const n = offset + i;
-    const countryIndex = n % countries.length;
     return {
       name: `Respondent ${n + 1}`,
       age: 18 + (n * 7) % 67,
       gender: ["female", "male"][n % 2],
-      country: countries[countryIndex],
-      city: cities[countryIndex],
+      country,
+      city,
       education: education[n % education.length],
       income_bracket: ["low", "lower-middle", "middle", "upper-middle", "high"][n % 5],
-      occupation: jobs[n % jobs.length],
+      occupation,
       political_sentiment: sentiments[n % sentiments.length],
       core_values: [values[n % values.length], values[(n + 3) % values.length], values[(n + 6) % values.length]],
       language_style: styles[n % styles.length],
-      bio: `I bring the perspective of a ${jobs[n % jobs.length]} in ${cities[countryIndex]}, shaped by ${brief.toLowerCase().slice(0, 120)}. My answers tend to balance practical constraints with what feels credible in everyday life.`,
-      tags: [countries[countryIndex], education[n % education.length], sentiments[n % sentiments.length]],
+      bio: `I am a ${occupation} based in ${city}, ${country}. My perspective is shaped by my local context and professional experience.`,
+      tags: [country, occupation, education[n % education.length], sentiments[n % sentiments.length]],
     };
   });
 }
