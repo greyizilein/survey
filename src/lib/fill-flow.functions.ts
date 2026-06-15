@@ -290,9 +290,9 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
       : "";
 
     const responses = await Promise.all(personas.map(async (persona) => {
-      const prompt = `You are answering a survey IN CHARACTER as a specific real-feeling person. Think before you answer.
+      const prompt = `You are answering a survey as an anonymous respondent. Your profile below shapes your perspective — it is private context only and must never appear in your answers.
 
-WHO YOU ARE
+YOUR PROFILE (internal use only — do not quote or reference any of this)
 ${personaPrompt(persona)}
 
 THE SURVEY
@@ -303,14 +303,22 @@ ${questionList}
 
 HOW TO REASON (do this silently, do not output it)
 1. Re-read each question and what it is really asking.
-2. Map it to your lived experience: your job, city, income, education, values, politics, daily constraints.
+2. Map it to your lived experience: your occupation, income, education, values, politics, daily constraints.
 3. For choice questions, weigh the options against your situation — pick the one that genuinely fits, not the first or middle option.
 4. For rating/likert questions, pick the number that matches how someone like you would actually feel — avoid defaulting to "3" or the middle. Distribute realistically.
-5. For open-ended questions, give a specific, concrete reason grounded in your life — name a place, habit, cost, person, or trade-off where natural.
+5. For open-ended questions, give a specific, concrete reason grounded in your values and day-to-day experience — draw on habits, costs, trade-offs, and priorities. Never name a place, person, or institution.
 6. Stay internally consistent: your answers across questions must reflect the same person (same income, same politics, same priorities).
 7. ${lengthGuide}
 8. ${variationGuide}
 ${personalityGuide ? `9. ${personalityGuide}\n` : ""}
+ANONYMITY RULES (hard — any violation makes the response unusable)
+- Never state or allude to your name
+- Never mention any location: no country, city, neighbourhood, region, or phrases like "here," "in my area," "where I live"
+- Never mention any other person, named or unnamed ("my husband," "a colleague," "someone I know")
+- Never state your age, gender, income bracket, religion, ethnicity, or political party unless that specific attribute is what the question is asking for
+- Never name any employer, school, hospital, or organisation
+- Your profile is for internal reasoning only — answers read as if from a completely anonymous respondent
+
 OUTPUT FORMAT
 Return ONLY a JSON array, one object per question, using the exact "id" given:
 [{"question_id":"<id exactly as given>","answer":"<your in-character answer>"}]
@@ -385,26 +393,25 @@ function fallbackAnswers(questions: Question[], persona: Persona) {
 function fallbackAnswer(question: Question, persona: Persona) {
   if (question.options?.length) return question.options[Math.abs(hash(`${persona.id}-${question.id}`)) % question.options.length];
   if (question.type === "rating" || question.type === "likert") return String(3 + (Math.abs(hash(`${persona.name}-${question.text}`)) % 3) - 1);
-  if (question.type === "yes_no") return Math.abs(hash(`${question.id}-${persona.country}`)) % 2 === 0 ? "Yes" : "No";
-  const place = [persona.city, persona.country].filter(Boolean).join(", ") || "my area";
-  return `As ${persona.occupation ?? "someone with my background"} in ${place}, I would say it depends on trust, cost, and whether it fits into my normal routine.`;
+  if (question.type === "yes_no") return Math.abs(hash(`${question.id}-${persona.id}`)) % 2 === 0 ? "Yes" : "No";
+  return `It really depends on the situation. From my experience, it comes down to trust, cost, and whether it fits into my day-to-day routine.`;
 }
 
 function personaPrompt(p: Persona) {
-  const location = [p.city, p.country].filter(Boolean).join(", ") || "an unspecified location";
   const concerns = p.key_concerns?.length ? p.key_concerns.join(", ") : null;
   const tags = p.tags?.length ? p.tags.join(", ") : null;
 
   return [
-    `You are ${p.name} — ${p.age ?? "?"} years old, ${p.gender ?? "unspecified gender"}, based in ${location}.`,
+    // Demographic context — internal only, never to be stated in answers
+    `Age: ${p.age ?? "unspecified"}. Gender: ${p.gender ?? "unspecified"}. Education: ${p.education ?? "unspecified"}.`,
+    `Income: ${p.income_bracket ?? "unspecified"}. Occupation: ${p.occupation ?? "unspecified"}.`,
+    `Politics: ${p.political_sentiment ?? "apolitical"}. Core values: ${(p.core_values ?? []).join(", ") || "unspecified"}.`,
     p.bio ? `Background: ${p.bio}` : null,
     p.life_situation ? `Your situation right now: ${p.life_situation}` : null,
     concerns ? `What you worry about most: ${concerns}.` : null,
-    `Education: ${p.education ?? "unspecified"}. Income: ${p.income_bracket ?? "unspecified"}. Occupation: ${p.occupation ?? "unspecified"}.`,
-    `Politics: ${p.political_sentiment ?? "apolitical"}. Core values: ${(p.core_values ?? []).join(", ") || "unspecified"}.`,
-    p.voice_sample ? `How you speak (match this register and tone): "${p.voice_sample}"` : `Voice: ${p.language_style ?? "natural"}.`,
+    p.voice_sample ? `Register and tone to match: "${p.voice_sample}"` : `Voice: ${p.language_style ?? "natural"}.`,
     tags ? `Tags: ${tags}.` : null,
-    `Answer every question as ${p.name.split(" ")[0]} would — drawing on your specific lived experience, not as a generic ${p.occupation ?? "person"}.`,
+    `Use this profile to inform your perspective, priorities, and reasoning — not to identify yourself.`,
   ].filter(Boolean).join("\n");
 }
 
