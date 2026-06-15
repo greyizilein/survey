@@ -35,6 +35,10 @@ interface Persona {
   core_values: string[] | null;
   language_style: string | null;
   bio: string | null;
+  life_situation: string | null;
+  key_concerns: string[] | null;
+  voice_sample: string | null;
+  tags: string[] | null;
 }
 
 export const createFillRunFromLink = createServerFn({ method: "POST" })
@@ -273,12 +277,12 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
-    const questionList = questions.map((q) => `- id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
+    const questionList = questions.map((q, idx) => `${idx + 1}. id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? `\n   Options: ${q.options.map((o) => `"${o}"`).join(" | ")}` : ""}${q.required === false ? " (optional)" : ""}`).join("\n");
 
     const lengthGuide = {
-      short: "Keep open-text answers very brief — a phrase or one short sentence.",
-      medium: "Open-text answers should be 1-3 natural sentences.",
-      long: "Open-text answers should be detailed — 3-6 sentences with specific examples or reasoning.",
+      short: "Open-text answers: a phrase or one short sentence. Stay terse but specific.",
+      medium: "Open-text answers: 1-3 natural sentences with a concrete reason or example.",
+      long: "Open-text answers: 3-6 sentences with specific lived-experience examples, trade-offs, and reasoning.",
     }[style?.responseLength ?? "medium"];
     const variationGuide = (style?.variation ?? 50) >= 70
       ? "Make wording, sentence length, and tone vary noticeably between respondents — some terse, some chatty, some hedging."
@@ -290,9 +294,38 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
       : "";
 
     const responses = await Promise.all(personas.map(async (persona) => {
-      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\n${lengthGuide}\n${variationGuide}\n${personalityGuide}\nQuestions:\n${questionList}\n\nReturn ONLY JSON, an array with exactly one entry per question, using the exact "id" value given for each question as "question_id":\n[{"question_id":"<copy the id exactly as given>","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and follow the length and tone guidance above.`;
+      const prompt = `You are answering a survey IN CHARACTER as a specific real-feeling person. Think before you answer.
+
+WHO YOU ARE
+${personaPrompt(persona)}
+
+THE SURVEY
+Topic / brief: ${brief}
+
+Questions (answer ALL, in order):
+${questionList}
+
+HOW TO REASON (do this silently, do not output it)
+1. Re-read each question and what it is really asking.
+2. Map it to your lived experience: your job, city, income, education, values, politics, daily constraints.
+3. For choice questions, weigh the options against your situation — pick the one that genuinely fits, not the first or middle option.
+4. For rating/likert questions, pick the number that matches how someone like you would actually feel — avoid defaulting to "3" or the middle. Distribute realistically.
+5. For open-ended questions, give a specific, concrete reason grounded in your life — name a place, habit, cost, person, or trade-off where natural.
+6. Stay internally consistent: your answers across questions must reflect the same person (same income, same politics, same priorities).
+7. ${lengthGuide}
+8. ${variationGuide}
+${personalityGuide ? `9. ${personalityGuide}\n` : ""}
+OUTPUT FORMAT
+Return ONLY a JSON array, one object per question, using the exact "id" given:
+[{"question_id":"<id exactly as given>","answer":"<your in-character answer>"}]
+
+Rules:
+- Choice/dropdown/yes-no/likert/rating answers MUST match one of the provided option strings verbatim.
+- Multi-select (checkbox) answers: join the chosen option strings with ", " — only options that genuinely apply to you.
+- Open-ended answers must sound like a real person speaking, not a survey-bot. No corporate fluff.
+- Do not invent extra questions or skip required ones.`;
       try {
-        const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+        const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.8 });
         const match = text.match(/\[[\s\S]*\]/);
         const parsed = match ? JSON.parse(match[0]) : null;
         return { persona, answers: normalizeAnswers(parsed, questions, persona) };
@@ -305,6 +338,7 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
     return personas.map((persona) => ({ persona, answers: fallbackAnswers(questions, persona) }));
   }
 }
+
 
 function normalizeQuestions(value: unknown, title: string, url: string): Question[] {
   if (!Array.isArray(value)) return fallbackQuestions(title, url);
@@ -361,7 +395,21 @@ function fallbackAnswer(question: Question, persona: Persona) {
 }
 
 function personaPrompt(p: Persona) {
-  return `You are ${p.name}, age ${p.age ?? "?"}, ${p.gender ?? ""}, from ${p.city ?? ""}, ${p.country ?? ""}. Education: ${p.education ?? "?"}. Income: ${p.income_bracket ?? "?"}. Occupation: ${p.occupation ?? "?"}. Politics: ${p.political_sentiment ?? "?"}. Values: ${(p.core_values ?? []).join(", ")}. Voice: ${p.language_style ?? "natural"}. Bio: ${p.bio ?? ""}`;
+  const location = [p.city, p.country].filter(Boolean).join(", ") || "an unspecified location";
+  const concerns = p.key_concerns?.length ? p.key_concerns.join(", ") : null;
+  const tags = p.tags?.length ? p.tags.join(", ") : null;
+
+  return [
+    `You are ${p.name} — ${p.age ?? "?"} years old, ${p.gender ?? "unspecified gender"}, based in ${location}.`,
+    p.bio ? `Background: ${p.bio}` : null,
+    p.life_situation ? `Your situation right now: ${p.life_situation}` : null,
+    concerns ? `What you worry about most: ${concerns}.` : null,
+    `Education: ${p.education ?? "unspecified"}. Income: ${p.income_bracket ?? "unspecified"}. Occupation: ${p.occupation ?? "unspecified"}.`,
+    `Politics: ${p.political_sentiment ?? "apolitical"}. Core values: ${(p.core_values ?? []).join(", ") || "unspecified"}.`,
+    p.voice_sample ? `How you speak (match this register and tone): "${p.voice_sample}"` : `Voice: ${p.language_style ?? "natural"}.`,
+    tags ? `Tags: ${tags}.` : null,
+    `Answer every question as ${p.name.split(" ")[0]} would — drawing on your specific lived experience, not as a generic ${p.occupation ?? "person"}.`,
+  ].filter(Boolean).join("\n");
 }
 
 function makePersonas(count: number, brief: string, offset = 0) {
