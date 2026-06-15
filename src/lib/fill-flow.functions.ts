@@ -35,6 +35,10 @@ interface Persona {
   core_values: string[] | null;
   language_style: string | null;
   bio: string | null;
+  life_situation: string | null;
+  key_concerns: string[] | null;
+  voice_sample: string | null;
+  tags: string[] | null;
 }
 
 export const createFillRunFromLink = createServerFn({ method: "POST" })
@@ -391,7 +395,21 @@ function fallbackAnswer(question: Question, persona: Persona) {
 }
 
 function personaPrompt(p: Persona) {
-  return `You are ${p.name}, age ${p.age ?? "?"}, ${p.gender ?? ""}, from ${p.city ?? ""}, ${p.country ?? ""}. Education: ${p.education ?? "?"}. Income: ${p.income_bracket ?? "?"}. Occupation: ${p.occupation ?? "?"}. Politics: ${p.political_sentiment ?? "?"}. Values: ${(p.core_values ?? []).join(", ")}. Voice: ${p.language_style ?? "natural"}. Bio: ${p.bio ?? ""}`;
+  const location = [p.city, p.country].filter(Boolean).join(", ") || "an unspecified location";
+  const concerns = p.key_concerns?.length ? p.key_concerns.join(", ") : null;
+  const tags = p.tags?.length ? p.tags.join(", ") : null;
+
+  return [
+    `You are ${p.name} — ${p.age ?? "?"} years old, ${p.gender ?? "unspecified gender"}, based in ${location}.`,
+    p.bio ? `Background: ${p.bio}` : null,
+    p.life_situation ? `Your situation right now: ${p.life_situation}` : null,
+    concerns ? `What you worry about most: ${concerns}.` : null,
+    `Education: ${p.education ?? "unspecified"}. Income: ${p.income_bracket ?? "unspecified"}. Occupation: ${p.occupation ?? "unspecified"}.`,
+    `Politics: ${p.political_sentiment ?? "apolitical"}. Core values: ${(p.core_values ?? []).join(", ") || "unspecified"}.`,
+    p.voice_sample ? `How you speak (match this register and tone): "${p.voice_sample}"` : `Voice: ${p.language_style ?? "natural"}.`,
+    tags ? `Tags: ${tags}.` : null,
+    `Answer every question as ${p.name.split(" ")[0]} would — drawing on your specific lived experience, not as a generic ${p.occupation ?? "person"}.`,
+  ].filter(Boolean).join("\n");
 }
 
 function makePersonas(count: number, brief: string, offset = 0) {

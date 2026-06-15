@@ -169,6 +169,9 @@ function constraintRulesText(c: BriefConstraints): string {
   return lines.join("\n");
 }
 
+const BATCH_SIZE = 50;
+const MAX_CONCURRENT_BATCHES = 10;
+
 async function generateBatch(
   brief: string,
   constraints: BriefConstraints,
@@ -189,22 +192,25 @@ ${constraintRulesText(constraints)}
 What you SHOULD vary: first/last names, exact age (within range), gender, education, income bracket, political sentiment, core values, language style, personality, life situation, and exact neighborhood (from the allowed list).
 
 Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${size} objects:
-{
+[{
   "name": "First Last (culturally appropriate for the location)",
-  "age": number within the allowed range,
+  "age": <number within the allowed range>,
   "gender": "male" | "female",
-  "country": "must equal the constrained country exactly",
-  "city": "the constrained city or one of the allowed neighborhoods",
+  "country": "<must equal the constrained country exactly>",
+  "city": "<the constrained city or one of the allowed neighborhoods>",
   "education": "high school" | "some college" | "bachelors" | "masters" | "phd" | "trade",
   "income_bracket": "low" | "lower-middle" | "middle" | "upper-middle" | "high",
-  "occupation": "must come from the allowed role pool",
+  "occupation": "<must come from the allowed role pool>",
   "political_sentiment": "progressive" | "moderate-left" | "centrist" | "moderate-right" | "conservative" | "libertarian" | "apolitical",
   "core_values": ["3-5 concise value words"],
   "language_style": "formal" | "casual" | "academic" | "blunt" | "warm" | "skeptical" | "enthusiastic",
-  "bio": "2-3 sentence first-person backstory that reflects the constrained location and role",
-  "tags": ["3-5 short tags"]
-}
-Batch seed: ${seedIndex} (use it to ensure this batch differs from prior batches).`;
+  "bio": "3-4 sentence first-person backstory grounded in their specific neighborhood, school/workplace, daily commute, and role",
+  "life_situation": "One concrete sentence: their specific workplace, daily constraints, family context (e.g. 'Teaches 58 students in a public primary school in Mushin, commutes 75 min by danfo, supports two younger siblings')",
+  "key_concerns": ["2-3 specific things this person actively worries about in their daily life and work"],
+  "voice_sample": "One sentence written exactly how this person would speak — showing their vocabulary, register, and whether they use local phrases or pidgin",
+  "tags": ["3-5 short demographic/psychographic tags"]
+}]
+Batch seed: ${seedIndex} (use it to ensure names and bios are distinct from prior batches).`;
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
@@ -221,47 +227,48 @@ async function generatePersonasInternal(
 ) {
   const constraints = await parseBriefConstraints(data.brief);
 
-  const BATCH = 25;
-  const PARALLEL = 4;
-  const batches: number[] = [];
-  for (let remaining = data.count; remaining > 0; remaining -= BATCH) {
-    batches.push(Math.min(BATCH, remaining));
+  const totalBatches = Math.ceil(data.count / BATCH_SIZE);
+
+  async function runBatch(batchIndex: number): Promise<Array<Record<string, unknown>>> {
+    const batchSize = Math.min(BATCH_SIZE, data.count - batchIndex * BATCH_SIZE);
+    const result = await generateBatch(data.brief, constraints, batchSize, batchIndex);
+    if (result.length < batchSize) {
+      return [
+        ...result,
+        ...makeFallbackPersonas(batchSize - result.length, data.brief, constraints, batchIndex * BATCH_SIZE + result.length),
+      ];
+    }
+    return result;
   }
 
-  const personas: Array<Record<string, unknown>> = [];
-  for (let i = 0; i < batches.length; i += PARALLEL) {
-    const slice = batches.slice(i, i + PARALLEL);
-    const results = await Promise.all(
-      slice.map((size, j) => generateBatch(data.brief, constraints, size, i + j)),
+  // Run batches in parallel, capped at MAX_CONCURRENT_BATCHES at a time
+  const allPersonas: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < totalBatches; i += MAX_CONCURRENT_BATCHES) {
+    const chunk = Array.from(
+      { length: Math.min(MAX_CONCURRENT_BATCHES, totalBatches - i) },
+      (_, j) => runBatch(i + j),
     );
-    results.forEach((result, j) => {
-      const expected = slice[j];
-      if (result.length >= expected) {
-        personas.push(...result.slice(0, expected));
-      } else {
-        personas.push(...result);
-        personas.push(...makeFallbackPersonas(expected - result.length, data.brief, constraints, personas.length));
-      }
-    });
+    const results = await Promise.all(chunk);
+    allPersonas.push(...results.flat());
   }
 
-  // Enforce constraints on every row (covers any AI drift) before insert.
+  // Enforce constraints on every row (catches any AI drift) before insert.
   const allowedCities = constraints.city
     ? [constraints.city, ...constraints.localities]
     : constraints.localities;
   const [minAge, maxAge] = constraints.age_range;
 
-  const rows = personas.slice(0, data.count).map((p, index) => {
+  const rows = allPersonas.slice(0, data.count).map((p, index) => {
     const country = constraints.country ?? (p.country ? String(p.country) : null);
     let city: string | null = p.city ? String(p.city) : null;
     if (allowedCities.length) {
-      const match = allowedCities.find((c) => city && c.toLowerCase() === city.toLowerCase());
+      const match = allowedCities.find((c) => city && c.toLowerCase() === city!.toLowerCase());
       city = match ?? allowedCities[index % allowedCities.length];
     }
     let occupation: string | null = p.occupation ? String(p.occupation) : null;
     if (constraints.occupation_pool.length) {
       const inPool = constraints.occupation_pool.some(
-        (o) => occupation && o.toLowerCase() === occupation.toLowerCase(),
+        (o) => occupation && o.toLowerCase() === occupation!.toLowerCase(),
       );
       if (!inPool) occupation = constraints.occupation_pool[index % constraints.occupation_pool.length];
     }
@@ -284,6 +291,9 @@ async function generatePersonasInternal(
       core_values: Array.isArray(p.core_values) ? p.core_values.map(String) : null,
       language_style: p.language_style ? String(p.language_style) : null,
       bio: p.bio ? String(p.bio) : null,
+      life_situation: p.life_situation ? String(p.life_situation) : null,
+      key_concerns: Array.isArray(p.key_concerns) ? p.key_concerns.map(String) : null,
+      voice_sample: p.voice_sample ? String(p.voice_sample) : null,
       tags: Array.isArray(p.tags) ? p.tags.map(String) : null,
     };
   });
@@ -320,6 +330,7 @@ export async function samplePersonas(
     return shuffled.slice(0, count);
   }
 
+  // Stratified: group by gender+country, then take proportionally from each group.
   const groups = new Map<string, any[]>();
   for (const persona of shuffled) {
     const key = `${persona.gender ?? "unknown"}::${persona.country ?? "unknown"}`;
@@ -377,8 +388,10 @@ function makeFallbackPersonas(
       core_values: [values[n % values.length], values[(n + 3) % values.length], values[(n + 6) % values.length]],
       language_style: styles[n % styles.length],
       bio: `I bring the perspective of a ${job} in ${city}${c.country ? ", " + c.country : ""}, shaped by ${brief.toLowerCase().slice(0, 120)}.`,
+      life_situation: `Works as a ${job} in ${city}.`,
+      key_concerns: [values[n % values.length], values[(n + 2) % values.length]],
+      voice_sample: null,
       tags: [c.country, city, job].filter(Boolean) as string[],
     };
   });
 }
-
