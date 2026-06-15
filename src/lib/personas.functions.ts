@@ -89,27 +89,22 @@ export const generatePersonas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => GenInput.parse(d))
   .handler(async ({ data, context }) => generatePersonasInternal(context, data));
 
-async function generatePersonasInternal(
-  context: { userId: string; supabase: any },
-  data: { count: number; brief: string; population_id?: string },
-) {
-  {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
-    const { generateText } = await import("ai");
-    const ai = createAi();
+const BATCH_SIZE = 50;
+const MAX_CONCURRENT_BATCHES = 10;
 
-    const aiCount = Math.min(data.count, 50);
-    const prompt = `You are generating ${aiCount} synthetic persona profiles for a survey research population.
+function buildPersonaPrompt(count: number, brief: string, batchIndex: number): string {
+  return `You are generating ${count} synthetic persona profiles for a survey research population.
 
-POPULATION BRIEF: "${data.brief}"
+POPULATION BRIEF: "${brief}"
 
 STRICT RULES — violating any of these is an error:
 • country and city MUST reflect the location stated in the brief — do NOT place any persona in a different country or city
 • occupation MUST reflect the role or group stated in the brief — do NOT use unrelated jobs or roles
 • Diversity should come ONLY from: age, gender, education level, income bracket, political views, personality, values, and biography
 • Names must be culturally appropriate for the location in the brief
+• This is batch ${batchIndex + 1} — make sure names and bios are distinct from other batches
 
-Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${aiCount} objects:
+Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${count} objects:
 [{
   "name": "First Last",
   "age": <18-85>,
@@ -125,24 +120,45 @@ Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${aiCou
   "bio": "2-3 sentence first-person backstory grounded in the specific location and role from the brief",
   "tags": ["3-5 demographic/psychographic tags relevant to the brief"]
 }]`;
+}
 
-    let personas: Array<Record<string, unknown>> = [];
-    try {
-      const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (jsonMatch) personas = JSON.parse(jsonMatch[0]);
-    } catch {
-      personas = [];
+async function generatePersonasInternal(
+  context: { userId: string; supabase: any },
+  data: { count: number; brief: string; population_id?: string },
+) {
+  {
+    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const ai = createAi();
+
+    const totalBatches = Math.ceil(data.count / BATCH_SIZE);
+
+    async function runBatch(batchIndex: number): Promise<Array<Record<string, unknown>>> {
+      const batchSize = Math.min(BATCH_SIZE, data.count - batchIndex * BATCH_SIZE);
+      const prompt = buildPersonaPrompt(batchSize, data.brief, batchIndex);
+      try {
+        const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(0, batchSize);
+        }
+      } catch {}
+      return makeFallbackPersonas(batchSize, data.brief, batchIndex * BATCH_SIZE);
     }
 
-    if (personas.length < aiCount) {
-      personas = [...personas, ...makeFallbackPersonas(aiCount - personas.length, data.brief, personas.length)];
-    }
-    if (data.count > aiCount) {
-      personas = [...personas, ...makeFallbackPersonas(data.count - aiCount, data.brief, aiCount)];
+    // Run batches in parallel, capped at MAX_CONCURRENT_BATCHES at a time
+    const allPersonas: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < totalBatches; i += MAX_CONCURRENT_BATCHES) {
+      const chunk = Array.from(
+        { length: Math.min(MAX_CONCURRENT_BATCHES, totalBatches - i) },
+        (_, j) => runBatch(i + j),
+      );
+      const results = await Promise.all(chunk);
+      allPersonas.push(...results.flat());
     }
 
-    const rows = personas.slice(0, data.count).map((p, index) => ({
+    const rows = allPersonas.slice(0, data.count).map((p, index) => ({
       user_id: context.userId,
       population_id: data.population_id ?? null,
       name: String(p.name ?? `Respondent ${index + 1}`),
