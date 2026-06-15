@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createFillRunFromLink, submitDirectFill } from "@/lib/fill-flow.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
 import { listPopulations } from "@/lib/personas.functions";
+import { usePersistedState } from "@/lib/use-persisted-state";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -30,16 +31,18 @@ function FillPage() {
   const autoFillConfigQ = useQuery({ queryKey: ["autofill-configured"], queryFn: () => autoFillConfiguredFn() });
   const populationsFn = useServerFn(listPopulations);
   const populationsQ = useQuery({ queryKey: ["populations"], queryFn: () => populationsFn() });
-  const [url, setUrl] = useState("");
-  const [brief, setBrief] = useState("");
-  const [count, setCount] = useState(5);
-  const [responseLength, setResponseLength] = useState<"short" | "medium" | "long">("medium");
-  const [variation, setVariation] = useState(50);
-  const [personality, setPersonality] = useState("");
-  const [populationId, setPopulationId] = useState<string>("none");
-  const [samplingMethod, setSamplingMethod] = useState<"random" | "stratified">("random");
+  // Form inputs and the generated run persist across tab navigation so the
+  // draft isn't lost when the user visits Persona Studio and comes back.
+  const [url, setUrl] = usePersistedState("fill.url", "");
+  const [brief, setBrief] = usePersistedState("fill.brief", "");
+  const [count, setCount] = usePersistedState("fill.count", 5);
+  const [responseLength, setResponseLength] = usePersistedState<"short" | "medium" | "long">("fill.responseLength", "medium");
+  const [variation, setVariation] = usePersistedState("fill.variation", 50);
+  const [personality, setPersonality] = usePersistedState("fill.personality", "");
+  const [populationId, setPopulationId] = usePersistedState<string>("fill.populationId", "none");
+  const [samplingMethod, setSamplingMethod] = usePersistedState<"random" | "stratified">("fill.samplingMethod", "random");
+  const [run, setRun] = usePersistedState<any>("fill.run", null);
   const [loading, setLoading] = useState(false);
-  const [run, setRun] = useState<any>(null);
   const [filling, setFilling] = useState(false);
 
   async function startFill() {
@@ -77,8 +80,8 @@ function FillPage() {
   }
 
   function downloadPayload() {
-    if (!run?.extension_payload) return;
-    downloadFile(JSON.stringify(run.extension_payload, null, 2), "surveyor-fill-payload.json", "application/json");
+    if (!run?.all_payloads) return;
+    downloadFile(JSON.stringify(run.all_payloads, null, 2), "surveyor-fill-payload.json", "application/json");
   }
 
   async function autoFillAll() {

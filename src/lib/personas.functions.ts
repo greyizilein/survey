@@ -14,6 +14,7 @@ export const listPersonas = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("personas")
       .select("*")
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(500);
     if (error) throw new Error(error.message);
@@ -25,7 +26,8 @@ export const countPersonas = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { count } = await context.supabase
       .from("personas")
-      .select("*", { count: "exact", head: true });
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", context.userId);
     return count ?? 0;
   });
 
@@ -221,21 +223,25 @@ Batch seed: ${seedIndex} (use it to ensure names and bios are distinct from prio
   }
 }
 
-async function generatePersonasInternal(
-  context: { userId: string; supabase: any },
-  data: { count: number; brief: string; population_id?: string },
-) {
-  const constraints = await parseBriefConstraints(data.brief);
-
-  const totalBatches = Math.ceil(data.count / BATCH_SIZE);
+// Generate `count` brief-correct persona rows (not yet inserted). Every row is
+// forced to match the parsed location/occupation constraints so the sample
+// never drifts off-brief (e.g. into other countries or unrelated jobs).
+export async function buildPersonaRows(
+  userId: string,
+  count: number,
+  brief: string,
+  populationId: string | null,
+): Promise<Array<Record<string, unknown>>> {
+  const constraints = await parseBriefConstraints(brief);
+  const totalBatches = Math.ceil(count / BATCH_SIZE);
 
   async function runBatch(batchIndex: number): Promise<Array<Record<string, unknown>>> {
-    const batchSize = Math.min(BATCH_SIZE, data.count - batchIndex * BATCH_SIZE);
-    const result = await generateBatch(data.brief, constraints, batchSize, batchIndex);
+    const batchSize = Math.min(BATCH_SIZE, count - batchIndex * BATCH_SIZE);
+    const result = await generateBatch(brief, constraints, batchSize, batchIndex);
     if (result.length < batchSize) {
       return [
         ...result,
-        ...makeFallbackPersonas(batchSize - result.length, data.brief, constraints, batchIndex * BATCH_SIZE + result.length),
+        ...makeFallbackPersonas(batchSize - result.length, brief, constraints, batchIndex * BATCH_SIZE + result.length),
       ];
     }
     return result;
@@ -258,7 +264,7 @@ async function generatePersonasInternal(
     : constraints.localities;
   const [minAge, maxAge] = constraints.age_range;
 
-  const rows = allPersonas.slice(0, data.count).map((p, index) => {
+  return allPersonas.slice(0, count).map((p, index) => {
     const country = constraints.country ?? (p.country ? String(p.country) : null);
     let city: string | null = p.city ? String(p.city) : null;
     if (allowedCities.length) {
@@ -277,8 +283,8 @@ async function generatePersonasInternal(
     if (age > maxAge) age = maxAge;
 
     return {
-      user_id: context.userId,
-      population_id: data.population_id ?? null,
+      user_id: userId,
+      population_id: populationId,
       name: String(p.name ?? `Respondent ${index + 1}`),
       age,
       gender: normalizeGender(p.gender),
@@ -297,6 +303,13 @@ async function generatePersonasInternal(
       tags: Array.isArray(p.tags) ? p.tags.map(String) : null,
     };
   });
+}
+
+async function generatePersonasInternal(
+  context: { userId: string; supabase: any },
+  data: { count: number; brief: string; population_id?: string },
+) {
+  const rows = await buildPersonaRows(context.userId, data.count, data.brief, data.population_id ?? null);
 
   let inserted = 0;
   for (let i = 0; i < rows.length; i += 500) {
@@ -307,6 +320,20 @@ async function generatePersonasInternal(
     inserted += count ?? rows.slice(i, i + 500).length;
   }
   return { inserted };
+}
+
+// Generate fresh, brief-correct personas for a one-off fill run and return the
+// inserted records (with ids) so responses can reference them.
+export async function generatePersonasForFill(
+  supabase: any,
+  userId: string,
+  count: number,
+  brief: string,
+): Promise<any[]> {
+  const rows = await buildPersonaRows(userId, count, brief, null);
+  const { data: inserted, error } = await supabase.from("personas").insert(rows).select("*");
+  if (error) throw new Error(error.message);
+  return inserted ?? [];
 }
 
 // Draw `count` personas from a population. "stratified" balances the sample

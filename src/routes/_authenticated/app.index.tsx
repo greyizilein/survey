@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ClipboardPenLine, Users, FolderKanban, Download, ArrowUpRight,
+  ClipboardPenLine, Users, FolderKanban, ArrowUpRight,
   Sparkles, Wand2, Globe, Gauge,
 } from "lucide-react";
 
@@ -31,12 +31,6 @@ const cards = [
     title: "Projects",
     description: "Review past survey fill runs and their results.",
   },
-  {
-    to: "/app/extension",
-    icon: Download,
-    title: "Extension",
-    description: "Install the browser extension to fill forms directly.",
-  },
 ] as const;
 
 const steps = [
@@ -64,7 +58,7 @@ const stats = [
   { value: "24/7", label: "ready whenever you are" },
 ];
 
-const logos = ["Google Forms", "Persona Studio", "Surveyor", "Projects", "Extension", "Populations"];
+const logos = ["Google Forms", "Persona Studio", "Surveyor", "Projects", "Populations"];
 
 function Home() {
   return (
