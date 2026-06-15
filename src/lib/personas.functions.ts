@@ -305,6 +305,16 @@ export async function buildPersonaRows(
   });
 }
 
+// Strip the three quality columns that may not exist yet in the DB.
+// Supabase PostgREST rejects inserts that reference columns absent from its
+// schema cache, so we fall back to omitting them when the migration hasn't run.
+function stripNewQualityFields(rows: any[]) {
+  return rows.map(({ life_situation: _l, key_concerns: _k, voice_sample: _v, ...rest }) => rest);
+}
+function isMissingColumnError(msg: string) {
+  return /life_situation|key_concerns|voice_sample/.test(msg) && /column/.test(msg);
+}
+
 async function generatePersonasInternal(
   context: { userId: string; supabase: any },
   data: { count: number; brief: string; population_id?: string },
@@ -313,11 +323,15 @@ async function generatePersonasInternal(
 
   let inserted = 0;
   for (let i = 0; i < rows.length; i += 500) {
-    const { error, count } = await context.supabase
-      .from("personas")
-      .insert(rows.slice(i, i + 500), { count: "exact" });
-    if (error) throw new Error(error.message);
-    inserted += count ?? rows.slice(i, i + 500).length;
+    const batch = rows.slice(i, i + 500);
+    let res = await context.supabase.from("personas").insert(batch, { count: "exact" });
+    if (res.error) {
+      if (isMissingColumnError(res.error.message)) {
+        res = await context.supabase.from("personas").insert(stripNewQualityFields(batch), { count: "exact" });
+      }
+      if (res.error) throw new Error(res.error.message);
+    }
+    inserted += res.count ?? batch.length;
   }
   return { inserted };
 }
@@ -331,9 +345,22 @@ export async function generatePersonasForFill(
   brief: string,
 ): Promise<any[]> {
   const rows = await buildPersonaRows(userId, count, brief, null);
-  const { data: inserted, error } = await supabase.from("personas").insert(rows).select("*");
-  if (error) throw new Error(error.message);
-  return inserted ?? [];
+  let res = await supabase.from("personas").insert(rows).select("*");
+  if (res.error) {
+    if (isMissingColumnError(res.error.message)) {
+      res = await supabase.from("personas").insert(stripNewQualityFields(rows)).select("*");
+      if (res.error) throw new Error(res.error.message);
+      // Merge quality fields back so personaPrompt() can still use them in-memory
+      return (res.data ?? []).map((p: any, i: number) => ({
+        ...p,
+        life_situation: rows[i]?.life_situation ?? null,
+        key_concerns: rows[i]?.key_concerns ?? null,
+        voice_sample: rows[i]?.voice_sample ?? null,
+      }));
+    }
+    throw new Error(res.error.message);
+  }
+  return res.data ?? [];
 }
 
 // Draw `count` personas from a population. "stratified" balances the sample
