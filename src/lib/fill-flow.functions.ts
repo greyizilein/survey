@@ -148,7 +148,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       responses,
       total_responses: responses.length,
       primary_payload: responses[0]?.answers ?? [],
-      extension_payload: responses.map((response) => ({
+      all_payloads: responses.map((response) => ({
         persona: response.persona.name,
         answers: response.answers,
       })),
@@ -256,14 +256,10 @@ Return ONLY valid JSON, an array of questions:
 }
 
 async function ensurePersonas(supabase: any, userId: string, count: number, brief: string): Promise<Persona[]> {
-  const { data: existing } = await supabase.from("personas").select("*").order("created_at", { ascending: false }).limit(count);
-  if ((existing ?? []).length >= count) return existing.slice(0, count);
-
-  const missing = count - (existing?.length ?? 0);
-  const generated = makePersonas(missing, brief, existing?.length ?? 0).map((p) => ({ user_id: userId, ...p }));
-  const { data: inserted, error } = await supabase.from("personas").insert(generated).select("*");
-  if (error) throw new Error(error.message);
-  return [...(existing ?? []), ...(inserted ?? [])].slice(0, count);
+  // Always generate fresh respondents that match this run's brief, rather than
+  // recycling unrelated personas from a previous run.
+  const { generatePersonasForFill } = await import("./personas.functions");
+  return generatePersonasForFill(supabase, userId, count, brief);
 }
 
 interface AnswerStyle {
@@ -410,31 +406,6 @@ function personaPrompt(p: Persona) {
     tags ? `Tags: ${tags}.` : null,
     `Answer every question as ${p.name.split(" ")[0]} would — drawing on your specific lived experience, not as a generic ${p.occupation ?? "person"}.`,
   ].filter(Boolean).join("\n");
-}
-
-function makePersonas(count: number, brief: string, offset = 0) {
-  const countries = ["United States", "United Kingdom", "Canada", "Nigeria", "India", "Brazil", "Germany", "Mexico", "South Africa", "Japan"];
-  const cities = ["Columbus", "Manchester", "Toronto", "Lagos", "Bengaluru", "Recife", "Berlin", "Guadalajara", "Cape Town", "Osaka"];
-  const jobs = ["teacher", "delivery driver", "nurse", "software analyst", "shop owner", "student", "electrician", "caregiver", "sales manager", "public-sector clerk"];
-  return Array.from({ length: count }, (_, i) => {
-    const n = offset + i;
-    const c = n % countries.length;
-    return {
-      name: `Respondent ${n + 1}`,
-      age: 18 + (n * 7) % 67,
-      gender: ["female", "male"][n % 2],
-      country: countries[c],
-      city: cities[c],
-      education: ["high school", "some college", "bachelors", "masters", "trade", "phd"][n % 6],
-      income_bracket: ["low", "lower-middle", "middle", "upper-middle", "high"][n % 5],
-      occupation: jobs[n % jobs.length],
-      political_sentiment: ["progressive", "moderate-left", "centrist", "moderate-right", "conservative", "libertarian", "apolitical"][n % 7],
-      core_values: [["family", "security", "fairness"], ["autonomy", "privacy", "quality"], ["community", "stability", "opportunity"]][n % 3],
-      language_style: ["warm", "casual", "formal", "blunt", "skeptical", "enthusiastic"][n % 6],
-      bio: `I answer surveys from the perspective of a ${jobs[n % jobs.length]} thinking about ${brief.slice(0, 120)}. My responses are practical and shaped by daily constraints.`,
-      tags: [countries[c], jobs[n % jobs.length], brief.slice(0, 30)],
-    };
-  });
 }
 
 function hash(value: string) {
