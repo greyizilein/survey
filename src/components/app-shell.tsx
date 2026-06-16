@@ -2,6 +2,7 @@ import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { Home, ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { clearPasskey } from "@/lib/passkey";
 import { useEffect, useState, type ReactNode } from "react";
 
 const nav = [
