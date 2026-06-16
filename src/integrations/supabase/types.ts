@@ -26,13 +26,16 @@ export type Database = {
           gender: string | null
           id: string
           income_bracket: string | null
+          key_concerns: string[] | null
           language_style: string | null
+          life_situation: string | null
           name: string
           occupation: string | null
           political_sentiment: string | null
           population_id: string | null
           tags: string[] | null
           user_id: string
+          voice_sample: string | null
         }
         Insert: {
           age?: number | null
@@ -45,13 +48,16 @@ export type Database = {
           gender?: string | null
           id?: string
           income_bracket?: string | null
+          key_concerns?: string[] | null
           language_style?: string | null
+          life_situation?: string | null
           name: string
           occupation?: string | null
           political_sentiment?: string | null
           population_id?: string | null
           tags?: string[] | null
           user_id: string
+          voice_sample?: string | null
         }
         Update: {
           age?: number | null
@@ -64,13 +70,16 @@ export type Database = {
           gender?: string | null
           id?: string
           income_bracket?: string | null
+          key_concerns?: string[] | null
           language_style?: string | null
+          life_situation?: string | null
           name?: string
           occupation?: string | null
           political_sentiment?: string | null
           population_id?: string | null
           tags?: string[] | null
           user_id?: string
+          voice_sample?: string | null
         }
         Relationships: [
           {
