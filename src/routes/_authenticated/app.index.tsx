@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ClipboardPenLine, Users, FolderKanban, ArrowUpRight,
-  Sparkles, Wand2, Globe, Gauge,
+  Sparkles, Wand2, Globe, Gauge, MessageSquareText,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
@@ -18,6 +18,12 @@ const cards = [
     title: "Fill a survey",
     description: "Paste a survey link and generate realistic answers from AI respondents.",
     big: true,
+  },
+  {
+    to: "/app/interviews",
+    icon: MessageSquareText,
+    title: "Interview Studio",
+    description: "Upload your study and guide; get a full interview transcript per respondent to download.",
   },
   {
     to: "/app/personas",
