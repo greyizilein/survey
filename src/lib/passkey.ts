@@ -56,8 +56,9 @@ export async function isPasskeySupported(): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (!("PublicKeyCredential" in window)) return false;
   try {
-    // @ts-expect-error - not yet in all TS lib versions
-    const fn = PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable;
+    const fn = (PublicKeyCredential as unknown as {
+      isUserVerifyingPlatformAuthenticatorAvailable?: () => Promise<boolean>;
+    }).isUserVerifyingPlatformAuthenticatorAvailable;
     if (typeof fn !== "function") return false;
     return await fn.call(PublicKeyCredential);
   } catch {
