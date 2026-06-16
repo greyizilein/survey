@@ -152,7 +152,7 @@ export async function toDOCX(turns: Turn[], meta: TranscriptMeta): Promise<Blob>
 
 // ---- PDF -------------------------------------------------------------------
 export async function toPDF(turns: Turn[], meta: TranscriptMeta): Promise<Blob> {
-  const { jsPDF } = await import("jspdf");
+  const { jsPDF } = await import("jspdf/dist/jspdf.es.min.js");
   const cues = buildCues(turns);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const margin = 56;
