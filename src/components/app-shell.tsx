@@ -21,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => { setOpen(false); }, [pathname]);
 
   async function signOut() {
+    clearPasskey();
     await supabase.auth.signOut();
     router.navigate({ to: "/auth", replace: true });
   }
