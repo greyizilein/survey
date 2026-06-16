@@ -16,8 +16,8 @@ import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/ap
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenticated/app.projects'
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
-import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
+import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
 import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app.projects.index'
 import { Route as AuthenticatedAppProjectsIdRouteImport } from './routes/_authenticated/app.projects.$id'
 
@@ -57,17 +57,17 @@ const AuthenticatedAppPersonasRoute =
     path: '/personas',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
-const AuthenticatedAppFillRoute = AuthenticatedAppFillRouteImport.update({
-  id: '/fill',
-  path: '/fill',
-  getParentRoute: () => AuthenticatedAppRoute,
-} as any)
 const AuthenticatedAppInterviewsRoute =
   AuthenticatedAppInterviewsRouteImport.update({
     id: '/interviews',
     path: '/interviews',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppFillRoute = AuthenticatedAppFillRouteImport.update({
+  id: '/fill',
+  path: '/fill',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppProjectsIndexRoute =
   AuthenticatedAppProjectsIndexRouteImport.update({
     id: '/',
@@ -212,18 +212,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPersonasRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
-    '/_authenticated/app/fill': {
-      id: '/_authenticated/app/fill'
-      path: '/fill'
-      fullPath: '/app/fill'
-      preLoaderRoute: typeof AuthenticatedAppFillRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
-    }
     '/_authenticated/app/interviews': {
       id: '/_authenticated/app/interviews'
       path: '/interviews'
       fullPath: '/app/interviews'
       preLoaderRoute: typeof AuthenticatedAppInterviewsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/fill': {
+      id: '/_authenticated/app/fill'
+      path: '/fill'
+      fullPath: '/app/fill'
+      preLoaderRoute: typeof AuthenticatedAppFillRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/projects/': {
