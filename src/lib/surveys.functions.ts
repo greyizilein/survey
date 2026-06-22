@@ -29,24 +29,34 @@ export const parseSurvey = createServerFn({ method: "POST" })
       }
     }
 
-    const prompt = `Parse the following survey/interview content into a structured JSON array of questions.
+    const prompt = `You are extracting the questions from a survey or interview guide titled "${data.title}".
 
-Content:
+Source content:
 """
 ${sourceText}
 """
 
-Output ONLY a valid JSON array (no markdown). Each element:
+Your job is to EXTRACT the questions that already exist in the source — not to invent or improve them.
+
+Rules:
+- Copy each question's wording VERBATIM from the source. Do not paraphrase, summarize, reword, shorten, merge, or "fix" them. Preserve the exact text, including informal phrasing.
+- Keep the questions in the SAME ORDER they appear in the source.
+- Interview guides count as questions even when they are not phrased with a "?" — capture prompts and probes such as "Tell me about…", "Describe…", "Walk me through…", "How did you feel when…", and thematic bullet points exactly as written.
+- Do NOT add questions that are not in the source. Do NOT drop questions that are in the source.
+- For an interview prompt or any free-text question, use type "open_ended". Only use a choice/likert/rating/yes_no type when the source clearly presents fixed answer options, and in that case copy those option labels verbatim into "options".
+
+Output ONLY a valid JSON array (no markdown, no commentary). Each element:
 {
   "id": "q1",
-  "text": "the question text",
+  "text": "the exact question text from the source",
   "type": "multiple_choice" | "single_choice" | "open_ended" | "likert" | "matrix" | "yes_no" | "rating",
-  "options": ["only for choice/likert types"],
+  "options": ["only when the source lists explicit answer options"],
   "required": true | false
 }
-If the content has no clear questions, infer 5-10 reasonable ones based on the title/topic.`;
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+ONLY IF the source genuinely contains no questions or prompts at all (e.g. it is empty or unrelated boilerplate), infer 5-10 reasonable questions from the title/topic instead.`;
+
+    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) throw new Error("Could not parse questions");
     let questions: unknown;

@@ -132,9 +132,9 @@ export const generateVtt = createServerFn({ method: "POST" })
     const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     const qList = questions.map((q, i) => `${i + 1}. ${q.text}`).join("\n");
 
-    const prompt = `${personaPrompt(persona as Persona)}\n\nYou are being interviewed about: "${survey.title}". The interviewer (Researcher) will ask these questions:\n${qList}\n\nWrite a realistic interview transcript. Use natural conversational filler ("um", "uh", "like", "you know", "I mean") and brief pauses. Each turn should feel spontaneous. Format as alternating lines:\nResearcher: ...\n${persona.name}: ...\n\nReturn ONLY the transcript text, no preamble. Keep total response under 1500 words.`;
+    const prompt = `${personaPrompt(persona as Persona)}\n\nYou are being interviewed about: "${survey.title}".\n\nThe interviewer (Researcher) MUST ask exactly these questions, in this order, and must not invent, skip, or replace any of them:\n${qList}\n\nFor each question, the Researcher asks it (keeping its original meaning and wording — light natural phrasing like "So," or "Okay, next —" is fine, but do not change what is being asked), then ${persona.name} answers in character. The Researcher may add brief natural follow-ups, but every numbered question above must appear and be asked in order.\n\nUse natural conversational filler ("um", "uh", "like", "you know", "I mean") and brief pauses so each turn feels spontaneous. Format as alternating lines:\nResearcher: ...\n${persona.name}: ...\n\nReturn ONLY the transcript text, no preamble. Keep total response under 1500 words.`;
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.6 });
 
     // Convert transcript to VTT with simulated timestamps
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
