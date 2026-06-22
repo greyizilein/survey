@@ -361,6 +361,7 @@ export type Database = {
       }
       surveys: {
         Row: {
+          background_context: string | null
           created_at: string
           id: string
           parsed_questions: Json
@@ -372,6 +373,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          background_context?: string | null
           created_at?: string
           id?: string
           parsed_questions?: Json
@@ -383,6 +385,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          background_context?: string | null
           created_at?: string
           id?: string
           parsed_questions?: Json
