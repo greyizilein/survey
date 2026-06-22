@@ -8,6 +8,8 @@ const ParseInput = z.object({
   source_type: z.enum(["text", "url"]),
   source_url: z.string().url().optional(),
   raw_input: z.string().max(50000).optional(),
+  interviewer_name: z.string().max(200).optional(),
+  interviewer_affiliation: z.string().max(300).optional(),
 });
 
 export const parseSurvey = createServerFn({ method: "POST" })
@@ -45,25 +47,32 @@ Then:
    - For an interview prompt or any free-text question, use type "open_ended". Only use a choice/likert/rating/yes_no type when the source clearly presents fixed answer options, and in that case copy those option labels verbatim into "options".
    - ONLY IF the source genuinely contains no questions or prompts at all, infer 5-10 reasonable questions from the title/topic instead.
 2. SUMMARIZE the background material portion (if any) into concise bullet points of concrete, reusable facts, themes, and findings that an interviewee's answers should stay consistent with. Leave this empty if there is no background material beyond the guide itself.
+3. DETECT interview metadata if it is stated anywhere in the source: the interviewer/researcher's name, and their affiliation (e.g. their university, programme, department, or organisation). Interview guides often open with something like "My name is …, I am a … at the University of …". Return empty strings for anything not clearly stated — do NOT guess or invent names.
 
 Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
 {
   "questions": [
     { "id": "q1", "text": "the exact question text from the source", "type": "multiple_choice" | "single_choice" | "open_ended" | "likert" | "matrix" | "yes_no" | "rating", "options": ["only when the source lists explicit answer options"], "required": true | false }
   ],
-  "background_context": "bullet-point summary of background material, or empty string if none"
+  "background_context": "bullet-point summary of background material, or empty string if none",
+  "interviewer_name": "detected researcher name, or empty string",
+  "interviewer_affiliation": "detected affiliation/institution/programme, or empty string"
 }`;
 
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse questions");
-    let parsed: { questions?: unknown; background_context?: string };
+    let parsed: { questions?: unknown; background_context?: string; interviewer_name?: string; interviewer_affiliation?: string };
     try {
       parsed = JSON.parse(match[0]);
     } catch {
       throw new Error("Invalid AI JSON");
     }
     if (!Array.isArray(parsed.questions)) throw new Error("AI response had no questions array");
+
+    // User-supplied values win; otherwise fall back to what the AI detected in the source.
+    const interviewerName = data.interviewer_name?.trim() || parsed.interviewer_name?.trim() || null;
+    const interviewerAffiliation = data.interviewer_affiliation?.trim() || parsed.interviewer_affiliation?.trim() || null;
 
     const { data: survey, error } = await context.supabase
       .from("surveys")
@@ -76,6 +85,8 @@ Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
         raw_input: data.raw_input ?? null,
         parsed_questions: parsed.questions as any,
         background_context: parsed.background_context?.trim() || null,
+        interviewer_name: interviewerName,
+        interviewer_affiliation: interviewerAffiliation,
       })
       .select()
       .single();

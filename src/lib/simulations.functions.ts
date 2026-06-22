@@ -159,27 +159,77 @@ export const generateVtt = createServerFn({ method: "POST" })
     const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     const qList = questions.map((q, i) => `${i + 1}. ${q.text}`).join("\n");
 
+    // Interviewer name: survey metadata (user-entered or AI-detected) first, then the signed-in user's profile.
+    const { data: profile } = await context.supabase
+      .from("profiles").select("display_name").eq("id", context.userId).single();
+    const interviewerName = survey.interviewer_name?.trim() || profile?.display_name?.trim() || "Researcher";
+    const interviewerAffiliation = survey.interviewer_affiliation?.trim() || "";
+    const participantName = (persona.name as string)?.trim() || "Participant";
+
     const backgroundBlock = survey.background_context
-      ? `\n\nBackground material for this survey (use it to ground ${persona.name}'s answers in consistent, concrete facts/themes where relevant — but still answer in character, in your own voice):\n${survey.background_context}`
+      ? `\n\nBackground material for this study (use it to ground ${participantName}'s answers in consistent, concrete facts/themes where relevant — but still answer in character, in their own voice):\n${survey.background_context}`
       : "";
 
-    const prompt = `${personaPrompt(persona as Persona)}${backgroundBlock}\n\nYou are being interviewed about: "${survey.title}".\n\nThe interviewer (Researcher) MUST ask exactly these questions, in this order, and must not invent, skip, or replace any of them:\n${qList}\n\nFor each question, the Researcher asks it (keeping its original meaning and wording — light natural phrasing like "So," or "Okay, next —" is fine, but do not change what is being asked), then ${persona.name} answers in character. The Researcher may add brief natural follow-ups, but every numbered question above must appear and be asked in order.\n\nUse natural conversational filler ("um", "uh", "like", "you know", "I mean") and brief pauses so each turn feels spontaneous. Format as alternating lines:\nResearcher: ...\n${persona.name}: ...\n\nReturn ONLY the transcript text, no preamble. Keep total response under 1500 words.`;
+    const prompt = `You are scripting a realistic, one-to-one qualitative research interview conducted over Zoom for a study titled "${survey.title}".
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.6 });
+INTERVIEWER (the researcher): ${interviewerName}${interviewerAffiliation ? ` — ${interviewerAffiliation}` : ""}
+PARTICIPANT (answers fully in character as this person): ${participantName}
+${personaPrompt(persona as Persona)}${backgroundBlock}
 
-    // Convert transcript to VTT with simulated timestamps
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-    let t = 0;
+The interviewer MUST ask exactly these guide questions, in this order, preserving their wording (light natural lead-ins like "Okay, next —" are fine, but do not change what is being asked). Do not skip, merge, reorder, or invent additional main questions; brief natural clarifying follow-ups are allowed:
+${qList}
+
+Produce the FULL interview as a JSON array of turns. Each turn is {"speaker": string, "text": string}. Use these EXACT speaker names: the interviewer is "${interviewerName}" and the participant is "${participantName}".
+
+Structure the interview like a real ethics-compliant research session:
+1. Brief greeting and an audio check.
+2. An ethics/consent preamble delivered by the interviewer (it can span a couple of turns): introduce themselves${interviewerAffiliation ? ` and their affiliation (${interviewerAffiliation})` : ""} and the study; confidentiality and use of a pseudonym; that nothing said will be shared with the participant's manager/headteacher/anyone at their organisation; that participation is voluntary with the right to skip questions or stop at any time; approximate duration; ask for consent to audio-record; and confirm the participant is alone and has read/signed the consent form. The participant gives short, natural confirmations.
+3. The guide questions, each asked in order and each followed by an in-character answer. Use natural conversational fillers ("um", "like", "you know", "I mean"), occasional [pause], and realistic answer lengths (often 2-6 sentences, longer where natural). Keep everything consistent with the participant's background${survey.background_context ? " and the background material above" : ""}.
+4. A closing: the interviewer thanks the participant, restates confidentiality, offers to share the final work, and asks if they have any questions; the participant responds; the interviewer ends the recording.
+
+Write in the participant's natural voice and dialect where appropriate. Return ONLY the JSON array, no markdown fences, no commentary.`;
+
+    const { text } = await generateText({
+      model: ai(DEFAULT_MODEL),
+      prompt,
+      temperature: 0.7,
+      maxOutputTokens: 12000,
+    });
+
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error("Could not generate transcript — please try again");
+    let turns: Array<{ speaker?: string; text?: string }>;
+    try {
+      turns = JSON.parse(match[0]);
+    } catch {
+      throw new Error("Transcript came back malformed — please try again");
+    }
+    turns = (Array.isArray(turns) ? turns : []).filter((t) => t && typeof t.text === "string" && t.text.trim());
+    if (!turns.length) throw new Error("Transcript was empty — please try again");
+
+    // Build a Zoom-style WebVTT where each cue payload is a JSON object with speaker + timing metadata.
+    const base = new Date();
+    base.setUTCMilliseconds(700);
+    let t = 0.7;
     const cues: string[] = ["WEBVTT", ""];
-    for (const line of lines) {
-      const wordCount = line.split(/\s+/).length;
-      const duration = Math.max(2, Math.min(12, wordCount * 0.38)); // ~155 wpm
-      const start = formatTime(t);
-      const end = formatTime(t + duration);
-      cues.push(`${start} --> ${end}`);
-      cues.push(line);
+    for (let i = 0; i < turns.length; i++) {
+      const turn = turns[i];
+      const speakerName = turn.speaker?.trim() || (i % 2 === 0 ? interviewerName : participantName);
+      const spokenText = turn.text!.trim();
+      const wordCount = spokenText.split(/\s+/).length;
+      const duration = Math.max(2, Math.min(120, wordCount * 0.38)); // ~155 wpm, capped for long monologues
+      const startSec = t;
+      const endSec = t + duration;
+      cues.push(`${formatTime(startSec)} --> ${formatTime(endSec)}`);
+      cues.push(JSON.stringify({
+        startDateTime: formatIsoZoom(new Date(base.getTime() + startSec * 1000)),
+        endDateTime: formatIsoZoom(new Date(base.getTime() + endSec * 1000)),
+        speakerName,
+        spokenText,
+        spokenLanguage: "en-us",
+      }));
       cues.push("");
-      t += duration + 0.4; // small pause
+      t = endSec + 0.7; // small gap between turns
     }
     const vtt = cues.join("\n");
 
@@ -201,6 +251,13 @@ function formatTime(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${s.toFixed(3).padStart(6, "0")}`;
+}
+
+// Matches the datetime format Zoom/Teams emit in VTT cue payloads, e.g. 2026-06-03T14:00:00.7000000+00:00
+function formatIsoZoom(date: Date): string {
+  const pad = (n: number, l = 2) => String(n).padStart(l, "0");
+  const frac = String(date.getUTCMilliseconds()).padStart(3, "0") + "0000"; // 7 fractional digits
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}.${frac}+00:00`;
 }
 
 function normalizeAnswers(answers: unknown, questions: Question[], persona: Persona) {
