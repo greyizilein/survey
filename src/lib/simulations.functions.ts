@@ -159,10 +159,11 @@ export const generateVtt = createServerFn({ method: "POST" })
     const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     const qList = questions.map((q, i) => `${i + 1}. ${q.text}`).join("\n");
 
-    // Interviewer name from the signed-in user's profile, falling back to a generic researcher label.
+    // Interviewer name: survey metadata (user-entered or AI-detected) first, then the signed-in user's profile.
     const { data: profile } = await context.supabase
       .from("profiles").select("display_name").eq("id", context.userId).single();
-    const interviewerName = profile?.display_name?.trim() || "Researcher";
+    const interviewerName = survey.interviewer_name?.trim() || profile?.display_name?.trim() || "Researcher";
+    const interviewerAffiliation = survey.interviewer_affiliation?.trim() || "";
     const participantName = (persona.name as string)?.trim() || "Participant";
 
     const backgroundBlock = survey.background_context
@@ -171,7 +172,7 @@ export const generateVtt = createServerFn({ method: "POST" })
 
     const prompt = `You are scripting a realistic, one-to-one qualitative research interview conducted over Zoom for a study titled "${survey.title}".
 
-INTERVIEWER (the researcher): ${interviewerName}
+INTERVIEWER (the researcher): ${interviewerName}${interviewerAffiliation ? ` — ${interviewerAffiliation}` : ""}
 PARTICIPANT (answers fully in character as this person): ${participantName}
 ${personaPrompt(persona as Persona)}${backgroundBlock}
 
@@ -182,7 +183,7 @@ Produce the FULL interview as a JSON array of turns. Each turn is {"speaker": st
 
 Structure the interview like a real ethics-compliant research session:
 1. Brief greeting and an audio check.
-2. An ethics/consent preamble delivered by the interviewer (it can span a couple of turns): introduce themselves and the study; confidentiality and use of a pseudonym; that nothing said will be shared with the participant's manager/headteacher/anyone at their organisation; that participation is voluntary with the right to skip questions or stop at any time; approximate duration; ask for consent to audio-record; and confirm the participant is alone and has read/signed the consent form. The participant gives short, natural confirmations.
+2. An ethics/consent preamble delivered by the interviewer (it can span a couple of turns): introduce themselves${interviewerAffiliation ? ` and their affiliation (${interviewerAffiliation})` : ""} and the study; confidentiality and use of a pseudonym; that nothing said will be shared with the participant's manager/headteacher/anyone at their organisation; that participation is voluntary with the right to skip questions or stop at any time; approximate duration; ask for consent to audio-record; and confirm the participant is alone and has read/signed the consent form. The participant gives short, natural confirmations.
 3. The guide questions, each asked in order and each followed by an in-character answer. Use natural conversational fillers ("um", "like", "you know", "I mean"), occasional [pause], and realistic answer lengths (often 2-6 sentences, longer where natural). Keep everything consistent with the participant's background${survey.background_context ? " and the background material above" : ""}.
 4. A closing: the interviewer thanks the participant, restates confidentiality, offers to share the final work, and asks if they have any questions; the participant responds; the interviewer ends the recording.
 

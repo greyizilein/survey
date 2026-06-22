@@ -48,6 +48,8 @@ function ProjectWorkspace() {
   const [sourceType, setSourceType] = useState<"text" | "url">("text");
   const [raw, setRaw] = useState("");
   const [url, setUrl] = useState("");
+  const [interviewerName, setInterviewerName] = useState("");
+  const [interviewerAffiliation, setInterviewerAffiliation] = useState("");
   const [parsing, setParsing] = useState(false);
   const [activeSurvey, setActiveSurvey] = useState<string | null>(null);
   const [selectedPersonas, setSelectedPersonas] = useState<Set<string>>(new Set());
@@ -71,9 +73,11 @@ function ProjectWorkspace() {
         project_id: id, title, source_type: sourceType,
         source_url: sourceType === "url" ? url : undefined,
         raw_input: sourceType === "text" ? raw : undefined,
+        interviewer_name: interviewerName.trim() || undefined,
+        interviewer_affiliation: interviewerAffiliation.trim() || undefined,
       }});
       toast.success("Survey parsed");
-      setTitle(""); setRaw(""); setUrl("");
+      setTitle(""); setRaw(""); setUrl(""); setInterviewerName(""); setInterviewerAffiliation("");
       qc.invalidateQueries({ queryKey: ["project", id] });
       setActiveSurvey(s.id);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Parse failed"); }
@@ -221,6 +225,12 @@ function ProjectWorkspace() {
                   <p className="text-xs text-muted-foreground">Works with public Google Forms, Typeform, MS Forms and most public surveys.</p>
                 </TabsContent>
               </Tabs>
+              <div className="mt-3 space-y-2">
+                <Label className="text-xs text-muted-foreground">Interview details (optional)</Label>
+                <Input placeholder="Interviewer / researcher name" value={interviewerName} onChange={(e) => setInterviewerName(e.target.value)} />
+                <Input placeholder="Affiliation (e.g. University of …, MRes programme)" value={interviewerAffiliation} onChange={(e) => setInterviewerAffiliation(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Used in the interview transcript's intro. Leave blank and the AI will fill these from your uploaded guide if it can find them.</p>
+              </div>
               <Button onClick={handleParse} disabled={parsing} className="w-full mt-3">
                 {parsing ? "Parsing..." : "Parse with AI"}
               </Button>
@@ -242,17 +252,30 @@ function ProjectWorkspace() {
 
             {activeSurvey && (() => {
               const s = surveys.find((sv: any) => sv.id === activeSurvey);
-              return s?.background_context ? (
-                <Card className="p-4">
-                  <h3 className="font-semibold text-sm mb-2">Detected background context</h3>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Extracted from your upload, separate from the guide's questions. Used to ground generated answers.
-                  </p>
-                  <ScrollArea className="h-32">
-                    <p className="text-xs whitespace-pre-wrap">{s.background_context}</p>
-                  </ScrollArea>
+              if (!s) return null;
+              if (!s.background_context && !s.interviewer_name && !s.interviewer_affiliation) return null;
+              return (
+                <Card className="p-4 space-y-3">
+                  {(s.interviewer_name || s.interviewer_affiliation) && (
+                    <div>
+                      <h3 className="font-semibold text-sm mb-1">Interview details</h3>
+                      {s.interviewer_name && <p className="text-xs"><span className="text-muted-foreground">Interviewer:</span> {s.interviewer_name}</p>}
+                      {s.interviewer_affiliation && <p className="text-xs"><span className="text-muted-foreground">Affiliation:</span> {s.interviewer_affiliation}</p>}
+                    </div>
+                  )}
+                  {s.background_context && (
+                    <div>
+                      <h3 className="font-semibold text-sm mb-2">Detected background context</h3>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Extracted from your upload, separate from the guide's questions. Used to ground generated answers.
+                      </p>
+                      <ScrollArea className="h-32">
+                        <p className="text-xs whitespace-pre-wrap">{s.background_context}</p>
+                      </ScrollArea>
+                    </div>
+                  )}
                 </Card>
-              ) : null;
+              );
             })()}
 
             <Card className="p-4">
