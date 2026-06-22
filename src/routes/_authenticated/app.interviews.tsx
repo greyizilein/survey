@@ -74,7 +74,8 @@ function InterviewStudio() {
   const [stage, setStage] = useState<Stage>("intake");
 
   // Intake
-  const [files, setFiles] = useState<File[]>([]);
+  const [guideFiles, setGuideFiles] = useState<File[]>([]);
+  const [contextFiles, setContextFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -103,7 +104,7 @@ function InterviewStudio() {
 
   function reset() {
     setStage("intake");
-    setFiles([]); setNotes(""); setTitle(""); setInterviewer(""); setMode("teams");
+    setGuideFiles([]); setContextFiles([]); setNotes(""); setTitle(""); setInterviewer(""); setMode("teams");
     setDateStart(""); setDateEnd(""); setContextSummary(""); setNamingContext("");
     setSourceExcerpt(""); setCountEvidence(""); setCount(12); setGuide([]);
     setAnonymize(false); setDepth("standard"); setStudy(null); setParticipants([]);
@@ -111,11 +112,12 @@ function InterviewStudio() {
   }
 
   async function analyze() {
-    if (!files.length) { toast.error("Upload at least one document"); return; }
+    if (!guideFiles.length) { toast.error("Upload your interview guide"); return; }
     setAnalyzing(true);
     try {
-      const payload = await Promise.all(files.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
-      const res = await analyzeFn({ data: { files: payload, notes: notes.trim() || undefined } });
+      const guidePayload = await Promise.all(guideFiles.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      const contextPayload = await Promise.all(contextFiles.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      const res = await analyzeFn({ data: { guide_files: guidePayload, context_files: contextPayload.length ? contextPayload : undefined, notes: notes.trim() || undefined } });
       setTitle(res.title);
       setContextSummary(res.context_summary);
       setNamingContext(res.naming_context);
@@ -242,7 +244,7 @@ function InterviewStudio() {
               <MessageSquareText className="size-6 text-primary" /> Interview Studio
             </h1>
             <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-              Upload your study materials and interview guide. Surveyor builds a distinct respondent for each
+              Upload your interview guide and (optionally) your written chapters separately. Surveyor builds a distinct respondent for each
               interview and writes a full transcript you can download as VTT, Word, PDF, text, or Markdown.
             </p>
           </div>
@@ -257,34 +259,66 @@ function InterviewStudio() {
         {stage === "intake" && (
           <>
             <Card className="p-4 sm:p-6">
-              <Label className="text-base font-semibold">Upload your work</Label>
+              {/* Interview guide — the ONLY source of questions */}
+              <Label className="text-base font-semibold">1. Interview guide</Label>
               <p className="text-sm text-muted-foreground mt-1 mb-3">
-                Methodology / chapters, background, and your interview guide. Accepts PDF, Word (.docx), .txt, and .md.
+                The file with your actual interview questions/prompts. These are used verbatim — nothing else here is treated as a question. Accepts PDF, Word (.docx), .txt, and .md.
               </p>
               <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
                 <Upload className="size-6 text-muted-foreground" />
-                <span className="text-sm font-medium">Click to choose files</span>
-                <span className="text-xs text-muted-foreground">or drop them here</span>
+                <span className="text-sm font-medium">Choose your interview guide</span>
+                <span className="text-xs text-muted-foreground">or drop it here</span>
                 <input
                   type="file"
                   multiple
                   accept=".pdf,.docx,.txt,.md,.markdown"
                   className="hidden"
-                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                  onChange={(e) => setGuideFiles(Array.from(e.target.files ?? []))}
                 />
               </label>
-              {files.length > 0 && (
+              {guideFiles.length > 0 && (
                 <div className="mt-3 space-y-1.5">
-                  {files.map((f, i) => (
+                  {guideFiles.map((f, i) => (
                     <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
                       <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                      <button onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                      <button onClick={() => setGuideFiles(guideFiles.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
                         <Trash2 className="size-4" />
                       </button>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Background chapters / context — never used as questions */}
+              <Label className="text-base font-semibold mt-6 block">2. Written chapters / context (optional)</Label>
+              <p className="text-sm text-muted-foreground mt-1 mb-3">
+                Methodology, chapters, literature, background. Used only to understand the study and shape realistic respondents — never as interview questions.
+              </p>
+              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
+                <Upload className="size-6 text-muted-foreground" />
+                <span className="text-sm font-medium">Choose chapters / context</span>
+                <span className="text-xs text-muted-foreground">or drop them here</span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.txt,.md,.markdown"
+                  className="hidden"
+                  onChange={(e) => setContextFiles(Array.from(e.target.files ?? []))}
+                />
+              </label>
+              {contextFiles.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {contextFiles.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
+                      <button onClick={() => setContextFiles(contextFiles.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="mt-4">
                 <Label>Notes for the AI (optional)</Label>
                 <Textarea
@@ -295,7 +329,7 @@ function InterviewStudio() {
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </div>
-              <Button onClick={analyze} disabled={analyzing || !files.length} size="lg" className="mt-4">
+              <Button onClick={analyze} disabled={analyzing || !guideFiles.length} size="lg" className="mt-4">
                 {analyzing ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
                 {analyzing ? "Reading your documents..." : "Analyze documents"}
               </Button>
