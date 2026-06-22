@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { getProject } from "@/lib/projects.functions";
 import { parseSurvey } from "@/lib/surveys.functions";
 import { listPersonas } from "@/lib/personas.functions";
-import { runSimulation, getSimulationResults, generateVtt } from "@/lib/simulations.functions";
+import { runSimulation, getSimulationResults, generateVtt, updateResponseAnswer } from "@/lib/simulations.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
 import { toast } from "sonner";
 import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Braces, Wand2 } from "lucide-react";
@@ -35,6 +35,7 @@ function ProjectWorkspace() {
   const runFn = useServerFn(runSimulation);
   const resultsFn = useServerFn(getSimulationResults);
   const vttFn = useServerFn(generateVtt);
+  const updateAnswerFn = useServerFn(updateResponseAnswer);
 
   const autoFillFn = useServerFn(autoFillForm);
   const autoFillConfiguredFn = useServerFn(isAutofillServiceConfigured);
@@ -53,6 +54,8 @@ function ProjectWorkspace() {
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const [activeSimId, setActiveSimId] = useState<string | null>(null);
+  const [editingAnswer, setEditingAnswer] = useState<{ responseId: string; questionId: string } | null>(null);
+  const [editingValue, setEditingValue] = useState("");
 
   const resultsQ = useQuery({
     queryKey: ["sim-results", activeSimId],
@@ -92,6 +95,19 @@ function ProjectWorkspace() {
       toast.error(e instanceof Error ? e.message : "Run failed");
       setLog((l) => [...l, `Error: ${e instanceof Error ? e.message : "Failed"}`]);
     } finally { setRunning(false); }
+  }
+
+  async function saveAnswerEdit() {
+    if (!editingAnswer) return;
+    try {
+      await updateAnswerFn({ data: { response_id: editingAnswer.responseId, question_id: editingAnswer.questionId, answer: editingValue } });
+      qc.invalidateQueries({ queryKey: ["sim-results", activeSimId] });
+      toast.success("Answer updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save answer");
+    } finally {
+      setEditingAnswer(null);
+    }
   }
 
   async function downloadVtt(personaId: string) {
@@ -194,7 +210,10 @@ function ProjectWorkspace() {
                 </TabsList>
                 <TabsContent value="text" className="space-y-2">
                   <Input placeholder="Survey title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                  <Textarea rows={6} placeholder="Paste raw questions, interview script, or any text..." value={raw} onChange={(e) => setRaw(e.target.value)} />
+                  <Textarea rows={6} placeholder="Paste your interview guide, and optionally any written chapters/context after it. Surveyor will tell them apart automatically." value={raw} onChange={(e) => setRaw(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    Tip: paste the interview guide AND any background chapters/reports together — Surveyor extracts only the guide's questions verbatim, and uses the rest as context to ground the generated answers.
+                  </p>
                 </TabsContent>
                 <TabsContent value="url" className="space-y-2">
                   <Input placeholder="Survey title" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -220,6 +239,21 @@ function ProjectWorkspace() {
                   ))}
                 </div>}
             </Card>
+
+            {activeSurvey && (() => {
+              const s = surveys.find((sv: any) => sv.id === activeSurvey);
+              return s?.background_context ? (
+                <Card className="p-4">
+                  <h3 className="font-semibold text-sm mb-2">Detected background context</h3>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Extracted from your upload, separate from the guide's questions. Used to ground generated answers.
+                  </p>
+                  <ScrollArea className="h-32">
+                    <p className="text-xs whitespace-pre-wrap">{s.background_context}</p>
+                  </ScrollArea>
+                </Card>
+              ) : null;
+            })()}
 
             <Card className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -275,11 +309,35 @@ function ProjectWorkspace() {
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        {(r.answers ?? []).slice(0, 5).map((a: any, i: number) => (
-                          <div key={i} className="text-xs">
-                            <span className="text-muted-foreground">{a.question_id}:</span> <span>{String(a.answer).slice(0, 200)}</span>
-                          </div>
-                        ))}
+                        {(r.answers ?? []).slice(0, 5).map((a: any, i: number) => {
+                          const isEditing = editingAnswer?.responseId === r.id && editingAnswer?.questionId === a.question_id;
+                          return (
+                            <div key={i} className="text-xs group">
+                              <span className="text-muted-foreground">{a.question_id}:</span>{" "}
+                              {isEditing ? (
+                                <div className="mt-1 flex items-start gap-1.5">
+                                  <Textarea
+                                    autoFocus
+                                    rows={2}
+                                    className="text-xs"
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                  />
+                                  <Button size="sm" className="h-6 px-2 text-xs" onClick={saveAnswerEdit}>Save</Button>
+                                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setEditingAnswer(null)}>Cancel</Button>
+                                </div>
+                              ) : (
+                                <span
+                                  className="cursor-pointer hover:underline"
+                                  title="Click to edit"
+                                  onClick={() => { setEditingAnswer({ responseId: r.id, questionId: a.question_id }); setEditingValue(String(a.answer)); }}
+                                >
+                                  {String(a.answer).slice(0, 200)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </Card>
                   ))}

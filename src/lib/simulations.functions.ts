@@ -66,6 +66,9 @@ export const runSimulation = createServerFn({ method: "POST" })
     if (simErr || !sim) throw new Error("Could not create simulation");
 
     const questionList = questions.map((q, i) => `${i + 1}. [${q.type}] ${q.text}${q.options?.length ? ` (Options: ${q.options.join(" | ")})` : ""}`).join("\n");
+    const backgroundBlock = survey.background_context
+      ? `\n\nBackground material for this survey (use it to ground your answers in consistent, concrete facts/themes where relevant — but still answer as yourself, in your own voice):\n${survey.background_context}`
+      : "";
 
     // Process in small parallel batches
     const responses: Array<{ persona_id: string; answers: unknown }> = [];
@@ -73,7 +76,7 @@ export const runSimulation = createServerFn({ method: "POST" })
     for (let i = 0; i < personas.length; i += BATCH) {
       const batch = personas.slice(i, i + BATCH) as Persona[];
       const results = await Promise.all(batch.map(async (p) => {
-        const prompt = `${personaPrompt(p)}\n\nAnswer these ${questions.length} survey questions:\n${questionList}\n\nOutput ONLY a valid JSON array, one element per question in order:\n[{"question_id":"q1","answer":"your answer here"}]\nFor choice questions answer with one option text. For open-ended give a 1-3 sentence authentic response. For likert/rating give a number 1-5.`;
+        const prompt = `${personaPrompt(p)}${backgroundBlock}\n\nAnswer these ${questions.length} survey questions:\n${questionList}\n\nOutput ONLY a valid JSON array, one element per question in order:\n[{"question_id":"q1","answer":"your answer here"}]\nFor choice questions answer with one option text. For open-ended give a 1-3 sentence authentic response. For likert/rating give a number 1-5.`;
         try {
           const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
           const m = text.match(/\[[\s\S]*\]/);
@@ -100,6 +103,30 @@ export const runSimulation = createServerFn({ method: "POST" })
       .eq("id", sim.id);
 
     return { simulation_id: sim.id, count: rows.length };
+  });
+
+const UpdateAnswerInput = z.object({
+  response_id: z.string().uuid(),
+  question_id: z.string(),
+  answer: z.string(),
+});
+
+export const updateResponseAnswer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UpdateAnswerInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: row, error: fetchErr } = await context.supabase
+      .from("responses").select("answers").eq("id", data.response_id).single();
+    if (fetchErr || !row) throw new Error("Response not found");
+
+    const answers = (Array.isArray(row.answers) ? row.answers : []) as Array<{ question_id: string; answer: unknown }>;
+    const next = answers.some((a) => a.question_id === data.question_id)
+      ? answers.map((a) => (a.question_id === data.question_id ? { ...a, answer: data.answer } : a))
+      : [...answers, { question_id: data.question_id, answer: data.answer }];
+
+    const { error } = await context.supabase.from("responses").update({ answers: next as any }).eq("id", data.response_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const getSimulationResults = createServerFn({ method: "GET" })
@@ -132,7 +159,11 @@ export const generateVtt = createServerFn({ method: "POST" })
     const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     const qList = questions.map((q, i) => `${i + 1}. ${q.text}`).join("\n");
 
-    const prompt = `${personaPrompt(persona as Persona)}\n\nYou are being interviewed about: "${survey.title}".\n\nThe interviewer (Researcher) MUST ask exactly these questions, in this order, and must not invent, skip, or replace any of them:\n${qList}\n\nFor each question, the Researcher asks it (keeping its original meaning and wording — light natural phrasing like "So," or "Okay, next —" is fine, but do not change what is being asked), then ${persona.name} answers in character. The Researcher may add brief natural follow-ups, but every numbered question above must appear and be asked in order.\n\nUse natural conversational filler ("um", "uh", "like", "you know", "I mean") and brief pauses so each turn feels spontaneous. Format as alternating lines:\nResearcher: ...\n${persona.name}: ...\n\nReturn ONLY the transcript text, no preamble. Keep total response under 1500 words.`;
+    const backgroundBlock = survey.background_context
+      ? `\n\nBackground material for this survey (use it to ground ${persona.name}'s answers in consistent, concrete facts/themes where relevant — but still answer in character, in your own voice):\n${survey.background_context}`
+      : "";
+
+    const prompt = `${personaPrompt(persona as Persona)}${backgroundBlock}\n\nYou are being interviewed about: "${survey.title}".\n\nThe interviewer (Researcher) MUST ask exactly these questions, in this order, and must not invent, skip, or replace any of them:\n${qList}\n\nFor each question, the Researcher asks it (keeping its original meaning and wording — light natural phrasing like "So," or "Okay, next —" is fine, but do not change what is being asked), then ${persona.name} answers in character. The Researcher may add brief natural follow-ups, but every numbered question above must appear and be asked in order.\n\nUse natural conversational filler ("um", "uh", "like", "you know", "I mean") and brief pauses so each turn feels spontaneous. Format as alternating lines:\nResearcher: ...\n${persona.name}: ...\n\nReturn ONLY the transcript text, no preamble. Keep total response under 1500 words.`;
 
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.6 });
 

@@ -29,42 +29,41 @@ export const parseSurvey = createServerFn({ method: "POST" })
       }
     }
 
-    const prompt = `You are extracting the questions from a survey or interview guide titled "${data.title}".
+    const prompt = `You are preparing materials for an interview/survey titled "${data.title}". The pasted source below may contain TWO different kinds of content mixed together:
+(A) The actual interview guide / survey questionnaire — the list of questions or prompts to ask.
+(B) Supporting background material — written chapters, reports, notes, or other context that is NOT itself a list of questions, but should be used to inform realistic, well-grounded answers.
 
 Source content:
 """
 ${sourceText}
 """
 
-Your job is to EXTRACT the questions that already exist in the source — not to invent or improve them.
+First, figure out which parts are (A) the guide and which parts are (B) background material. A guide section is recognizable as a list/sequence of distinct questions or interview prompts. Everything else (narrative chapters, descriptions, data, findings) is background material — even if it's the majority of the text.
 
-Rules:
-- Copy each question's wording VERBATIM from the source. Do not paraphrase, summarize, reword, shorten, merge, or "fix" them. Preserve the exact text, including informal phrasing.
-- Keep the questions in the SAME ORDER they appear in the source.
-- Interview guides count as questions even when they are not phrased with a "?" — capture prompts and probes such as "Tell me about…", "Describe…", "Walk me through…", "How did you feel when…", and thematic bullet points exactly as written.
-- Do NOT add questions that are not in the source. Do NOT drop questions that are in the source.
-- For an interview prompt or any free-text question, use type "open_ended". Only use a choice/likert/rating/yes_no type when the source clearly presents fixed answer options, and in that case copy those option labels verbatim into "options".
+Then:
+1. EXTRACT the questions from the guide portion ONLY. Copy each question's wording VERBATIM — do not paraphrase, summarize, reword, shorten, merge, or "fix" them. Preserve the exact text, including informal phrasing. Keep them in the SAME ORDER they appear. Interview guides count as questions even when not phrased with a "?" — capture prompts and probes such as "Tell me about…", "Describe…", "Walk me through…", and thematic bullet points exactly as written. Do NOT add questions that aren't in the source, and do NOT drop any that are.
+   - For an interview prompt or any free-text question, use type "open_ended". Only use a choice/likert/rating/yes_no type when the source clearly presents fixed answer options, and in that case copy those option labels verbatim into "options".
+   - ONLY IF the source genuinely contains no questions or prompts at all, infer 5-10 reasonable questions from the title/topic instead.
+2. SUMMARIZE the background material portion (if any) into concise bullet points of concrete, reusable facts, themes, and findings that an interviewee's answers should stay consistent with. Leave this empty if there is no background material beyond the guide itself.
 
-Output ONLY a valid JSON array (no markdown, no commentary). Each element:
+Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
 {
-  "id": "q1",
-  "text": "the exact question text from the source",
-  "type": "multiple_choice" | "single_choice" | "open_ended" | "likert" | "matrix" | "yes_no" | "rating",
-  "options": ["only when the source lists explicit answer options"],
-  "required": true | false
-}
-
-ONLY IF the source genuinely contains no questions or prompts at all (e.g. it is empty or unrelated boilerplate), infer 5-10 reasonable questions from the title/topic instead.`;
+  "questions": [
+    { "id": "q1", "text": "the exact question text from the source", "type": "multiple_choice" | "single_choice" | "open_ended" | "likert" | "matrix" | "yes_no" | "rating", "options": ["only when the source lists explicit answer options"], "required": true | false }
+  ],
+  "background_context": "bullet-point summary of background material, or empty string if none"
+}`;
 
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
-    const match = text.match(/\[[\s\S]*\]/);
+    const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse questions");
-    let questions: unknown;
+    let parsed: { questions?: unknown; background_context?: string };
     try {
-      questions = JSON.parse(match[0]);
+      parsed = JSON.parse(match[0]);
     } catch {
       throw new Error("Invalid AI JSON");
     }
+    if (!Array.isArray(parsed.questions)) throw new Error("AI response had no questions array");
 
     const { data: survey, error } = await context.supabase
       .from("surveys")
@@ -75,7 +74,8 @@ ONLY IF the source genuinely contains no questions or prompts at all (e.g. it is
         source_type: data.source_type,
         source_url: data.source_url ?? null,
         raw_input: data.raw_input ?? null,
-        parsed_questions: questions as any,
+        parsed_questions: parsed.questions as any,
+        background_context: parsed.background_context?.trim() || null,
       })
       .select()
       .single();
