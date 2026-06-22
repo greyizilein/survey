@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ClipboardPenLine, Users, FolderKanban, Download, ArrowUpRight,
-  Sparkles, Wand2, Globe, Gauge,
+  ClipboardPenLine, Users, FolderKanban, ArrowUpRight,
+  Sparkles, Wand2, Globe, Gauge, MessageSquareText,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
@@ -20,6 +20,12 @@ const cards = [
     big: true,
   },
   {
+    to: "/app/interviews",
+    icon: MessageSquareText,
+    title: "Interview Studio",
+    description: "Upload your study and guide; get a full interview transcript per respondent to download.",
+  },
+  {
     to: "/app/personas",
     icon: Users,
     title: "Persona Studio",
@@ -30,12 +36,6 @@ const cards = [
     icon: FolderKanban,
     title: "Projects",
     description: "Review past survey fill runs and their results.",
-  },
-  {
-    to: "/app/extension",
-    icon: Download,
-    title: "Extension",
-    description: "Install the browser extension to fill forms directly.",
   },
 ] as const;
 
@@ -64,7 +64,7 @@ const stats = [
   { value: "24/7", label: "ready whenever you are" },
 ];
 
-const logos = ["Google Forms", "Persona Studio", "Surveyor", "Projects", "Extension", "Populations"];
+const logos = ["Google Forms", "Persona Studio", "Surveyor", "Projects", "Populations"];
 
 function Home() {
   return (

@@ -35,6 +35,10 @@ interface Persona {
   core_values: string[] | null;
   language_style: string | null;
   bio: string | null;
+  life_situation: string | null;
+  key_concerns: string[] | null;
+  voice_sample: string | null;
+  tags: string[] | null;
 }
 
 export const createFillRunFromLink = createServerFn({ method: "POST" })
@@ -144,7 +148,7 @@ export const createFillRunFromLink = createServerFn({ method: "POST" })
       responses,
       total_responses: responses.length,
       primary_payload: responses[0]?.answers ?? [],
-      extension_payload: responses.map((response) => ({
+      all_payloads: responses.map((response) => ({
         persona: response.persona.name,
         answers: response.answers,
       })),
@@ -252,14 +256,10 @@ Return ONLY valid JSON, an array of questions:
 }
 
 async function ensurePersonas(supabase: any, userId: string, count: number, brief: string): Promise<Persona[]> {
-  const { data: existing } = await supabase.from("personas").select("*").order("created_at", { ascending: false }).limit(count);
-  if ((existing ?? []).length >= count) return existing.slice(0, count);
-
-  const missing = count - (existing?.length ?? 0);
-  const generated = makePersonas(missing, brief, existing?.length ?? 0).map((p) => ({ user_id: userId, ...p }));
-  const { data: inserted, error } = await supabase.from("personas").insert(generated).select("*");
-  if (error) throw new Error(error.message);
-  return [...(existing ?? []), ...(inserted ?? [])].slice(0, count);
+  // Always generate fresh respondents that match this run's brief, rather than
+  // recycling unrelated personas from a previous run.
+  const { generatePersonasForFill } = await import("./personas.functions");
+  return generatePersonasForFill(supabase, userId, count, brief);
 }
 
 interface AnswerStyle {
@@ -273,12 +273,12 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
-    const questionList = questions.map((q) => `- id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? ` Options: ${q.options.join(" | ")}` : ""}`).join("\n");
+    const questionList = questions.map((q, idx) => `${idx + 1}. id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? `\n   Options: ${q.options.map((o) => `"${o}"`).join(" | ")}` : ""}${q.required === false ? " (optional)" : ""}`).join("\n");
 
     const lengthGuide = {
-      short: "Keep open-text answers very brief — a phrase or one short sentence.",
-      medium: "Open-text answers should be 1-3 natural sentences.",
-      long: "Open-text answers should be detailed — 3-6 sentences with specific examples or reasoning.",
+      short: "Open-text answers: a phrase or one short sentence. Stay terse but specific.",
+      medium: "Open-text answers: 1-3 natural sentences with a concrete reason or example.",
+      long: "Open-text answers: 3-6 sentences with specific lived-experience examples, trade-offs, and reasoning.",
     }[style?.responseLength ?? "medium"];
     const variationGuide = (style?.variation ?? 50) >= 70
       ? "Make wording, sentence length, and tone vary noticeably between respondents — some terse, some chatty, some hedging."
@@ -290,9 +290,46 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
       : "";
 
     const responses = await Promise.all(personas.map(async (persona) => {
-      const prompt = `${personaPrompt(persona)}\n\nSurvey topic: ${brief}\n${lengthGuide}\n${variationGuide}\n${personalityGuide}\nQuestions:\n${questionList}\n\nReturn ONLY JSON, an array with exactly one entry per question, using the exact "id" value given for each question as "question_id":\n[{"question_id":"<copy the id exactly as given>","answer":"answer to type into the form"}]\nChoice questions must use the closest option text. Open text answers should sound human and follow the length and tone guidance above.`;
+      const prompt = `You are answering a survey as an anonymous respondent. Your profile below shapes your perspective — it is private context only and must never appear in your answers.
+
+YOUR PROFILE (internal use only — do not quote or reference any of this)
+${personaPrompt(persona)}
+
+THE SURVEY
+Topic / brief: ${brief}
+
+Questions (answer ALL, in order):
+${questionList}
+
+HOW TO REASON (do this silently, do not output it)
+1. Re-read each question and what it is really asking.
+2. Map it to your lived experience: your occupation, income, education, values, politics, daily constraints.
+3. For choice questions, weigh the options against your situation — pick the one that genuinely fits, not the first or middle option.
+4. For rating/likert questions, pick the number that matches how someone like you would actually feel — avoid defaulting to "3" or the middle. Distribute realistically.
+5. For open-ended questions, give a specific, concrete reason grounded in your values and day-to-day experience — draw on habits, costs, trade-offs, and priorities. Never name a place, person, or institution.
+6. Stay internally consistent: your answers across questions must reflect the same person (same income, same politics, same priorities).
+7. ${lengthGuide}
+8. ${variationGuide}
+${personalityGuide ? `9. ${personalityGuide}\n` : ""}
+ANONYMITY RULES (hard — any violation makes the response unusable)
+- Never state or allude to your name
+- Never mention any location: no country, city, neighbourhood, region, or phrases like "here," "in my area," "where I live"
+- Never mention any other person, named or unnamed ("my husband," "a colleague," "someone I know")
+- Never state your age, gender, income bracket, religion, ethnicity, or political party unless that specific attribute is what the question is asking for
+- Never name any employer, school, hospital, or organisation
+- Your profile is for internal reasoning only — answers read as if from a completely anonymous respondent
+
+OUTPUT FORMAT
+Return ONLY a JSON array, one object per question, using the exact "id" given:
+[{"question_id":"<id exactly as given>","answer":"<your in-character answer>"}]
+
+Rules:
+- Choice/dropdown/yes-no/likert/rating answers MUST match one of the provided option strings verbatim.
+- Multi-select (checkbox) answers: join the chosen option strings with ", " — only options that genuinely apply to you.
+- Open-ended answers must sound like a real person speaking, not a survey-bot. No corporate fluff.
+- Do not invent extra questions or skip required ones.`;
       try {
-        const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+        const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.8 });
         const match = text.match(/\[[\s\S]*\]/);
         const parsed = match ? JSON.parse(match[0]) : null;
         return { persona, answers: normalizeAnswers(parsed, questions, persona) };
@@ -305,6 +342,7 @@ async function answerSurvey(questions: Question[], personas: Persona[], brief: s
     return personas.map((persona) => ({ persona, answers: fallbackAnswers(questions, persona) }));
   }
 }
+
 
 function normalizeQuestions(value: unknown, title: string, url: string): Question[] {
   if (!Array.isArray(value)) return fallbackQuestions(title, url);
@@ -355,38 +393,26 @@ function fallbackAnswers(questions: Question[], persona: Persona) {
 function fallbackAnswer(question: Question, persona: Persona) {
   if (question.options?.length) return question.options[Math.abs(hash(`${persona.id}-${question.id}`)) % question.options.length];
   if (question.type === "rating" || question.type === "likert") return String(3 + (Math.abs(hash(`${persona.name}-${question.text}`)) % 3) - 1);
-  if (question.type === "yes_no") return Math.abs(hash(`${question.id}-${persona.country}`)) % 2 === 0 ? "Yes" : "No";
-  const place = [persona.city, persona.country].filter(Boolean).join(", ") || "my area";
-  return `As ${persona.occupation ?? "someone with my background"} in ${place}, I would say it depends on trust, cost, and whether it fits into my normal routine.`;
+  if (question.type === "yes_no") return Math.abs(hash(`${question.id}-${persona.id}`)) % 2 === 0 ? "Yes" : "No";
+  return `It really depends on the situation. From my experience, it comes down to trust, cost, and whether it fits into my day-to-day routine.`;
 }
 
 function personaPrompt(p: Persona) {
-  return `You are ${p.name}, age ${p.age ?? "?"}, ${p.gender ?? ""}, from ${p.city ?? ""}, ${p.country ?? ""}. Education: ${p.education ?? "?"}. Income: ${p.income_bracket ?? "?"}. Occupation: ${p.occupation ?? "?"}. Politics: ${p.political_sentiment ?? "?"}. Values: ${(p.core_values ?? []).join(", ")}. Voice: ${p.language_style ?? "natural"}. Bio: ${p.bio ?? ""}`;
-}
+  const concerns = p.key_concerns?.length ? p.key_concerns.join(", ") : null;
+  const tags = p.tags?.length ? p.tags.join(", ") : null;
 
-function makePersonas(count: number, brief: string, offset = 0) {
-  const countries = ["United States", "United Kingdom", "Canada", "Nigeria", "India", "Brazil", "Germany", "Mexico", "South Africa", "Japan"];
-  const cities = ["Columbus", "Manchester", "Toronto", "Lagos", "Bengaluru", "Recife", "Berlin", "Guadalajara", "Cape Town", "Osaka"];
-  const jobs = ["teacher", "delivery driver", "nurse", "software analyst", "shop owner", "student", "electrician", "caregiver", "sales manager", "public-sector clerk"];
-  return Array.from({ length: count }, (_, i) => {
-    const n = offset + i;
-    const c = n % countries.length;
-    return {
-      name: `Respondent ${n + 1}`,
-      age: 18 + (n * 7) % 67,
-      gender: ["female", "male"][n % 2],
-      country: countries[c],
-      city: cities[c],
-      education: ["high school", "some college", "bachelors", "masters", "trade", "phd"][n % 6],
-      income_bracket: ["low", "lower-middle", "middle", "upper-middle", "high"][n % 5],
-      occupation: jobs[n % jobs.length],
-      political_sentiment: ["progressive", "moderate-left", "centrist", "moderate-right", "conservative", "libertarian", "apolitical"][n % 7],
-      core_values: [["family", "security", "fairness"], ["autonomy", "privacy", "quality"], ["community", "stability", "opportunity"]][n % 3],
-      language_style: ["warm", "casual", "formal", "blunt", "skeptical", "enthusiastic"][n % 6],
-      bio: `I answer surveys from the perspective of a ${jobs[n % jobs.length]} thinking about ${brief.slice(0, 120)}. My responses are practical and shaped by daily constraints.`,
-      tags: [countries[c], jobs[n % jobs.length], brief.slice(0, 30)],
-    };
-  });
+  return [
+    // Demographic context — internal only, never to be stated in answers
+    `Age: ${p.age ?? "unspecified"}. Gender: ${p.gender ?? "unspecified"}. Education: ${p.education ?? "unspecified"}.`,
+    `Income: ${p.income_bracket ?? "unspecified"}. Occupation: ${p.occupation ?? "unspecified"}.`,
+    `Politics: ${p.political_sentiment ?? "apolitical"}. Core values: ${(p.core_values ?? []).join(", ") || "unspecified"}.`,
+    p.bio ? `Background: ${p.bio}` : null,
+    p.life_situation ? `Your situation right now: ${p.life_situation}` : null,
+    concerns ? `What you worry about most: ${concerns}.` : null,
+    p.voice_sample ? `Register and tone to match: "${p.voice_sample}"` : `Voice: ${p.language_style ?? "natural"}.`,
+    tags ? `Tags: ${tags}.` : null,
+    `Use this profile to inform your perspective, priorities, and reasoning — not to identify yourself.`,
+  ].filter(Boolean).join("\n");
 }
 
 function hash(value: string) {

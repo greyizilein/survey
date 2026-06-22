@@ -14,6 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
+      interview_participants: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          interview_date: string | null
+          ordinal: number
+          participant_label: string
+          persona: Json
+          status: string
+          study_id: string
+          turns: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          interview_date?: string | null
+          ordinal?: number
+          participant_label: string
+          persona?: Json
+          status?: string
+          study_id: string
+          turns?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          interview_date?: string | null
+          ordinal?: number
+          participant_label?: string
+          persona?: Json
+          status?: string
+          study_id?: string
+          turns?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_participants_study_id_fkey"
+            columns: ["study_id"]
+            isOneToOne: false
+            referencedRelation: "interview_studies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_studies: {
+        Row: {
+          anonymize: boolean
+          brief: string | null
+          context_summary: string | null
+          created_at: string
+          date_end: string | null
+          date_start: string | null
+          depth: string
+          guide_questions: Json
+          id: string
+          interview_mode: string
+          interviewer_name: string
+          naming_context: string | null
+          respondent_count: number
+          source_excerpt: string | null
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          anonymize?: boolean
+          brief?: string | null
+          context_summary?: string | null
+          created_at?: string
+          date_end?: string | null
+          date_start?: string | null
+          depth?: string
+          guide_questions?: Json
+          id?: string
+          interview_mode?: string
+          interviewer_name: string
+          naming_context?: string | null
+          respondent_count?: number
+          source_excerpt?: string | null
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          anonymize?: boolean
+          brief?: string | null
+          context_summary?: string | null
+          created_at?: string
+          date_end?: string | null
+          date_start?: string | null
+          depth?: string
+          guide_questions?: Json
+          id?: string
+          interview_mode?: string
+          interviewer_name?: string
+          naming_context?: string | null
+          respondent_count?: number
+          source_excerpt?: string | null
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       personas: {
         Row: {
           age: number | null
@@ -26,13 +136,16 @@ export type Database = {
           gender: string | null
           id: string
           income_bracket: string | null
+          key_concerns: string[] | null
           language_style: string | null
+          life_situation: string | null
           name: string
           occupation: string | null
           political_sentiment: string | null
           population_id: string | null
           tags: string[] | null
           user_id: string
+          voice_sample: string | null
         }
         Insert: {
           age?: number | null
@@ -45,13 +158,16 @@ export type Database = {
           gender?: string | null
           id?: string
           income_bracket?: string | null
+          key_concerns?: string[] | null
           language_style?: string | null
+          life_situation?: string | null
           name: string
           occupation?: string | null
           political_sentiment?: string | null
           population_id?: string | null
           tags?: string[] | null
           user_id: string
+          voice_sample?: string | null
         }
         Update: {
           age?: number | null
@@ -64,13 +180,16 @@ export type Database = {
           gender?: string | null
           id?: string
           income_bracket?: string | null
+          key_concerns?: string[] | null
           language_style?: string | null
+          life_situation?: string | null
           name?: string
           occupation?: string | null
           political_sentiment?: string | null
           population_id?: string | null
           tags?: string[] | null
           user_id?: string
+          voice_sample?: string | null
         }
         Relationships: [
           {

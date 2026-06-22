@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createFillRunFromLink, submitDirectFill } from "@/lib/fill-flow.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
 import { listPopulations } from "@/lib/personas.functions";
+import { usePersistedState } from "@/lib/use-persisted-state";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -30,17 +31,36 @@ function FillPage() {
   const autoFillConfigQ = useQuery({ queryKey: ["autofill-configured"], queryFn: () => autoFillConfiguredFn() });
   const populationsFn = useServerFn(listPopulations);
   const populationsQ = useQuery({ queryKey: ["populations"], queryFn: () => populationsFn() });
-  const [url, setUrl] = useState("");
-  const [brief, setBrief] = useState("");
-  const [count, setCount] = useState(5);
-  const [responseLength, setResponseLength] = useState<"short" | "medium" | "long">("medium");
-  const [variation, setVariation] = useState(50);
-  const [personality, setPersonality] = useState("");
-  const [populationId, setPopulationId] = useState<string>("none");
-  const [samplingMethod, setSamplingMethod] = useState<"random" | "stratified">("random");
+  // Form inputs and the generated run persist across tab navigation so the
+  // draft isn't lost when the user visits Persona Studio and comes back.
+  const [url, setUrl] = usePersistedState("fill.url", "");
+  const [brief, setBrief] = usePersistedState("fill.brief", "");
+  const [count, setCount] = usePersistedState("fill.count", 5);
+  const [responseLength, setResponseLength] = usePersistedState<"short" | "medium" | "long">("fill.responseLength", "medium");
+  const [variation, setVariation] = usePersistedState("fill.variation", 50);
+  const [personality, setPersonality] = usePersistedState("fill.personality", "");
+  const [populationId, setPopulationId] = usePersistedState<string>("fill.populationId", "none");
+  const [samplingMethod, setSamplingMethod] = usePersistedState<"random" | "stratified">("fill.samplingMethod", "random");
+  const [run, setRun] = usePersistedState<any>("fill.run", null);
   const [loading, setLoading] = useState(false);
-  const [run, setRun] = useState<any>(null);
   const [filling, setFilling] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [spreadMinutes, setSpreadMinutes] = usePersistedState<number>("fill.spreadMinutes", 0);
+
+  async function waitWithCountdown(ms: number) {
+    if (ms <= 2000) { await new Promise((r) => setTimeout(r, ms)); return; }
+    const end = Date.now() + ms;
+    setCountdown(Math.ceil(ms / 1000));
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const rem = end - Date.now();
+        if (rem <= 0) { setCountdown(null); resolve(); return; }
+        setCountdown(Math.ceil(rem / 1000));
+        setTimeout(tick, 1000);
+      };
+      setTimeout(tick, 1000);
+    });
+  }
 
   async function startFill() {
     if (!url.trim()) { toast.error("Paste a survey link first"); return; }
@@ -77,13 +97,14 @@ function FillPage() {
   }
 
   function downloadPayload() {
-    if (!run?.extension_payload) return;
-    downloadFile(JSON.stringify(run.extension_payload, null, 2), "surveyor-fill-payload.json", "application/json");
+    if (!run?.all_payloads) return;
+    downloadFile(JSON.stringify(run.all_payloads, null, 2), "surveyor-fill-payload.json", "application/json");
   }
 
   async function autoFillAll() {
     if (!run?.responses?.length) return;
     setFilling(true);
+    setCountdown(null);
     let submitted = 0;
     try {
       for (let i = 0; i < run.responses.length; i++) {
@@ -101,9 +122,6 @@ function FillPage() {
               })),
             }});
             submitted++;
-            toast.success(`Submitted ${submitted}/${run.responses.length}...`, { id: "fill-progress" });
-            // Small human-like gap between submissions
-            await new Promise((r) => setTimeout(r, 800 + Math.random() * 1500));
           } else {
             const result: any = await autoFillFn({ data: { url: run.survey_url, answers: response.answers } });
             if (result.submitted) submitted++;
@@ -115,10 +133,20 @@ function FillPage() {
         } catch (e) {
           toast.error(e instanceof Error ? e.message : "Auto-fill failed for one respondent");
         }
+        toast.success(`Submitted ${submitted}/${run.responses.length}...`, { id: "fill-progress" });
+        if (i < run.responses.length - 1) {
+          const jitter = 0.7 + Math.random() * 0.6;
+          const gapMs = spreadMinutes > 0
+            ? (spreadMinutes * 60_000 / run.responses.length) * jitter
+            : 800 + Math.random() * 1500;
+          await waitWithCountdown(gapMs);
+        }
       }
+      setCountdown(null);
       toast.success(`Submitted ${submitted}/${run.responses.length} responses to the form.`, { id: "fill-progress" });
     } finally {
       setFilling(false);
+      setCountdown(null);
     }
   }
 
@@ -244,6 +272,26 @@ function FillPage() {
             </div>
 
             <div className="space-y-2">
+              <Label>Submission timing</Label>
+              <Select value={String(spreadMinutes)} onValueChange={(v) => setSpreadMinutes(Number(v))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Submit all at once</SelectItem>
+                  <SelectItem value="30">Spread over 30 minutes</SelectItem>
+                  <SelectItem value="60">Spread over 1 hour</SelectItem>
+                  <SelectItem value="120">Spread over 2 hours</SelectItem>
+                  <SelectItem value="240">Spread over 4 hours</SelectItem>
+                  <SelectItem value="480">Spread over 8 hours</SelectItem>
+                </SelectContent>
+              </Select>
+              {spreadMinutes > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  ~{formatGap(spreadMinutes, count)} between submissions on average. Keep this tab open while submitting.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="personality">Personality / voice (optional)</Label>
               <Textarea
                 id="personality"
@@ -268,12 +316,19 @@ function FillPage() {
                 <h2 className="font-semibold">Ready to fill</h2>
                 <p className="text-sm text-muted-foreground">{run.questions.length} questions · {run.responses.length} generated respondents</p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 {run.direct_submit || autoFillConfigQ.data?.configured ? (
-                  <Button onClick={autoFillAll} disabled={filling}>
-                    {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
-                    {filling ? "Submitting..." : `Submit ${run.responses.length} responses to the form`}
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button onClick={autoFillAll} disabled={filling}>
+                      {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+                      {filling ? "Submitting..." : `Submit ${run.responses.length} responses to the form`}
+                    </Button>
+                    {filling && countdown !== null && countdown > 2 && (
+                      <p className="text-xs text-muted-foreground text-center">
+                        Next submission in {formatCountdown(countdown)}
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <Button asChild><a href={run.survey_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-2 size-4" /> Open form</a></Button>
                 )}
@@ -304,6 +359,20 @@ function FillPage() {
       </div>
     </AppShell>
   );
+}
+
+function formatGap(totalMinutes: number, count: number) {
+  const avg = totalMinutes / Math.max(count - 1, 1);
+  if (avg < 1) return `${Math.round(avg * 60)}s`;
+  if (avg < 60) return `${Math.round(avg)} min`;
+  const h = Math.floor(avg / 60);
+  const m = Math.round(avg % 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function formatCountdown(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 function downloadFile(content: string, filename: string, mime: string) {
