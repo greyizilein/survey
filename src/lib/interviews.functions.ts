@@ -73,10 +73,14 @@ function safeJson<T>(text: string, fallback: T): T {
 // Step 1 — analyze uploaded documents (the "confirm before generating" step)
 // ---------------------------------------------------------------------------
 const AnalyzeInput = z.object({
-  files: z
+  guide_files: z
     .array(z.object({ name: z.string(), data: z.string() }))
     .min(1)
     .max(8),
+  context_files: z
+    .array(z.object({ name: z.string(), data: z.string() }))
+    .max(8)
+    .optional(),
   notes: z.string().max(2000).optional(),
 });
 
@@ -84,42 +88,55 @@ export const analyzeInterviewDoc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AnalyzeInput.parse(d))
   .handler(async ({ data }) => {
-    const texts: string[] = [];
-    for (const f of data.files) {
-      const t = await extractText(f.data, f.name);
-      texts.push(`===== FILE: ${f.name} =====\n${t}`);
+    async function gather(files: { name: string; data: string }[]) {
+      const out: string[] = [];
+      for (const f of files) {
+        const t = await extractText(f.data, f.name);
+        out.push(`===== FILE: ${f.name} =====\n${t}`);
+      }
+      return out.join("\n\n");
     }
-    let combined = texts.join("\n\n");
-    // Keep the prompt within sane bounds — methodology + guide rarely needs more.
-    const MAX = 60_000;
-    if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";
+
+    let guideText = await gather(data.guide_files);
+    let contextText = data.context_files?.length ? await gather(data.context_files) : "";
+    // Keep the prompt within sane bounds.
+    const GUIDE_MAX = 25_000;
+    const CONTEXT_MAX = 45_000;
+    if (guideText.length > GUIDE_MAX) guideText = guideText.slice(0, GUIDE_MAX) + "\n…[truncated]";
+    if (contextText.length > CONTEXT_MAX) contextText = contextText.slice(0, CONTEXT_MAX) + "\n…[truncated]";
 
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    const prompt = `You are helping a qualitative researcher set up simulated interviews. Read their uploaded materials (which may include a methodology chapter, literature/background, and an interview guide) and any extra notes.
+    const prompt = `You are helping a qualitative researcher set up simulated interviews. They have given you TWO clearly separated kinds of material.
 
-UPLOADED MATERIALS
-${combined}
+THE INTERVIEW GUIDE (this is the ONLY source of the questions to ask — every question must come from here, verbatim, in order):
+"""
+${guideText}
+"""
 
-${data.notes ? `RESEARCHER NOTES\n${data.notes}\n` : ""}
+${contextText ? `BACKGROUND / CONTEXT MATERIAL (methodology, chapters, literature — use ONLY to understand the study, the sample size, and the participant population. NEVER take interview questions from here):
+"""
+${contextText}
+"""
+` : ""}${data.notes ? `RESEARCHER NOTES\n${data.notes}\n` : ""}
 Return ONLY a JSON object with this exact shape:
 {
   "title": "a concise study title inferred from the materials",
   "context_summary": "3-5 sentences describing the study topic, setting, and what kind of people are being interviewed",
   "respondent_count": <integer the methodology calls for, or your best estimate>,
   "count_evidence": "the exact sentence or phrase from the materials that states the sample size, or 'No explicit number found — estimated from study design.'",
-  "guide_questions": ["each interview question, verbatim where possible, in order"],
+  "guide_questions": ["each interview question, taken VERBATIM from THE INTERVIEW GUIDE only, in order"],
   "naming_context": "describe the realistic naming pool for participants — the specific region, ethnicities, generation, and profession involved, so generated names fit the real population (NOT a generic set). Be specific."
 }
 
 Rules:
-- If the materials name a sample size (e.g. "18 semi-structured interviews"), use that exact number and quote it in count_evidence.
-- If no number is stated, estimate a typical size for the described design and say so.
-- Extract real interview questions; if the guide is thin, infer the 6-12 most likely questions from the topic.`;
+- guide_questions MUST come exclusively from THE INTERVIEW GUIDE section. Do NOT pull "research questions", aims, or objectives out of the background/context material — those are not interview questions.
+- Copy each guide question verbatim and keep the original order. Capture prompts/probes ("Tell me about…", "Describe…") exactly as written. Do NOT invent or drop questions. Only if the guide is genuinely empty of questions, infer the 6-12 most likely ones from the topic.
+- If the materials name a sample size (e.g. "18 semi-structured interviews"), use that exact number and quote it in count_evidence; otherwise estimate and say so.`;
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
     const parsed = safeJson<{
       title?: string;
       context_summary?: string;
@@ -144,7 +161,7 @@ Rules:
       count_evidence: parsed.count_evidence?.trim() || "No explicit number found — estimated from study design.",
       guide_questions: questions,
       naming_context: parsed.naming_context?.trim() || "",
-      source_excerpt: combined.slice(0, 8000),
+      source_excerpt: (contextText || guideText).slice(0, 8000),
     };
   });
 
