@@ -362,6 +362,7 @@ export type Database = {
       surveys: {
         Row: {
           background_context: string | null
+          context_input: string | null
           created_at: string
           id: string
           interviewer_affiliation: string | null
@@ -376,6 +377,7 @@ export type Database = {
         }
         Insert: {
           background_context?: string | null
+          context_input?: string | null
           created_at?: string
           id?: string
           interviewer_affiliation?: string | null
@@ -390,6 +392,7 @@ export type Database = {
         }
         Update: {
           background_context?: string | null
+          context_input?: string | null
           created_at?: string
           id?: string
           interviewer_affiliation?: string | null

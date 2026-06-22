@@ -46,6 +46,7 @@ function ProjectWorkspace() {
   const [title, setTitle] = useState("");
   const [sourceType, setSourceType] = useState<"text" | "url">("text");
   const [raw, setRaw] = useState("");
+  const [context, setContext] = useState("");
   const [url, setUrl] = useState("");
   const [interviewerName, setInterviewerName] = useState("");
   const [interviewerAffiliation, setInterviewerAffiliation] = useState("");
@@ -72,11 +73,12 @@ function ProjectWorkspace() {
         project_id: id, title, source_type: sourceType,
         source_url: sourceType === "url" ? url : undefined,
         raw_input: sourceType === "text" ? raw : undefined,
+        context_input: sourceType === "text" ? (context.trim() || undefined) : undefined,
         interviewer_name: interviewerName.trim() || undefined,
         interviewer_affiliation: interviewerAffiliation.trim() || undefined,
       }});
       toast.success("Survey parsed");
-      setTitle(""); setRaw(""); setUrl(""); setInterviewerName(""); setInterviewerAffiliation("");
+      setTitle(""); setRaw(""); setContext(""); setUrl(""); setInterviewerName(""); setInterviewerAffiliation("");
       qc.invalidateQueries({ queryKey: ["project", id] });
       setActiveSurvey(s.id);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Parse failed"); }
@@ -186,10 +188,16 @@ function ProjectWorkspace() {
                 </TabsList>
                 <TabsContent value="text" className="space-y-2">
                   <Input placeholder="Survey title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                  <Textarea rows={6} placeholder="Paste your interview guide, and optionally any written chapters/context after it. Surveyor will tell them apart automatically." value={raw} onChange={(e) => setRaw(e.target.value)} />
-                  <p className="text-xs text-muted-foreground">
-                    Tip: paste the interview guide AND any background chapters/reports together — Surveyor extracts only the guide's questions verbatim, and uses the rest as context to ground the generated answers.
-                  </p>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Interview guide</Label>
+                    <Textarea rows={6} placeholder="Paste only the interview guide — the actual list of questions/prompts to ask." value={raw} onChange={(e) => setRaw(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Every question/prompt here is extracted verbatim and used as-is.</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Background chapters / context (optional)</Label>
+                    <Textarea rows={6} placeholder="Paste any written chapters, reports, or notes for general context — not questions." value={context} onChange={(e) => setContext(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">Summarized and used only to ground generated answers — never treated as questions.</p>
+                  </div>
                 </TabsContent>
                 <TabsContent value="url" className="space-y-2">
                   <Input placeholder="Survey title" value={title} onChange={(e) => setTitle(e.target.value)} />

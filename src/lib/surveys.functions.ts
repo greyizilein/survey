@@ -8,6 +8,7 @@ const ParseInput = z.object({
   source_type: z.enum(["text", "url"]),
   source_url: z.string().url().optional(),
   raw_input: z.string().max(50000).optional(),
+  context_input: z.string().max(50000).optional(),
   interviewer_name: z.string().max(200).optional(),
   interviewer_affiliation: z.string().max(300).optional(),
 });
@@ -20,49 +21,43 @@ export const parseSurvey = createServerFn({ method: "POST" })
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    let sourceText = data.raw_input ?? "";
+    let guideText = data.raw_input ?? "";
     if (data.source_type === "url" && data.source_url) {
       try {
         const res = await fetch(data.source_url, { headers: { "User-Agent": "Mozilla/5.0 Surveyor" } });
         const html = await res.text();
-        sourceText = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 30000);
+        guideText = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 30000);
       } catch (e) {
-        sourceText = `URL: ${data.source_url}\n(Could not fetch content. Infer reasonable questions from the URL alone.)`;
+        guideText = `URL: ${data.source_url}\n(Could not fetch content. Infer reasonable questions from the URL alone.)`;
       }
     }
+    const contextText = data.context_input?.trim() ?? "";
 
-    const prompt = `You are preparing materials for an interview/survey titled "${data.title}". The pasted source below may contain TWO different kinds of content mixed together:
-(A) The actual interview guide / survey questionnaire — the list of questions or prompts to ask.
-(B) Supporting background material — written chapters, reports, notes, or other context that is NOT itself a list of questions, but should be used to inform realistic, well-grounded answers.
+    const guidePrompt = `You are extracting the interview/survey guide for "${data.title}". The source below IS the interview guide / survey questionnaire — every part of it is in scope for question extraction.
 
 Source content:
 """
-${sourceText}
+${guideText}
 """
 
-First, figure out which parts are (A) the guide and which parts are (B) background material. A guide section is recognizable as a list/sequence of distinct questions or interview prompts. Everything else (narrative chapters, descriptions, data, findings) is background material — even if it's the majority of the text.
-
-Then:
-1. EXTRACT the questions from the guide portion ONLY. Copy each question's wording VERBATIM — do not paraphrase, summarize, reword, shorten, merge, or "fix" them. Preserve the exact text, including informal phrasing. Keep them in the SAME ORDER they appear. Interview guides count as questions even when not phrased with a "?" — capture prompts and probes such as "Tell me about…", "Describe…", "Walk me through…", and thematic bullet points exactly as written. Do NOT add questions that aren't in the source, and do NOT drop any that are.
+1. EXTRACT every question and prompt in this guide. Copy each one's wording VERBATIM — do not paraphrase, summarize, reword, shorten, merge, or "fix" them. Preserve the exact text, including informal phrasing. Keep them in the SAME ORDER they appear. Prompts and probes such as "Tell me about…", "Describe…", "Walk me through…", and thematic bullet points count as questions exactly as written. Do NOT add questions that aren't in the source, and do NOT drop any that are.
    - For an interview prompt or any free-text question, use type "open_ended". Only use a choice/likert/rating/yes_no type when the source clearly presents fixed answer options, and in that case copy those option labels verbatim into "options".
    - ONLY IF the source genuinely contains no questions or prompts at all, infer 5-10 reasonable questions from the title/topic instead.
-2. SUMMARIZE the background material portion (if any) into concise bullet points of concrete, reusable facts, themes, and findings that an interviewee's answers should stay consistent with. Leave this empty if there is no background material beyond the guide itself.
-3. DETECT interview metadata if it is stated anywhere in the source: the interviewer/researcher's name, and their affiliation (e.g. their university, programme, department, or organisation). Interview guides often open with something like "My name is …, I am a … at the University of …". Return empty strings for anything not clearly stated — do NOT guess or invent names.
+2. DETECT interview metadata if it is stated anywhere in the source: the interviewer/researcher's name, and their affiliation (e.g. their university, programme, department, or organisation). Interview guides often open with something like "My name is …, I am a … at the University of …". Return empty strings for anything not clearly stated — do NOT guess or invent names.
 
 Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
 {
   "questions": [
     { "id": "q1", "text": "the exact question text from the source", "type": "multiple_choice" | "single_choice" | "open_ended" | "likert" | "matrix" | "yes_no" | "rating", "options": ["only when the source lists explicit answer options"], "required": true | false }
   ],
-  "background_context": "bullet-point summary of background material, or empty string if none",
   "interviewer_name": "detected researcher name, or empty string",
   "interviewer_affiliation": "detected affiliation/institution/programme, or empty string"
 }`;
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
+    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt: guidePrompt, temperature: 0 });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse questions");
-    let parsed: { questions?: unknown; background_context?: string; interviewer_name?: string; interviewer_affiliation?: string };
+    let parsed: { questions?: unknown; interviewer_name?: string; interviewer_affiliation?: string };
     try {
       parsed = JSON.parse(match[0]);
     } catch {
@@ -70,7 +65,21 @@ Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
     }
     if (!Array.isArray(parsed.questions)) throw new Error("AI response had no questions array");
 
-    // User-supplied values win; otherwise fall back to what the AI detected in the source.
+    let backgroundContext: string | null = null;
+    if (contextText) {
+      const contextPrompt = `Summarize the following written material (background chapters, reports, notes) into concise bullet points of concrete, reusable facts, themes, and findings that an interviewee's answers for a study titled "${data.title}" should stay consistent with. This material does NOT contain interview questions to ask — only background context.
+
+Source content:
+"""
+${contextText}
+"""
+
+Output ONLY the bullet-point summary as plain text, no markdown headers, no commentary.`;
+      const { text: contextSummary } = await generateText({ model: ai(DEFAULT_MODEL), prompt: contextPrompt, temperature: 0 });
+      backgroundContext = contextSummary.trim() || null;
+    }
+
+    // User-supplied values win; otherwise fall back to what the AI detected in the guide.
     const interviewerName = data.interviewer_name?.trim() || parsed.interviewer_name?.trim() || null;
     const interviewerAffiliation = data.interviewer_affiliation?.trim() || parsed.interviewer_affiliation?.trim() || null;
 
@@ -83,8 +92,9 @@ Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
         source_type: data.source_type,
         source_url: data.source_url ?? null,
         raw_input: data.raw_input ?? null,
+        context_input: data.context_input ?? null,
         parsed_questions: parsed.questions as any,
-        background_context: parsed.background_context?.trim() || null,
+        background_context: backgroundContext,
         interviewer_name: interviewerName,
         interviewer_affiliation: interviewerAffiliation,
       })
