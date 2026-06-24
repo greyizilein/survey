@@ -19,7 +19,7 @@ const AnalyzeChatInput = z.object({
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(8000).optional(),
-  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed"]).default("none"),
+  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"]).default("none"),
   instructions: z.string().max(4000).optional(),
 });
 
@@ -212,7 +212,29 @@ export const analyzeChat = createServerFn({ method: "POST" })
       ? `\n\nADDITIONAL RESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
       : "";
 
-    const prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
+    let model = DEFAULT_MODEL;
+    let prompt: string;
+
+    if (data.instructionsPreset === "other-writing") {
+      const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
+      model = "anthropic/claude-sonnet-4.6";
+      prompt = `${OTHER_WRITING_TEMPLATE}
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}
+
+CONVERSATION SO FAR
+${history}
+
+Respond to the latest USER message by producing the executable prompt table as instructed above.
+
+Output ONLY valid JSON (no markdown fencing, no commentary) in this exact shape:
+{
+  "answer": "the role/context/execution paragraphs followed by the full markdown prompt table, as plain text",
+  "chart": null,
+  "table": null
+}`;
+    } else {
+      prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
 ${datasetBlock}${backgroundBlock}${presetBlock}${instructionsBlock}
 
@@ -227,8 +249,9 @@ Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
   "chart": { "type": "bar" | "line" | "pie", "title": "chart title", "data": [{"name": "label", "value": 0}] } or null,
   "table": { "columns": ["Column A", "Column B"], "rows": [["value", "value"]] } or null
 }`;
+    }
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.2 });
+    const { text } = await generateText({ model: ai(model), prompt, temperature: 0.2 });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse analysis response");
     let parsed: { answer?: string; chart?: unknown; table?: unknown };
