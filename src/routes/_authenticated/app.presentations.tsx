@@ -110,13 +110,18 @@ function linesToBullets(text: string): string[] {
   return text.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
-function SlidePreview({ slide, theme }: { slide: Slide; theme: ReturnType<typeof deckTheme> }) {
+function SlidePreview({ slide, theme, captureRef }: { slide: Slide; theme: ReturnType<typeof deckTheme>; captureRef?: (el: HTMLDivElement | null) => void }) {
   const dark = slide.layout === "title" || slide.layout === "section" || slide.layout === "quote" || slide.layout === "closing";
   return (
     <div
-      className="aspect-video w-full rounded-md flex flex-col p-4 overflow-hidden text-[10px] sm:text-xs"
+      ref={captureRef}
+      className="aspect-video w-full rounded-md flex flex-col p-4 overflow-hidden text-[10px] sm:text-xs relative"
       style={{ background: dark ? `#${theme.dark}` : `#${theme.light}`, color: dark ? `#${theme.light}` : "#33384A" }}
     >
+      {slide.decoration && (
+        <div className="absolute inset-0 pointer-events-none" dangerouslySetInnerHTML={{ __html: slide.decoration }} />
+      )}
+      <div className="relative z-10 flex-1 flex flex-col min-w-0 min-h-0">
       {slide.layout === "title" && (
         <div className="flex-1 flex flex-col justify-center gap-1">
           <p className="font-bold text-base sm:text-lg leading-tight">{slide.title || "Untitled"}</p>
@@ -204,6 +209,7 @@ function SlidePreview({ slide, theme }: { slide: Slide; theme: ReturnType<typeof
           {slide.subtitle && <p className="opacity-80">{slide.subtitle}</p>}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -403,6 +409,7 @@ function PresentationsPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const slidePreviewRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     savePersistedState({ messages, instructions, docSummary, deck });
@@ -547,7 +554,20 @@ function PresentationsPage() {
     }
     setExporting(true);
     try {
-      const blob = await exportDeckToPptx(deck);
+      const decorationImages = await Promise.all(
+        deck.slides.map(async (slide, i) => {
+          const node = slidePreviewRefs.current[i];
+          if (!slide.decoration || !node) return undefined;
+          try {
+            const { toPng } = await import("html-to-image");
+            const pixelRatio = node.offsetWidth ? 1280 / node.offsetWidth : 2;
+            return await toPng(node, { pixelRatio, skipFonts: true });
+          } catch {
+            return undefined;
+          }
+        }),
+      );
+      const blob = await exportDeckToPptx(deck, decorationImages);
       downloadBlob(blob, `${(deck.title || "Presentation").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.pptx`);
     } catch (e) {
       toast.error("Couldn't export the presentation");
@@ -721,7 +741,7 @@ function PresentationsPage() {
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <SlidePreview slide={slide} theme={theme} />
+                      <SlidePreview slide={slide} theme={theme} captureRef={(el) => { slidePreviewRefs.current[i] = el; }} />
                       <SlideEditor slide={slide} onChange={(patch) => updateSlide(i, patch)} />
                     </div>
                   </div>
