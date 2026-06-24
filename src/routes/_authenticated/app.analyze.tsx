@@ -15,7 +15,8 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { analyzeChat, listAnalyzeProjects } from "@/lib/analyze.functions";
+import { analyzeChat, listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
   head: () => ({ meta: [{ title: "Analyze · Surveyor" }] }),
@@ -27,6 +28,15 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null };
+
+function readAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 function parseCsv(text: string): Record<string, unknown>[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -44,6 +54,7 @@ function parseCsv(text: string): Record<string, unknown>[] {
 function AnalyzePage() {
   const analyzeFn = useServerFn(analyzeChat);
   const projectsFn = useServerFn(listAnalyzeProjects);
+  const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
 
   const [sourceTab, setSourceTab] = useState<"project" | "file">("project");
@@ -52,9 +63,38 @@ function AnalyzePage() {
   const [fileRows, setFileRows] = useState<Record<string, unknown>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [docFiles, setDocFiles] = useState<File[]>([]);
+  const [docSummary, setDocSummary] = useState<string>("");
+  const [summarizingDocs, setSummarizingDocs] = useState(false);
+  const [instructions, setInstructions] = useState("");
+
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+
+  async function summarizeDocFiles(files: File[]) {
+    setDocFiles(files);
+    if (!files.length) { setDocSummary(""); return; }
+    setSummarizingDocs(true);
+    try {
+      const payload = await Promise.all(files.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      const res = await summarizeDocsFn({ data: { files: payload } });
+      setDocSummary(res.summary);
+      toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not read those documents");
+    } finally {
+      setSummarizingDocs(false);
+    }
+  }
+
+  function addDocFiles(newFiles: File[]) {
+    summarizeDocFiles([...docFiles, ...newFiles]);
+  }
+
+  function removeDocFile(index: number) {
+    summarizeDocFiles(docFiles.filter((_, i) => i !== index));
+  }
 
   function clearSource() {
     setProjectId(""); setFileName(""); setFileRows([]);
@@ -88,6 +128,8 @@ function AnalyzePage() {
         data: {
           messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
           source: currentSource(),
+          background: docSummary || undefined,
+          instructions: instructions.trim() || undefined,
         },
       });
       setMessages((prev) => [...prev, { role: "assistant", content: res.answer, chart: res.chart, table: res.table }]);
@@ -145,6 +187,46 @@ function AnalyzePage() {
                   <p className="text-xs text-muted-foreground">CSV with a header row. Columns are auto-summarized for the AI.</p>
                 </TabsContent>
               </Tabs>
+            </Card>
+
+            <Card className="p-4">
+              <h3 className="font-semibold text-sm mb-1">Background documents</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Upload chapters, reports, or methodology so the AI has full context. Summarized once and never used as data to compute statistics from.
+              </p>
+              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                <Upload className="size-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Choose documents</span>
+                <span className="text-xs text-muted-foreground">PDF, Word (.docx), .txt, or .md</span>
+                <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
+                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
+              </label>
+              {docFiles.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {docFiles.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
+                      <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {summarizingDocs && (
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <Label className="text-sm font-semibold">Instructions for the AI (optional)</Label>
+              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                Steer how it analyzes — a lens to apply, terminology to use, what to prioritize. This guides the AI's approach; it's not data to analyze.
+              </p>
+              <Textarea
+                rows={3}
+                placeholder="e.g. Focus on differences by region. Use the terminology from the methodology chapter. Flag any answer counts under 5 as low-confidence."
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+              />
             </Card>
 
             {messages.length > 0 && (
