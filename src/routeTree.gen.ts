@@ -12,10 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenticated/app.projects'
+import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_authenticated/app.presentations'
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
@@ -37,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
+  id: '/api/presentations-stream',
+  path: '/api/presentations-stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAnalyzeStreamRoute = ApiAnalyzeStreamRouteImport.update({
   id: '/api/analyze-stream',
   path: '/api/analyze-stream',
@@ -56,6 +63,12 @@ const AuthenticatedAppProjectsRoute =
   AuthenticatedAppProjectsRouteImport.update({
     id: '/projects',
     path: '/projects',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppPresentationsRoute =
+  AuthenticatedAppPresentationsRouteImport.update({
+    id: '/presentations',
+    path: '/presentations',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppPersonasRoute =
@@ -98,10 +111,12 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
+  '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
+  '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
@@ -111,10 +126,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
+  '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
+  '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/projects': typeof AuthenticatedAppProjectsIndexRoute
@@ -126,10 +143,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
+  '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
+  '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/_authenticated/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
@@ -142,10 +161,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/app'
     | '/api/analyze-stream'
+    | '/api/presentations-stream'
     | '/app/analyze'
     | '/app/fill'
     | '/app/interviews'
     | '/app/personas'
+    | '/app/presentations'
     | '/app/projects'
     | '/app/'
     | '/app/projects/$id'
@@ -155,10 +176,12 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/api/analyze-stream'
+    | '/api/presentations-stream'
     | '/app/analyze'
     | '/app/fill'
     | '/app/interviews'
     | '/app/personas'
+    | '/app/presentations'
     | '/app'
     | '/app/projects/$id'
     | '/app/projects'
@@ -169,10 +192,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/app'
     | '/api/analyze-stream'
+    | '/api/presentations-stream'
     | '/_authenticated/app/analyze'
     | '/_authenticated/app/fill'
     | '/_authenticated/app/interviews'
     | '/_authenticated/app/personas'
+    | '/_authenticated/app/presentations'
     | '/_authenticated/app/projects'
     | '/_authenticated/app/'
     | '/_authenticated/app/projects/$id'
@@ -184,6 +209,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiAnalyzeStreamRoute: typeof ApiAnalyzeStreamRoute
+  ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -207,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/presentations-stream': {
+      id: '/api/presentations-stream'
+      path: '/api/presentations-stream'
+      fullPath: '/api/presentations-stream'
+      preLoaderRoute: typeof ApiPresentationsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analyze-stream': {
@@ -235,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/app/projects'
       preLoaderRoute: typeof AuthenticatedAppProjectsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/presentations': {
+      id: '/_authenticated/app/presentations'
+      path: '/presentations'
+      fullPath: '/app/presentations'
+      preLoaderRoute: typeof AuthenticatedAppPresentationsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/personas': {
@@ -303,6 +343,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
+  AuthenticatedAppPresentationsRoute: typeof AuthenticatedAppPresentationsRoute
   AuthenticatedAppProjectsRoute: typeof AuthenticatedAppProjectsRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
@@ -312,6 +353,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
+  AuthenticatedAppPresentationsRoute: AuthenticatedAppPresentationsRoute,
   AuthenticatedAppProjectsRoute: AuthenticatedAppProjectsRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
@@ -335,6 +377,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiAnalyzeStreamRoute: ApiAnalyzeStreamRoute,
+  ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
