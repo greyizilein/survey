@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizePresentationDocuments } from "@/lib/presentations.functions";
-import { exportDeckToPptx, downloadBlob, deckTheme, type Deck, type Slide } from "@/lib/presentation-export";
+import { exportDeckToPptx, downloadBlob, deckTheme, sanitizeDeck, type Deck, type Slide } from "@/lib/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/app/presentations")({
   head: () => ({ meta: [{ title: "Presentations · Surveyor" }] }),
@@ -71,7 +71,7 @@ function splitDeckMarker(raw: string): { display: string; deck: Deck | null } {
   for (const line of lines) {
     const match = /^@@DECK@@(.*)$/.exec(line);
     if (match) {
-      try { deck = JSON.parse(match[1]); } catch { /* still streaming */ }
+      try { deck = sanitizeDeck(JSON.parse(match[1])); } catch { /* still streaming */ }
       continue;
     }
     kept.push(line);

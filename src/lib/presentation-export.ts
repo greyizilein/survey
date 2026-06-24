@@ -26,6 +26,34 @@ export function deckTheme(deck: Deck): Theme {
   return { ...DEFAULT_THEME, ...deck.theme };
 }
 
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*\*(.+?)\*\*\*/g, "$1")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/(?<![A-Za-z0-9])\*(?!\s)(.+?)(?<!\s)\*(?![A-Za-z0-9])/g, "$1")
+    .replace(/(?<![A-Za-z0-9])_(?!\s)(.+?)(?<!\s)_(?![A-Za-z0-9])/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .trim();
+}
+
+function sanitizeValue<T>(value: T): T {
+  if (typeof value === "string") return stripMarkdown(value) as unknown as T;
+  if (Array.isArray(value)) return value.map(sanitizeValue) as unknown as T;
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = sanitizeValue(v);
+    return out as T;
+  }
+  return value;
+}
+
+export function sanitizeDeck(deck: Deck): Deck {
+  return sanitizeValue(deck);
+}
+
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
