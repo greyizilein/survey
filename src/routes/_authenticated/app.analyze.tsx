@@ -35,7 +35,7 @@ type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: st
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type SourceRef = { title: string; url: string; authors?: string[]; year?: number };
 type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null; sources?: SourceRef[] | null; chartImage?: string | null };
-type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing" | "basic-academia" | "dissertations";
+type InstructionsPreset = "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing" | "basic-academia" | "dissertations";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -60,7 +60,6 @@ function parseCsv(text: string): Record<string, unknown>[] {
 }
 
 const PRESET_LABELS: Record<InstructionsPreset, string> = {
-  none: "None",
   "chapter4-quant": "Ch.4 Quant",
   "chapter4-qual": "Ch.4 Qual",
   "chapter4-mixed": "Ch.4 Mixed",
@@ -70,7 +69,6 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
 };
 
 const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
-  none: "None",
   "chapter4-quant": "Chapter Four — Quantitative",
   "chapter4-qual": "Chapter Four — Qualitative",
   "chapter4-mixed": "Chapter Four — Mixed Methods",
@@ -203,7 +201,9 @@ function AnalyzePage() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docSummary, setDocSummary] = useState<string>(initial.docSummary ?? "");
   const [summarizingDocs, setSummarizingDocs] = useState(false);
-  const [instructionsPreset, setInstructionsPreset] = useState<InstructionsPreset>(initial.instructionsPreset ?? "none");
+  const [instructionsPreset, setInstructionsPreset] = useState<InstructionsPreset>(
+    initial.instructionsPreset && initial.instructionsPreset in PRESET_LABELS ? initial.instructionsPreset : "basic-academia",
+  );
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
 
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
@@ -616,15 +616,13 @@ function AnalyzePage() {
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
-                    variant={instructionsPreset !== "none" || instructions.trim() ? "default" : "ghost"}
+                    variant="default"
                     size="sm"
                     className="h-8 gap-1.5 px-2 max-w-[180px]"
                     title="Instructions"
                   >
                     <ListChecks className="size-4 shrink-0" />
-                    <span className="truncate text-xs hidden sm:inline">
-                      {instructionsPreset !== "none" ? PRESET_LABELS[instructionsPreset] : "Instructions"}
-                    </span>
+                    <span className="truncate text-xs hidden sm:inline">{PRESET_LABELS[instructionsPreset]}</span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-80" align="start" side="top">
@@ -633,7 +631,7 @@ function AnalyzePage() {
                     Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Advanced Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents.
                   </p>
                   <div className="grid gap-1.5">
-                    {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing", "basic-academia", "dissertations"] as InstructionsPreset[]).map((p) => (
+                    {(["chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing", "basic-academia", "dissertations"] as InstructionsPreset[]).map((p) => (
                       <button
                         key={p}
                         onClick={() => setInstructionsPreset(p)}
