@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizePresentationDocuments } from "@/lib/presentations.functions";
+import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
+import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { exportDeckToPptx, downloadBlob, deckTheme, sanitizeDeck, type Deck, type Slide } from "@/lib/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/app/presentations")({
@@ -394,6 +396,9 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
 
 function PresentationsPage() {
   const summarizeDocsFn = useServerFn(summarizePresentationDocuments);
+  const saveConversationFn = useServerFn(saveChatConversation);
+  const getConversationFn = useServerFn(getChatConversation);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const initialRef = useRef<Partial<PersistedState> | null>(null);
   if (initialRef.current === null) initialRef.current = loadPersistedState();
@@ -414,6 +419,50 @@ function PresentationsPage() {
   useEffect(() => {
     savePersistedState({ messages, instructions, docSummary, deck });
   }, [messages, instructions, docSummary, deck]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const handle = setTimeout(() => {
+      const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
+      const title = firstUserMsg.slice(0, 80);
+      saveConversationFn({
+        data: {
+          id: conversationId ?? undefined,
+          tool: "presentations",
+          title,
+          state: { messages, instructions, docSummary, deck },
+        },
+      }).then(({ id }: { id: string }) => {
+        if (!conversationId) setConversationId(id);
+      }).catch(() => { /* best-effort history sync */ });
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [messages, instructions, docSummary, deck, conversationId, saveConversationFn]);
+
+  function handleNewChat() {
+    setConversationId(null);
+    setMessages([]);
+    setDeck(null);
+    setInput("");
+    setDocFiles([]);
+    setDocSummary("");
+    setInstructions("");
+  }
+
+  async function handleSelectConversation(id: string) {
+    try {
+      const { conversation } = await getConversationFn({ data: { id } });
+      const state = (conversation.state ?? {}) as Partial<PersistedState>;
+      setConversationId(conversation.id);
+      setMessages(state.messages ?? []);
+      setInstructions(state.instructions ?? "");
+      setDocSummary(state.docSummary ?? "");
+      setDeck(state.deck ?? null);
+      setDocFiles([]);
+    } catch {
+      toast.error("Couldn't load that chat");
+    }
+  }
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
@@ -643,6 +692,12 @@ function PresentationsPage() {
                 className="resize-none min-h-0 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base"
               />
               <div className="flex items-center gap-1 mt-1">
+                <ChatHistoryMenu
+                  tool="presentations"
+                  activeId={conversationId}
+                  onSelect={handleSelectConversation}
+                  onNew={handleNewChat}
+                />
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant={docFiles.length > 0 || docSummary.trim() !== "" ? "default" : "ghost"} size="sm" className="h-8 gap-1.5 px-2" title="Background docs">
