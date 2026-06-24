@@ -18,6 +18,7 @@ import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
+import { Route as AuthenticatedAppAnalyzeRouteImport } from './routes/_authenticated/app.analyze'
 import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app.projects.index'
 import { Route as AuthenticatedAppProjectsIdRouteImport } from './routes/_authenticated/app.projects.$id'
 
@@ -68,6 +69,11 @@ const AuthenticatedAppFillRoute = AuthenticatedAppFillRouteImport.update({
   path: '/fill',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppAnalyzeRoute = AuthenticatedAppAnalyzeRouteImport.update({
+  id: '/analyze',
+  path: '/analyze',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppProjectsIndexRoute =
   AuthenticatedAppProjectsIndexRouteImport.update({
     id: '/',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
+  '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
+  '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/app'
+    | '/app/analyze'
     | '/app/fill'
     | '/app/interviews'
     | '/app/personas'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/app/analyze'
     | '/app/fill'
     | '/app/interviews'
     | '/app/personas'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/app'
+    | '/_authenticated/app/analyze'
     | '/_authenticated/app/fill'
     | '/_authenticated/app/interviews'
     | '/_authenticated/app/personas'
@@ -226,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppFillRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/analyze': {
+      id: '/_authenticated/app/analyze'
+      path: '/analyze'
+      fullPath: '/app/analyze'
+      preLoaderRoute: typeof AuthenticatedAppAnalyzeRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/projects/': {
       id: '/_authenticated/app/projects/'
       path: '/'
@@ -260,6 +279,7 @@ const AuthenticatedAppProjectsRouteWithChildren =
   )
 
 interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppAnalyzeRoute: typeof AuthenticatedAppAnalyzeRoute
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
@@ -268,6 +288,7 @@ interface AuthenticatedAppRouteChildren {
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppAnalyzeRoute: AuthenticatedAppAnalyzeRoute,
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
