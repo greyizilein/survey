@@ -372,154 +372,41 @@ function AnalyzePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1400px] p-4 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
-        <h1 className="text-2xl font-semibold mb-1 flex items-center gap-2 shrink-0"><BarChart3 className="size-6" /> Writing</h1>
-        <p className="text-sm text-muted-foreground mb-3 shrink-0">Chat with your survey data — ask questions, get charts and tables back.</p>
-
-        <Card className="p-0 flex flex-col flex-1 min-h-0">
-          <div className="flex flex-wrap items-center gap-2 border-b-2 p-3 shrink-0">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant={sourceActive ? "default" : "outline"} size="sm" className="gap-1.5">
-                  <Database className="size-3.5" /> {sourceActive ? sourceLabel : "Data source"}
+      <div className="mx-auto max-w-[1400px] p-3 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+        <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+          <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate">
+            <BarChart3 className="size-5 shrink-0" /> Writing
+          </h1>
+          {messages.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8">
+                  <MoreHorizontal className="size-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="start">
-                <h3 className="font-semibold text-sm mb-3">Data source</h3>
-                <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSource(); }}>
-                  <TabsList className="grid grid-cols-2 w-full">
-                    <TabsTrigger value="project">Project</TabsTrigger>
-                    <TabsTrigger value="file">Upload file</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="project" className="space-y-2 mt-3">
-                    <Select value={projectId} onValueChange={setProjectId}>
-                      <SelectTrigger><SelectValue placeholder="Choose a project" /></SelectTrigger>
-                      <SelectContent>
-                        {(projectsQ.data ?? []).map((p: any) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">Analyzes that project's surveys, responses, and personas.</p>
-                  </TabsContent>
-                  <TabsContent value="file" className="space-y-2 mt-3">
-                    <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                      <Upload className="size-5 text-muted-foreground" />
-                      <span className="text-sm font-medium">Choose a CSV file</span>
-                      <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
-                    </label>
-                    {fileName && (
-                      <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                        <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {fileName} ({fileRows.length} rows)</span>
-                        <button onClick={clearSource} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground">CSV with a header row. Columns are auto-summarized for the AI.</p>
-                  </TabsContent>
-                </Tabs>
-              </PopoverContent>
-            </Popover>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportDocument} disabled={exporting}>
+                  {exporting ? <Loader2 className="size-4 animate-spin mr-2" /> : <FileDown className="size-4 mr-2" />}
+                  Download document
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setMessages([])} className="text-destructive focus:text-destructive">
+                  <Trash2 className="size-4 mr-2" /> Clear conversation
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant={docFiles.length > 0 || docSummary.trim() !== "" ? "default" : "outline"} size="sm" className="gap-1.5">
-                  <FileStack className="size-3.5" />
-                  {docFiles.length > 0 ? `${docFiles.length} doc${docFiles.length > 1 ? "s" : ""}` : docSummary.trim() !== "" ? "Docs restored" : "Background docs"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="start">
-                <h3 className="font-semibold text-sm mb-1">Background documents</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Upload chapters, reports, or methodology so the AI has full context. Summarized once and never used as data to compute statistics from.
-                </p>
-                <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                  <Upload className="size-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Choose documents</span>
-                  <span className="text-xs text-muted-foreground">PDF, Word (.docx), .txt, or .md</span>
-                  <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
-                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
-                </label>
-                {docFiles.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    {docFiles.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                        <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                        <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {docFiles.length === 0 && docSummary.trim() !== "" && (
-                  <div className="mt-3 flex items-center justify-between rounded border px-3 py-2 text-sm">
-                    <span className="flex items-center gap-2 truncate text-muted-foreground"><FileText className="size-4 shrink-0" /> Background context restored from a previous session</span>
-                    <button onClick={() => setDocSummary("")} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-4" /></button>
-                  </div>
-                )}
-                {summarizingDocs && (
-                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
-                )}
-              </PopoverContent>
-            </Popover>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant={instructionsPreset !== "none" || instructions.trim() ? "default" : "outline"} size="sm" className="gap-1.5">
-                  <ListChecks className="size-3.5" /> {instructionsPreset !== "none" ? PRESET_LABELS[instructionsPreset] : "Instructions"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="start">
-                <Label className="text-sm font-semibold">Writing template</Label>
-                <p className="text-xs text-muted-foreground mt-1 mb-2">
-                  Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Advanced Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents.
-                </p>
-                <div className="grid gap-1.5">
-                  {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"] as InstructionsPreset[]).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setInstructionsPreset(p)}
-                      className={cn(
-                        "flex items-center justify-between rounded border px-3 py-2 text-sm text-left transition-colors",
-                        instructionsPreset === p ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/40",
-                      )}
-                    >
-                      {PRESET_FULL_LABELS[p]}
-                      {instructionsPreset === p && <Check className="size-3.5" />}
-                    </button>
-                  ))}
-                </div>
-
-                <Label className="text-sm font-semibold mt-4 block">Additional instructions</Label>
-                <p className="text-xs text-muted-foreground mt-1 mb-2">
-                  Anything extra to steer the AI — a lens to apply, terminology to use, what to prioritize.
-                </p>
-                <Textarea
-                  rows={3}
-                  placeholder="e.g. Focus on differences by region."
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                />
-              </PopoverContent>
-            </Popover>
-
-            {messages.length > 0 && (
-              <Button variant="outline" size="sm" className="ml-auto gap-1.5" onClick={exportDocument} disabled={exporting}>
-                {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} Download document
-              </Button>
-            )}
-            {messages.length > 0 && (
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setMessages([])}>
-                Clear conversation
-              </Button>
-            )}
-          </div>
-
+        <Card className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             {messages.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-8">
-                <BarChart3 className="size-8 mb-2" />
-                <p className="text-sm">
-                  {sourceActive ? `Ask anything about "${sourceLabel}" — e.g. "what's the breakdown of answers to question 2?"` : "Pick a data source above, then ask a question."}
+              <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
+                <BarChart3 className="size-10 mb-3 opacity-60" />
+                <p className="text-sm max-w-sm">
+                  {sourceActive
+                    ? `Ask anything about "${sourceLabel}" — e.g. "what's the breakdown of answers to question 2?"`
+                    : "Pick a data source from the toolbar below, then ask a question."}
                 </p>
               </div>
             )}
@@ -601,18 +488,169 @@ function AnalyzePage() {
               </div>
             )}
           </div>
-          <div className="border-t-2 p-3 flex gap-2 shrink-0">
+
+          {/* Composer — Lovable-style: textarea on top, tool icons + send in a single bar */}
+          <div className="border-t-2 p-2 sm:p-3 shrink-0 bg-background">
             <Textarea
               rows={1}
               placeholder="Ask about your data..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              className="resize-none min-h-0"
+              className="resize-none min-h-0 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base"
             />
-            <Button onClick={send} disabled={sending || !input.trim()}>
-              <Send className="size-4" />
-            </Button>
+            <div className="flex items-center gap-1 mt-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={sourceActive ? "default" : "ghost"}
+                    size="sm"
+                    className="h-8 gap-1.5 px-2 max-w-[160px]"
+                    title={sourceActive ? sourceLabel : "Data source"}
+                  >
+                    <Database className="size-4 shrink-0" />
+                    <span className="truncate text-xs hidden sm:inline">{sourceActive ? sourceLabel : "Data"}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="start" side="top">
+                  <h3 className="font-semibold text-sm mb-3">Data source</h3>
+                  <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSource(); }}>
+                    <TabsList className="grid grid-cols-2 w-full">
+                      <TabsTrigger value="project">Project</TabsTrigger>
+                      <TabsTrigger value="file">Upload file</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="project" className="space-y-2 mt-3">
+                      <Select value={projectId} onValueChange={setProjectId}>
+                        <SelectTrigger><SelectValue placeholder="Choose a project" /></SelectTrigger>
+                        <SelectContent>
+                          {(projectsQ.data ?? []).map((p: any) => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">Analyzes that project's surveys, responses, and personas.</p>
+                    </TabsContent>
+                    <TabsContent value="file" className="space-y-2 mt-3">
+                      <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                        <Upload className="size-5 text-muted-foreground" />
+                        <span className="text-sm font-medium">Choose a CSV file</span>
+                        <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                      </label>
+                      {fileName && (
+                        <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                          <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {fileName} ({fileRows.length} rows)</span>
+                          <button onClick={clearSource} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">CSV with a header row. Columns are auto-summarized for the AI.</p>
+                    </TabsContent>
+                  </Tabs>
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={docFiles.length > 0 || docSummary.trim() !== "" ? "default" : "ghost"}
+                    size="sm"
+                    className="h-8 gap-1.5 px-2"
+                    title="Background docs"
+                  >
+                    <FileStack className="size-4 shrink-0" />
+                    <span className="text-xs hidden sm:inline">
+                      {docFiles.length > 0 ? `${docFiles.length}` : "Docs"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="start" side="top">
+                  <h3 className="font-semibold text-sm mb-1">Background documents</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Upload chapters, reports, or methodology so the AI has full context. Summarized once and never used as data to compute statistics from.
+                  </p>
+                  <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                    <Upload className="size-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Choose documents</span>
+                    <span className="text-xs text-muted-foreground">PDF, Word (.docx), .txt, or .md</span>
+                    <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
+                      onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
+                  </label>
+                  {docFiles.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      {docFiles.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                          <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
+                          <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {docFiles.length === 0 && docSummary.trim() !== "" && (
+                    <div className="mt-3 flex items-center justify-between rounded border px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2 truncate text-muted-foreground"><FileText className="size-4 shrink-0" /> Background context restored from a previous session</span>
+                      <button onClick={() => setDocSummary("")} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-4" /></button>
+                    </div>
+                  )}
+                  {summarizingDocs && (
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
+                  )}
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={instructionsPreset !== "none" || instructions.trim() ? "default" : "ghost"}
+                    size="sm"
+                    className="h-8 gap-1.5 px-2 max-w-[180px]"
+                    title="Instructions"
+                  >
+                    <ListChecks className="size-4 shrink-0" />
+                    <span className="truncate text-xs hidden sm:inline">
+                      {instructionsPreset !== "none" ? PRESET_LABELS[instructionsPreset] : "Instructions"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="start" side="top">
+                  <Label className="text-sm font-semibold">Writing template</Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-2">
+                    Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Advanced Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents.
+                  </p>
+                  <div className="grid gap-1.5">
+                    {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"] as InstructionsPreset[]).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setInstructionsPreset(p)}
+                        className={cn(
+                          "flex items-center justify-between rounded border px-3 py-2 text-sm text-left transition-colors",
+                          instructionsPreset === p ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/40",
+                        )}
+                      >
+                        {PRESET_FULL_LABELS[p]}
+                        {instructionsPreset === p && <Check className="size-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+
+                  <Label className="text-sm font-semibold mt-4 block">Additional instructions</Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-2">
+                    Anything extra to steer the AI — a lens to apply, terminology to use, what to prioritize.
+                  </p>
+                  <Textarea
+                    rows={3}
+                    placeholder="e.g. Focus on differences by region."
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <div className="ml-auto">
+                <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="size-9">
+                  <Send className="size-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </Card>
       </div>
