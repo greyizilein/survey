@@ -9,6 +9,7 @@ const AGENT_SYSTEM_PROMPT = `You are the Survey App Assistant, a general-purpose
 - Presentations: design slide decks and, when the user wants an actual file, generate a real .pptx using the pptx skill. Use the xlsx skill for real spreadsheets and the docx skill for real Word documents when the user wants a downloadable file rather than just chat output.
 - Charts and figures: when useful, generate real matplotlib charts and save them as files the user can download.
 - Research and citations: use your web_search/web_fetch tools to find and verify any real-world facts, statistics, or sources you cite — never invent a source.
+- Memory: you have a per-user memory store mounted as a directory — check it at the start of a conversation for relevant context from past sessions, and write durable preferences or project details there as you learn them.
 
 You explicitly do NOT handle survey design/distribution or interview transcription/analysis — if asked for those, tell the user to use the app's dedicated Surveys or Interviews tools instead.
 
@@ -69,6 +70,27 @@ async function findExisting<T extends { name: string }>(
   return null;
 }
 
+type McpServerConfig = { name: string; url: string };
+
+function getConfiguredMcpServers(): McpServerConfig[] {
+  const raw = process.env.MANAGED_AGENT_MCP_SERVERS;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s): s is McpServerConfig => typeof s?.name === "string" && typeof s?.url === "string");
+  } catch {
+    console.error("[managed-agent] MANAGED_AGENT_MCP_SERVERS is not valid JSON; ignoring.");
+    return [];
+  }
+}
+
+function getConfiguredVaultIds(): string[] {
+  const raw = process.env.MANAGED_AGENT_VAULT_IDS;
+  if (!raw) return [];
+  return raw.split(",").map((id) => id.trim()).filter(Boolean);
+}
+
 async function findCustomSkillByTitle(
   client: Awaited<ReturnType<typeof createRawAnthropic>>,
   title: string,
@@ -112,11 +134,13 @@ export async function getOrCreateAgentId(): Promise<string> {
     { type: "anthropic" as const, skill_id: "pdf" },
     ...writingSkillIds.map((skill_id) => ({ type: "custom" as const, skill_id })),
   ];
+  const mcpServers = getConfiguredMcpServers();
   const tools = [
     {
       type: "agent_toolset_20260401" as const,
       default_config: { enabled: true, permission_policy: { type: "always_allow" as const } },
     },
+    ...mcpServers.map((s) => ({ type: "mcp_toolset" as const, mcp_server_name: s.name })),
   ];
 
   const existing = await findExisting(client.beta.agents.list(), AGENT_NAME);
@@ -126,6 +150,7 @@ export async function getOrCreateAgentId(): Promise<string> {
       system: AGENT_SYSTEM_PROMPT,
       tools,
       skills,
+      mcp_servers: mcpServers.map((s) => ({ type: "url" as const, name: s.name, url: s.url })),
     });
     return updated.id;
   }
@@ -136,8 +161,27 @@ export async function getOrCreateAgentId(): Promise<string> {
     system: AGENT_SYSTEM_PROMPT,
     tools,
     skills,
+    mcp_servers: mcpServers.map((s) => ({ type: "url" as const, name: s.name, url: s.url })),
   });
   return agent.id;
+}
+
+const USER_MEMORY_STORE_PREFIX = "user-memory-";
+
+async function getOrCreateUserMemoryStoreId(
+  client: Awaited<ReturnType<typeof createRawAnthropic>>,
+  userId: string,
+): Promise<string> {
+  const name = `${USER_MEMORY_STORE_PREFIX}${userId}`;
+  const existing = await findExisting(client.beta.memoryStores.list(), name);
+  if (existing) return existing.id;
+
+  const store = await client.beta.memoryStores.create({
+    name,
+    description:
+      "Notes the agent has saved about this specific user across past sessions — their projects, preferences, and any context worth remembering. Check it before starting work and update it when you learn something durable.",
+  });
+  return store.id;
 }
 
 export async function getOrCreateEnvironmentId(): Promise<string> {
@@ -156,10 +200,28 @@ export async function getOrCreateEnvironmentId(): Promise<string> {
   return environment.id;
 }
 
-export async function createAgentSession(): Promise<string> {
+export async function createAgentSession(userId: string): Promise<string> {
   const client = await createRawAnthropic();
-  const [agentId, environmentId] = await Promise.all([getOrCreateAgentId(), getOrCreateEnvironmentId()]);
-  const session = await client.beta.sessions.create({ agent: agentId, environment_id: environmentId });
+  const [agentId, environmentId, memoryStoreId] = await Promise.all([
+    getOrCreateAgentId(),
+    getOrCreateEnvironmentId(),
+    getOrCreateUserMemoryStoreId(client, userId),
+  ]);
+  const vaultIds = getConfiguredVaultIds();
+
+  const session = await client.beta.sessions.create({
+    agent: agentId,
+    environment_id: environmentId,
+    resources: [
+      {
+        type: "memory_store",
+        memory_store_id: memoryStoreId,
+        access: "read_write",
+        instructions: "Per-user memory from past sessions with this person. Check before starting any task; save durable preferences or project context here as you learn them.",
+      },
+    ],
+    ...(vaultIds.length > 0 ? { vault_ids: vaultIds } : {}),
+  });
   return session.id;
 }
 
