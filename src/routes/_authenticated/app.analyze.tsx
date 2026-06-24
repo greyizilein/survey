@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check } from "lucide-react";
 import {
@@ -70,27 +70,165 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "other-writing": "Other Writing (Claude Sonnet 4)",
 };
 
+const STORAGE_KEY = "analyze-chat-state-v1";
+
+type PersistedState = {
+  messages: Msg[];
+  instructionsPreset: InstructionsPreset;
+  instructions: string;
+  docSummary: string;
+  sourceTab: "project" | "file";
+  projectId: string;
+  fileName: string;
+  fileRows: Record<string, unknown>[];
+};
+
+function loadPersistedState(): Partial<PersistedState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<PersistedState>;
+  } catch {
+    return {};
+  }
+}
+
+function savePersistedState(state: PersistedState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, fileRows: [] }));
+    } catch {
+      // localStorage unavailable or still too large — fail silently, nothing else we can do
+    }
+  }
+}
+
+type MdBlock =
+  | { type: "heading"; level: number; text: string }
+  | { type: "table"; header: string[]; rows: string[][] }
+  | { type: "paragraph"; text: string };
+
+function splitTableRow(line: string): string[] {
+  let trimmed = line.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed.split("|").map((c) => c.trim());
+}
+
+const TABLE_SEPARATOR_RE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/;
+
+function parseMarkdownLite(text: string): MdBlock[] {
+  const lines = text.split("\n");
+  const blocks: MdBlock[] = [];
+  let paragraphBuf: string[] = [];
+
+  function flushParagraph() {
+    if (paragraphBuf.length) {
+      blocks.push({ type: "paragraph", text: paragraphBuf.join("\n") });
+      paragraphBuf = [];
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const headingMatch = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (headingMatch) {
+      flushParagraph();
+      blocks.push({ type: "heading", level: headingMatch[1].length, text: headingMatch[2].trim() });
+      continue;
+    }
+    if (line.includes("|") && i + 1 < lines.length && TABLE_SEPARATOR_RE.test(lines[i + 1])) {
+      flushParagraph();
+      const header = splitTableRow(line);
+      const rows: string[][] = [];
+      let j = i + 2;
+      while (j < lines.length && lines[j].includes("|") && lines[j].trim() !== "") {
+        rows.push(splitTableRow(lines[j]));
+        j++;
+      }
+      blocks.push({ type: "table", header, rows });
+      i = j - 1;
+      continue;
+    }
+    if (line.trim() === "") {
+      flushParagraph();
+      continue;
+    }
+    paragraphBuf.push(line);
+  }
+  flushParagraph();
+  return blocks;
+}
+
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : <span key={i}>{part}</span>,
+  );
+}
+
+function MarkdownLite({ text }: { text: string }) {
+  const blocks = parseMarkdownLite(text);
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, i) => {
+        if (block.type === "heading") {
+          const sizeClass = block.level <= 2 ? "text-sm font-semibold" : "text-sm font-medium";
+          return <p key={i} className={cn(sizeClass, "mt-1")}>{renderInline(block.text)}</p>;
+        }
+        if (block.type === "table") {
+          return (
+            <div key={i} className="overflow-x-auto bg-background rounded p-2 border">
+              <table className="text-xs w-full">
+                <thead>
+                  <tr>{block.header.map((c, ci) => <th key={ci} className="text-left font-semibold px-2 py-1 border-b">{renderInline(c)}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, ri) => (
+                    <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-2 py-1 border-b align-top">{renderInline(cell)}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        return <p key={i} className="whitespace-pre-wrap">{renderInline(block.text)}</p>;
+      })}
+    </div>
+  );
+}
+
 function AnalyzePage() {
   const analyzeFn = useServerFn(analyzeChat);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
 
-  const [sourceTab, setSourceTab] = useState<"project" | "file">("project");
-  const [projectId, setProjectId] = useState<string>("");
-  const [fileName, setFileName] = useState<string>("");
-  const [fileRows, setFileRows] = useState<Record<string, unknown>[]>([]);
+  const initialRef = useRef<Partial<PersistedState> | null>(null);
+  if (initialRef.current === null) initialRef.current = loadPersistedState();
+  const initial = initialRef.current;
+
+  const [sourceTab, setSourceTab] = useState<"project" | "file">(initial.sourceTab ?? "project");
+  const [projectId, setProjectId] = useState<string>(initial.projectId ?? "");
+  const [fileName, setFileName] = useState<string>(initial.fileName ?? "");
+  const [fileRows, setFileRows] = useState<Record<string, unknown>[]>(initial.fileRows ?? []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [docFiles, setDocFiles] = useState<File[]>([]);
-  const [docSummary, setDocSummary] = useState<string>("");
+  const [docSummary, setDocSummary] = useState<string>(initial.docSummary ?? "");
   const [summarizingDocs, setSummarizingDocs] = useState(false);
-  const [instructionsPreset, setInstructionsPreset] = useState<InstructionsPreset>("none");
-  const [instructions, setInstructions] = useState("");
+  const [instructionsPreset, setInstructionsPreset] = useState<InstructionsPreset>(initial.instructionsPreset ?? "none");
+  const [instructions, setInstructions] = useState(initial.instructions ?? "");
 
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    savePersistedState({ messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows });
+  }, [messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows]);
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
@@ -221,8 +359,9 @@ function AnalyzePage() {
 
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant={docFiles.length > 0 ? "default" : "outline"} size="sm" className="gap-1.5">
-                  <FileStack className="size-3.5" /> {docFiles.length > 0 ? `${docFiles.length} doc${docFiles.length > 1 ? "s" : ""}` : "Background docs"}
+                <Button variant={docFiles.length > 0 || docSummary.trim() !== "" ? "default" : "outline"} size="sm" className="gap-1.5">
+                  <FileStack className="size-3.5" />
+                  {docFiles.length > 0 ? `${docFiles.length} doc${docFiles.length > 1 ? "s" : ""}` : docSummary.trim() !== "" ? "Docs restored" : "Background docs"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-80" align="start">
@@ -245,6 +384,12 @@ function AnalyzePage() {
                         <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
                       </div>
                     ))}
+                  </div>
+                )}
+                {docFiles.length === 0 && docSummary.trim() !== "" && (
+                  <div className="mt-3 flex items-center justify-between rounded border px-3 py-2 text-sm">
+                    <span className="flex items-center gap-2 truncate text-muted-foreground"><FileText className="size-4 shrink-0" /> Background context restored from a previous session</span>
+                    <button onClick={() => setDocSummary("")} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-4" /></button>
                   </div>
                 )}
                 {summarizingDocs && (
@@ -312,7 +457,7 @@ function AnalyzePage() {
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  {m.role === "assistant" ? <MarkdownLite text={m.content} /> : <p className="whitespace-pre-wrap">{m.content}</p>}
                   {m.chart && m.chart.data?.length > 0 && (
                     <div className="mt-3 bg-background rounded p-2">
                       <p className="text-xs font-medium mb-1">{m.chart.title}</p>
