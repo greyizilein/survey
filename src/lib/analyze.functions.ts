@@ -19,7 +19,7 @@ export const AnalyzeChatInput = z.object({
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(8000).optional(),
-  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"]).default("none"),
+  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing", "basic-academia"]).default("none"),
   instructions: z.string().max(4000).optional(),
 });
 
@@ -213,6 +213,9 @@ export async function buildAnalyzePrompt(
   } else if (data.instructionsPreset === "chapter4-mixed") {
     const { MIXED_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
     presetBlock = `\n\nCHAPTER FOUR (MIXED METHODS) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${MIXED_CHAPTER_FOUR_TEMPLATE}`;
+  } else if (data.instructionsPreset === "basic-academia") {
+    const { BASIC_ACADEMIA_TEMPLATE } = await import("./analyze-templates.server");
+    presetBlock = `\n\nBASIC ACADEMIA WRITING TEMPLATE — follow this exactly for tone, citation density, structure, and quality standards:\n${BASIC_ACADEMIA_TEMPLATE}`;
   }
 
   const instructionsBlock = data.instructions?.trim()
@@ -228,6 +231,7 @@ export async function buildAnalyzePrompt(
     data.instructionsPreset === "chapter4-quant" ||
     data.instructionsPreset === "chapter4-qual" ||
     data.instructionsPreset === "chapter4-mixed" ||
+    data.instructionsPreset === "basic-academia" ||
     (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
 
   let sourcesBlock = "";
