@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { analyzeChat, extractInstructionsDocument, listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { analyzeChat, listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
 import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
@@ -55,7 +55,6 @@ function AnalyzePage() {
   const analyzeFn = useServerFn(analyzeChat);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
-  const extractInstructionsFn = useServerFn(extractInstructionsDocument);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
 
   const [sourceTab, setSourceTab] = useState<"project" | "file">("project");
@@ -67,8 +66,8 @@ function AnalyzePage() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docSummary, setDocSummary] = useState<string>("");
   const [summarizingDocs, setSummarizingDocs] = useState(false);
+  const [instructionsPreset, setInstructionsPreset] = useState<"none" | "chapter4-quant" | "chapter4-qual">("none");
   const [instructions, setInstructions] = useState("");
-  const [extractingInstructions, setExtractingInstructions] = useState(false);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -96,21 +95,6 @@ function AnalyzePage() {
 
   function removeDocFile(index: number) {
     summarizeDocFiles(docFiles.filter((_, i) => i !== index));
-  }
-
-  async function handleInstructionsFiles(files: File[]) {
-    if (!files.length) return;
-    setExtractingInstructions(true);
-    try {
-      const payload = await Promise.all(files.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
-      const res = await extractInstructionsFn({ data: { files: payload } });
-      setInstructions((prev) => (prev.trim() ? `${prev.trim()}\n\n${res.text}` : res.text));
-      toast.success(`Loaded instructions from ${files.length} document${files.length > 1 ? "s" : ""}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not read that document");
-    } finally {
-      setExtractingInstructions(false);
-    }
   }
 
   function clearSource() {
@@ -146,6 +130,7 @@ function AnalyzePage() {
           messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
           source: currentSource(),
           background: docSummary || undefined,
+          instructionsPreset,
           instructions: instructions.trim() || undefined,
         },
       });
@@ -234,25 +219,29 @@ function AnalyzePage() {
             </Card>
 
             <Card className="p-4">
-              <Label className="text-sm font-semibold">Instructions for the AI (optional)</Label>
+              <Label className="text-sm font-semibold">Writing template (optional)</Label>
               <p className="text-xs text-muted-foreground mt-1 mb-2">
-                Steer how it analyzes — a lens to apply, terminology to use, what to prioritize. This guides the AI's approach; it's not data to analyze. Used verbatim — exact figures like word counts are preserved.
+                Built-in structure, formatting, depth, and word-count rules for drafting a dissertation Chapter Four — applied automatically, no upload needed.
+              </p>
+              <Select value={instructionsPreset} onValueChange={(v) => setInstructionsPreset(v as typeof instructionsPreset)}>
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="chapter4-quant">Chapter Four — Quantitative</SelectItem>
+                  <SelectItem value="chapter4-qual">Chapter Four — Qualitative</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Label className="text-sm font-semibold mt-4 block">Additional instructions (optional)</Label>
+              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                Anything extra to steer the AI — a lens to apply, terminology to use, what to prioritize.
               </p>
               <Textarea
                 rows={3}
-                placeholder="e.g. Focus on differences by region. Use the terminology from the methodology chapter. Flag any answer counts under 5 as low-confidence."
+                placeholder="e.g. Focus on differences by region. Use the terminology from the methodology chapter."
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
               />
-              <label className="mt-2 flex items-center justify-center gap-2 rounded-md border-2 border-dashed p-3 cursor-pointer hover:bg-muted/30 transition-colors">
-                <Upload className="size-4 text-muted-foreground" />
-                <span className="text-xs font-medium">Or upload an instructions document (PDF, .docx, .txt, .md)</span>
-                <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
-                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) handleInstructionsFiles(fs); e.target.value = ""; }} />
-              </label>
-              {extractingInstructions && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading document...</p>
-              )}
             </Card>
 
             {messages.length > 0 && (

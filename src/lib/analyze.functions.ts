@@ -19,7 +19,8 @@ const AnalyzeChatInput = z.object({
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(8000).optional(),
-  instructions: z.string().max(20000).optional(),
+  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual"]).default("none"),
+  instructions: z.string().max(4000).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), data: z.string() });
@@ -53,27 +54,6 @@ ${combined}
 Output ONLY the bullet-point summary as plain text, no markdown headers, no commentary.`;
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
     return { summary: text.trim() };
-  });
-
-const ExtractInstructionsInput = z.object({ files: z.array(DocFile).min(1).max(4) });
-
-// Instructions documents (chapter templates, word-count specs, formatting rules)
-// must be used verbatim — summarizing them would lose exact figures like
-// per-section word counts, so this returns the raw extracted text instead.
-export const extractInstructionsDocument = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => ExtractInstructionsInput.parse(d))
-  .handler(async ({ data }) => {
-    const { extractText } = await import("./interviews.functions");
-    const texts: string[] = [];
-    for (const f of data.files) {
-      const t = await extractText(f.data, f.name);
-      texts.push(texts.length || data.files.length > 1 ? `===== ${f.name} =====\n${t}` : t);
-    }
-    let combined = texts.join("\n\n").trim();
-    const MAX = 20_000;
-    if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated — instructions exceeded 20,000 characters]";
-    return { text: combined };
   });
 
 interface ColumnSummary {
@@ -215,13 +195,23 @@ export const analyzeChat = createServerFn({ method: "POST" })
     const backgroundBlock = data.background?.trim()
       ? `\n\nBACKGROUND CONTEXT (from uploaded chapters/reports — use this to understand the subject matter, never as a source of statistics):\n${data.background.trim()}`
       : "";
+
+    let presetBlock = "";
+    if (data.instructionsPreset === "chapter4-quant") {
+      const { QUANT_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
+      presetBlock = `\n\nCHAPTER FOUR (QUANTITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUANT_CHAPTER_FOUR_TEMPLATE}`;
+    } else if (data.instructionsPreset === "chapter4-qual") {
+      const { QUAL_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
+      presetBlock = `\n\nCHAPTER FOUR (QUALITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUAL_CHAPTER_FOUR_TEMPLATE}`;
+    }
+
     const instructionsBlock = data.instructions?.trim()
-      ? `\n\nRESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
+      ? `\n\nADDITIONAL RESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
       : "";
 
     const prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
-${datasetBlock}${backgroundBlock}${instructionsBlock}
+${datasetBlock}${backgroundBlock}${presetBlock}${instructionsBlock}
 
 CONVERSATION SO FAR
 ${history}
