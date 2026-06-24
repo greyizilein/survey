@@ -11,7 +11,14 @@ const AGENT_SYSTEM_PROMPT = `You are the Survey App Assistant, a general-purpose
 
 You explicitly do NOT handle survey design/distribution or interview transcription/analysis — if asked for those, tell the user to use the app's dedicated Surveys or Interviews tools instead.
 
-Be direct and concrete. Prefer actually running code/searches over guessing. When you produce a file, say so clearly and name it.`;
+Be direct and concrete. Prefer actually running code/searches over guessing. When you produce a file, say so clearly and name it.
+
+This app's own Writing tool follows house templates for certain document types, mounted for you under /mnt/session/templates/ so your output matches the institutional standard the rest of the app uses:
+- dissertation.txt — full five-chapter empirical dissertation
+- chapter4-quant.txt / chapter4-qual.txt / chapter4-mixed.txt — standalone Chapter Four (results/findings) for each methodology
+- basic-academia.txt — shorter academic assignments (essays, case studies, short reports)
+- other-writing.txt — general business/professional writing
+Before drafting anything that matches one of these document types, read the relevant file and follow its intake protocol and structure exactly (including asking the user for any details it says to ask for) rather than improvising your own structure.`;
 
 async function findExisting<T extends { name: string }>(
   list: AsyncIterable<T>,
@@ -64,10 +71,42 @@ export async function getOrCreateEnvironmentId(): Promise<string> {
   return environment.id;
 }
 
+const TEMPLATE_FILES: Record<string, () => Promise<string>> = {
+  "dissertation.txt": async () => (await import("./analyze-templates.server")).DISSERTATION_WRITER_TEMPLATE,
+  "chapter4-quant.txt": async () => (await import("./analyze-templates.server")).QUANT_CHAPTER_FOUR_TEMPLATE,
+  "chapter4-qual.txt": async () => (await import("./analyze-templates.server")).QUAL_CHAPTER_FOUR_TEMPLATE,
+  "chapter4-mixed.txt": async () => (await import("./analyze-templates.server")).MIXED_CHAPTER_FOUR_TEMPLATE,
+  "basic-academia.txt": async () => (await import("./analyze-templates.server")).BASIC_ACADEMIA_TEMPLATE,
+  "other-writing.txt": async () => (await import("./analyze-templates.server")).OTHER_WRITING_TEMPLATE,
+};
+
+async function getOrUploadTemplateFileId(client: Awaited<ReturnType<typeof createRawAnthropic>>, filename: string): Promise<string> {
+  for await (const f of client.beta.files.list()) {
+    if (f.filename === filename) return f.id;
+  }
+  const { toFile } = await import("@anthropic-ai/sdk");
+  const content = await TEMPLATE_FILES[filename]();
+  const uploaded = await client.beta.files.upload({
+    file: await toFile(Buffer.from(content, "utf-8"), filename, { type: "text/plain" }),
+    betas: ["files-api-2025-04-14"],
+  });
+  return uploaded.id;
+}
+
 export async function createAgentSession(): Promise<string> {
   const client = await createRawAnthropic();
   const [agentId, environmentId] = await Promise.all([getOrCreateAgentId(), getOrCreateEnvironmentId()]);
   const session = await client.beta.sessions.create({ agent: agentId, environment_id: environmentId });
+
+  for (const filename of Object.keys(TEMPLATE_FILES)) {
+    const fileId = await getOrUploadTemplateFileId(client, filename);
+    await client.beta.sessions.resources.add(session.id, {
+      type: "file",
+      file_id: fileId,
+      mount_path: `/mnt/session/templates/${filename}`,
+    });
+  }
+
   return session.id;
 }
 
