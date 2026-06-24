@@ -254,15 +254,21 @@ export async function buildAnalyzePrompt(
     ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the exact pool entries you actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using titles/URLs copied exactly from the VERIFIED SOURCE POOL above>\nOmit this line entirely if you cited nothing from the pool.`
     : "";
 
+  const { codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
+  const useCodeExecution = codeExecutionAvailable();
+  const writingCodeExecutionBlock = useCodeExecution
+    ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`
+    : "";
+
   if (data.instructionsPreset === "other-writing") {
-    model = "anthropic/claude-sonnet-4.6";
+    model = useCodeExecution ? CODE_EXECUTION_MODEL : "anthropic/claude-sonnet-4.6";
 
     if (promptAlreadyCreated) {
       prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, summarise, preview, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
 
 ABSOLUTE OUTPUT RULE FOR THIS TURN: This response must contain ONLY the requested academic content — the actual section/chapter prose (with its own heading, tables of data/results if the section itself requires one as content, and figures), and nothing else. Specifically forbidden anywhere in this response: any markdown table that restates section breakdowns, word counts, learning outcomes, formatting standards, constraints, or marking criteria; any restatement or paraphrase of the specification; any preamble such as "Here is...", "Based on the prompt...", "I will now write...", or a summary of what you are about to do; any meta-commentary about the table, the task, or your process. Your very first character must be the start of the section's actual heading or opening sentence — go straight into the academic writing itself, exactly as if you were a writer who already has the brief memorised and is simply continuing the document.
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}${sourcesBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -274,7 +280,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${multiWorkBlock}${instructionsBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${multiWorkBlock}${instructionsBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -284,9 +290,10 @@ Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it appl
 Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.`;
     }
   } else {
-    const codeExecutionBlock = hasRealDataset
+    const codeExecutionBlock = useCodeExecution
       ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy). Use it: write and run actual code against the RAW ROWS / dataset above to compute every statistic you report — counts, percentages, means, correlations, significance tests, etc. Never state a number you have not derived by running code. Show your work only as the final reported figures and any chart/table markers below; do not paste raw code or sandbox output into the chat answer itself.`
       : "";
+    if (useCodeExecution) model = CODE_EXECUTION_MODEL;
     prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
 ${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}${codeExecutionBlock}
@@ -306,10 +313,6 @@ If a table would help, end your response with a line containing ONLY (after any 
 
 Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.${sourcesMarkerBlock}`;
   }
-
-  const { codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
-  const useCodeExecution = hasRealDataset && data.instructionsPreset !== "other-writing" && codeExecutionAvailable();
-  if (useCodeExecution) model = CODE_EXECUTION_MODEL;
 
   return { model, prompt, useCodeExecution };
 }
