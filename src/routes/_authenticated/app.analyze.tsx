@@ -35,7 +35,7 @@ type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: st
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type SourceRef = { title: string; url: string; authors?: string[]; year?: number };
 type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null; sources?: SourceRef[] | null };
-type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing";
+type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing" | "basic-academia" | "dissertations";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -65,6 +65,8 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-qual": "Ch.4 Qual",
   "chapter4-mixed": "Ch.4 Mixed",
   "other-writing": "Advanced Writing",
+  "basic-academia": "Basic Academia",
+  dissertations: "Dissertations",
 };
 
 const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
@@ -73,6 +75,8 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-qual": "Chapter Four — Qualitative",
   "chapter4-mixed": "Chapter Four — Mixed Methods",
   "other-writing": "Advanced Writing",
+  "basic-academia": "Basic Academia",
+  dissertations: "Dissertations",
 };
 
 const STORAGE_KEY = "analyze-chat-state-v1";
@@ -617,7 +621,7 @@ function AnalyzePage() {
                     Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Advanced Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents.
                   </p>
                   <div className="grid gap-1.5">
-                    {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"] as InstructionsPreset[]).map((p) => (
+                    {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing", "basic-academia", "dissertations"] as InstructionsPreset[]).map((p) => (
                       <button
                         key={p}
                         onClick={() => setInstructionsPreset(p)}
