@@ -179,16 +179,19 @@ export const TableSpec = z.object({
 export async function buildAnalyzePrompt(
   data: z.infer<typeof AnalyzeChatInput>,
   supabase: any,
-): Promise<{ model: string; prompt: string }> {
+): Promise<{ model: string; prompt: string; useCodeExecution: boolean }> {
   const { DEFAULT_MODEL } = await import("./ai-gateway.server");
 
   let datasetBlock = "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
+  let hasRealDataset = false;
   if (data.source.type === "project") {
     const dataset = await buildProjectDataset(supabase, data.source.project_id);
     datasetBlock = `Dataset (survey responses from project "${dataset.project_name}"):\n${JSON.stringify(dataset, null, 2)}`;
+    hasRealDataset = dataset.surveys.some((s: { respondent_count: number }) => s.respondent_count > 0);
   } else if (data.source.type === "file") {
     const summary = summarizeRows(data.source.rows);
-    datasetBlock = `Dataset (uploaded file "${data.source.filename}", ${summary.rowCount} rows):\n${JSON.stringify(summary, null, 2)}`;
+    datasetBlock = `Dataset (uploaded file "${data.source.filename}", ${summary.rowCount} rows):\n${JSON.stringify(summary, null, 2)}\n\nRAW ROWS (for code execution — use this, not the precomputed summary above, when you compute statistics):\n${JSON.stringify(data.source.rows)}`;
+    hasRealDataset = summary.rowCount > 0;
   }
 
   const history = data.messages
@@ -281,9 +284,12 @@ Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it appl
 Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.`;
     }
   } else {
+    const codeExecutionBlock = hasRealDataset
+      ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy). Use it: write and run actual code against the RAW ROWS / dataset above to compute every statistic you report — counts, percentages, means, correlations, significance tests, etc. Never state a number you have not derived by running code. Show your work only as the final reported figures and any chart/table markers below; do not paste raw code or sandbox output into the chat answer itself.`
+      : "";
     prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
-${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}
+${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}${codeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -301,5 +307,9 @@ If a table would help, end your response with a line containing ONLY (after any 
 Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.${sourcesMarkerBlock}`;
   }
 
-  return { model, prompt };
+  const { codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
+  const useCodeExecution = hasRealDataset && data.instructionsPreset !== "other-writing" && codeExecutionAvailable();
+  if (useCodeExecution) model = CODE_EXECUTION_MODEL;
+
+  return { model, prompt, useCodeExecution };
 }
