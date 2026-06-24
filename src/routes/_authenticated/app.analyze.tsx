@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck } from "lucide-react";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
   CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -246,6 +246,17 @@ function AnalyzePage() {
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  async function copyMessage(index: number, content: string) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex((cur) => (cur === index ? null : cur)), 1500);
+    } catch {
+      toast.error("Couldn't copy to clipboard");
+    }
+  }
 
   useEffect(() => {
     savePersistedState({ messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows });
@@ -557,6 +568,14 @@ function AnalyzePage() {
                         </tbody>
                       </table>
                     </div>
+                  )}
+                  {m.role === "assistant" && m.content.trim() !== "" && !(sending && i === messages.length - 1) && (
+                    <button
+                      onClick={() => copyMessage(i, m.content)}
+                      className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copiedIndex === i ? <><CopyCheck className="size-3.5" /> Copied</> : <><Copy className="size-3.5" /> Copy</>}
+                    </button>
                   )}
                 </div>
               </div>
