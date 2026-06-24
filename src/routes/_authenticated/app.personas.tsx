@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Trash2, Sparkles, Search, Users } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/personas")({
-  head: () => ({ meta: [{ title: "Persona Studio · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Persona Studio · Paperstudio" }] }),
   component: PersonaStudio,
 });
 

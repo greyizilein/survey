@@ -19,7 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/fill")({
-  head: () => ({ meta: [{ title: "Fill a survey · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Fill a survey · Paperstudio" }] }),
   component: FillPage,
 });
 
@@ -158,7 +158,7 @@ function FillPage() {
             Fill a survey
           </h1>
           <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-            Surveyor creates realistic respondents and fills the form for you — questions, choices, and open-ended answers, written in character.
+            Paperstudio creates realistic respondents and fills the form for you — questions, choices, and open-ended answers, written in character.
           </p>
         </div>
 

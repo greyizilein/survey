@@ -23,7 +23,7 @@ import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { exportDeckToPptx, downloadBlob, deckTheme, sanitizeDeck, type Deck, type Slide } from "@/lib/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/app/presentations")({
-  head: () => ({ meta: [{ title: "Presentations · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Presentations · Paperstudio" }] }),
   component: PresentationsPage,
 });
 

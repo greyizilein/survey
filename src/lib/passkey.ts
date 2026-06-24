@@ -81,7 +81,7 @@ export async function enrollPasskey(args: {
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: "Surveyor", id: window.location.hostname },
+      rp: { name: "Paperstudio", id: window.location.hostname },
       user: {
         id: userIdBytes,
         name: args.email,

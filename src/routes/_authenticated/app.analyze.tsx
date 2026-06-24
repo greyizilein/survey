@@ -27,7 +27,7 @@ import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdo
 import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
-  head: () => ({ meta: [{ title: "Writing · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Writing · Paperstudio" }] }),
   component: AnalyzePage,
 });
 

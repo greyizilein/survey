@@ -16,7 +16,7 @@ import { saveChatConversation, getChatConversation } from "@/lib/chat-history.fu
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 
 export const Route = createFileRoute("/_authenticated/app/agent")({
-  head: () => ({ meta: [{ title: "Agent · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Agent · Paperstudio" }] }),
   component: AgentPage,
 });
 
