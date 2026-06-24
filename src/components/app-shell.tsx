@@ -11,7 +11,7 @@ const nav = [
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
   { to: "/app/personas", label: "Persona Studio", icon: Users },
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
-  { to: "/app/analyze", label: "Analyze", icon: BarChart3 },
+  { to: "/app/analyze", label: "Writing", icon: BarChart3 },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {

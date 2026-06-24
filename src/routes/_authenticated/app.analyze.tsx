@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck } from "lucide-react";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
   CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
-  head: () => ({ meta: [{ title: "Analyze · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Writing · Surveyor" }] }),
   component: AnalyzePage,
 });
 
@@ -60,7 +60,7 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-quant": "Ch.4 Quant",
   "chapter4-qual": "Ch.4 Qual",
   "chapter4-mixed": "Ch.4 Mixed",
-  "other-writing": "Other Writing",
+  "other-writing": "Advanced Writing",
 };
 
 const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
@@ -68,7 +68,7 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-quant": "Chapter Four — Quantitative",
   "chapter4-qual": "Chapter Four — Qualitative",
   "chapter4-mixed": "Chapter Four — Mixed Methods",
-  "other-writing": "Other Writing (Claude Sonnet 4)",
+  "other-writing": "Advanced Writing",
 };
 
 const STORAGE_KEY = "analyze-chat-state-v1";
@@ -246,6 +246,17 @@ function AnalyzePage() {
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
+  async function copyMessage(index: number, content: string) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex((cur) => (cur === index ? null : cur)), 1500);
+    } catch {
+      toast.error("Couldn't copy to clipboard");
+    }
+  }
 
   useEffect(() => {
     savePersistedState({ messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows });
@@ -370,7 +381,7 @@ function AnalyzePage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-[1400px] p-4 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
-        <h1 className="text-2xl font-semibold mb-1 flex items-center gap-2 shrink-0"><BarChart3 className="size-6" /> Analyze</h1>
+        <h1 className="text-2xl font-semibold mb-1 flex items-center gap-2 shrink-0"><BarChart3 className="size-6" /> Writing</h1>
         <p className="text-sm text-muted-foreground mb-3 shrink-0">Chat with your survey data — ask questions, get charts and tables back.</p>
 
         <Card className="p-0 flex flex-col flex-1 min-h-0">
@@ -468,7 +479,7 @@ function AnalyzePage() {
               <PopoverContent className="w-80" align="start">
                 <Label className="text-sm font-semibold">Writing template</Label>
                 <p className="text-xs text-muted-foreground mt-1 mb-2">
-                  Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Other Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents, using Claude Sonnet 4.
+                  Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Advanced Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents.
                 </p>
                 <div className="grid gap-1.5">
                   {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"] as InstructionsPreset[]).map((p) => (
@@ -557,6 +568,14 @@ function AnalyzePage() {
                         </tbody>
                       </table>
                     </div>
+                  )}
+                  {m.role === "assistant" && m.content.trim() !== "" && !(sending && i === messages.length - 1) && (
+                    <button
+                      onClick={() => copyMessage(i, m.content)}
+                      className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copiedIndex === i ? <><CopyCheck className="size-3.5" /> Copied</> : <><Copy className="size-3.5" /> Copy</>}
+                    </button>
                   )}
                 </div>
               </div>
