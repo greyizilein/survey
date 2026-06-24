@@ -30,7 +30,7 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null };
-type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual";
+type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -58,6 +58,7 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
   none: "None",
   "chapter4-quant": "Ch.4 Quant",
   "chapter4-qual": "Ch.4 Qual",
+  "chapter4-mixed": "Ch.4 Mixed",
 };
 
 function AnalyzePage() {
@@ -255,7 +256,7 @@ function AnalyzePage() {
                   Built-in structure, formatting, depth, and word-count rules for drafting a dissertation Chapter Four — applied automatically, no upload needed.
                 </p>
                 <div className="grid gap-1.5">
-                  {(["none", "chapter4-quant", "chapter4-qual"] as InstructionsPreset[]).map((p) => (
+                  {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed"] as InstructionsPreset[]).map((p) => (
                     <button
                       key={p}
                       onClick={() => setInstructionsPreset(p)}
@@ -264,7 +265,13 @@ function AnalyzePage() {
                         instructionsPreset === p ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/40",
                       )}
                     >
-                      {p === "none" ? "None" : p === "chapter4-quant" ? "Chapter Four — Quantitative" : "Chapter Four — Qualitative"}
+                      {p === "none"
+                        ? "None"
+                        : p === "chapter4-quant"
+                          ? "Chapter Four — Quantitative"
+                          : p === "chapter4-qual"
+                            ? "Chapter Four — Qualitative"
+                            : "Chapter Four — Mixed Methods"}
                       {instructionsPreset === p && <Check className="size-3.5" />}
                     </button>
                   ))}

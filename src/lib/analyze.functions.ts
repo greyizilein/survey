@@ -19,7 +19,7 @@ const AnalyzeChatInput = z.object({
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(8000).optional(),
-  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual"]).default("none"),
+  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed"]).default("none"),
   instructions: z.string().max(4000).optional(),
 });
 
@@ -203,6 +203,9 @@ export const analyzeChat = createServerFn({ method: "POST" })
     } else if (data.instructionsPreset === "chapter4-qual") {
       const { QUAL_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
       presetBlock = `\n\nCHAPTER FOUR (QUALITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUAL_CHAPTER_FOUR_TEMPLATE}`;
+    } else if (data.instructionsPreset === "chapter4-mixed") {
+      const { MIXED_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
+      presetBlock = `\n\nCHAPTER FOUR (MIXED METHODS) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${MIXED_CHAPTER_FOUR_TEMPLATE}`;
     }
 
     const instructionsBlock = data.instructions?.trim()
