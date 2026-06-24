@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { analyzeChat, listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
   head: () => ({ meta: [{ title: "Analyze · Surveyor" }] }),
@@ -169,6 +170,27 @@ function renderInline(text: string) {
   );
 }
 
+function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null } {
+  let chart: ChartSpec | null = null;
+  let table: TableSpec | null = null;
+  const lines = raw.split("\n");
+  const kept: string[] = [];
+  for (const line of lines) {
+    const chartMatch = /^@@CHART@@(.*)$/.exec(line);
+    if (chartMatch) {
+      try { chart = JSON.parse(chartMatch[1]); } catch { /* still streaming */ }
+      continue;
+    }
+    const tableMatch = /^@@TABLE@@(.*)$/.exec(line);
+    if (tableMatch) {
+      try { table = JSON.parse(tableMatch[1]); } catch { /* still streaming */ }
+      continue;
+    }
+    kept.push(line);
+  }
+  return { display: kept.join("\n"), chart, table };
+}
+
 function MarkdownLite({ text }: { text: string }) {
   const blocks = parseMarkdownLite(text);
   return (
@@ -201,7 +223,6 @@ function MarkdownLite({ text }: { text: string }) {
 }
 
 function AnalyzePage() {
-  const analyzeFn = useServerFn(analyzeChat);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
@@ -278,23 +299,63 @@ function AnalyzePage() {
     const text = input.trim();
     if (!text || sending) return;
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
-    setMessages(nextMessages);
+    setMessages([...nextMessages, { role: "assistant", content: "" }]);
     setInput("");
     setSending(true);
     try {
-      const res = await analyzeFn({
-        data: {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch("/api/analyze-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
           messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
           source: currentSource(),
           background: docSummary || undefined,
           instructionsPreset,
           instructions: instructions.trim() || undefined,
-        },
+        }),
       });
-      setMessages((prev) => [...prev, { role: "assistant", content: res.answer, chart: res.chart, table: res.table }]);
+      if (!res.ok || !res.body) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || "Analysis failed");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let raw = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        raw += decoder.decode(value, { stream: true });
+        const { display } = splitMarkers(raw);
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: display };
+          return copy;
+        });
+      }
+
+      const { display, chart, table } = splitMarkers(raw);
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = {
+          role: "assistant",
+          content: display.trim() || "I couldn't generate an answer for that.",
+          chart,
+          table,
+        };
+        return copy;
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Analysis failed");
-      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I couldn't process that — please try again." }]);
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't process that — please try again." };
+        return copy;
+      });
     } finally {
       setSending(false);
     }
@@ -500,7 +561,7 @@ function AnalyzePage() {
                 </div>
               </div>
             ))}
-            {sending && (
+            {sending && messages[messages.length - 1]?.content === "" && (
               <div className="flex justify-start">
                 <div className="bg-muted rounded-lg px-3 py-2 text-sm flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" /> Thinking...
