@@ -196,6 +196,10 @@ export const analyzeChat = createServerFn({ method: "POST" })
       ? `\n\nBACKGROUND CONTEXT (from uploaded chapters/reports — use this to understand the subject matter, never as a source of statistics):\n${data.background.trim()}`
       : "";
 
+    const multiWorkBlock = data.background?.trim()
+      ? `\n\nMULTI-WORK CHECK: Look at the background context above. If it contains more than one distinct piece of work, brief, assignment, or task (for example several separate questions, case studies, chapters, projects, or briefs bundled into the same upload), do not start producing output yet. Instead, briefly list the distinct pieces of work you can identify, ask the user which one (or which ones, and in what order) they want you to focus on, and ask any other clarifying questions you genuinely need about scope, requirements, or priorities — the way a thoughtful human collaborator would. Keep the conversation going naturally across turns, answering the user's questions and asking your own, until both of you are clearly aligned and the user confirms they are ready to begin. Only once that confirmation is given should you proceed to produce the actual requested output. If the background context clearly contains only one piece of work, skip this check and proceed normally.`
+      : "";
+
     let presetBlock = "";
     if (data.instructionsPreset === "chapter4-quant") {
       const { QUANT_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
@@ -220,12 +224,12 @@ export const analyzeChat = createServerFn({ method: "POST" })
       model = "anthropic/claude-sonnet-4.6";
       prompt = `${OTHER_WRITING_TEMPLATE}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${multiWorkBlock}${instructionsBlock}
 
 CONVERSATION SO FAR
 ${history}
 
-Respond to the latest USER message by producing the executable prompt table as instructed above.
+Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies — otherwise produce the executable prompt table as instructed above.
 
 Output ONLY valid JSON (no markdown fencing, no commentary) in this exact shape:
 {
@@ -236,12 +240,12 @@ Output ONLY valid JSON (no markdown fencing, no commentary) in this exact shape:
     } else {
       prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
-${datasetBlock}${backgroundBlock}${presetBlock}${instructionsBlock}
+${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}
 
 CONVERSATION SO FAR
 ${history}
 
-Respond to the latest USER message. Decide whether a chart and/or table would help illustrate your answer (charts for comparisons/distributions, tables for multi-column breakdowns). Omit them when a plain answer is clearer.
+Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies. Otherwise, decide whether a chart and/or table would help illustrate your answer (charts for comparisons/distributions, tables for multi-column breakdowns). Omit them when a plain answer is clearer.
 
 Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
 {
