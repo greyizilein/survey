@@ -26,7 +26,7 @@ import {
 } from "@/lib/transcript-formats";
 
 export const Route = createFileRoute("/_authenticated/app/interviews")({
-  head: () => ({ meta: [{ title: "Interview Studio · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Interview Studio · Paperstudio" }] }),
   component: InterviewStudio,
 });
 
@@ -244,7 +244,7 @@ function InterviewStudio() {
               <MessageSquareText className="size-6 text-primary" /> Interview Studio
             </h1>
             <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-              Upload your interview guide and (optionally) your written chapters separately. Surveyor builds a distinct respondent for each
+              Upload your interview guide and (optionally) your written chapters separately. Paperstudio builds a distinct respondent for each
               interview and writes a full transcript you can download as VTT, Word, PDF, text, or Markdown.
             </p>
           </div>

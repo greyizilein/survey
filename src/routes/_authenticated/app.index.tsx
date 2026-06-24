@@ -1,29 +1,47 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ClipboardPenLine, Users, FolderKanban, ArrowUpRight,
-  Sparkles, Wand2, Globe, Gauge, MessageSquareText,
+  Sparkles, Wand2, Globe, Gauge, MessageSquareText, BarChart3, Presentation, Bot,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  head: () => ({ meta: [{ title: "Home · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Home · Paperstudio" }] }),
   component: Home,
 });
 
 const cards = [
   {
+    to: "/app/analyze",
+    icon: BarChart3,
+    title: "Writing",
+    description: "An AI-assisted writing workspace for chapters, reports, and analysis — with your data, sources, and instructions baked in.",
+    big: true,
+  },
+  {
     to: "/app/fill",
     icon: ClipboardPenLine,
     title: "Fill a survey",
     description: "Paste a survey link and generate realistic answers from AI respondents.",
-    big: true,
   },
   {
     to: "/app/interviews",
     icon: MessageSquareText,
     title: "Interview Studio",
     description: "Upload your study and guide; get a full interview transcript per respondent to download.",
+  },
+  {
+    to: "/app/presentations",
+    icon: Presentation,
+    title: "Presentations",
+    description: "Describe the deck you need and get live, editable slides you can export to .pptx.",
+  },
+  {
+    to: "/app/agent",
+    icon: Bot,
+    title: "Agent",
+    description: "An open-ended assistant that analyzes, writes, and builds presentations end to end.",
   },
   {
     to: "/app/personas",
@@ -42,29 +60,29 @@ const cards = [
 const steps = [
   {
     icon: Sparkles,
-    title: "Build a population",
-    description: "Generate hundreds or thousands of distinct AI personas in Persona Studio — different ages, jobs, locations, and personalities.",
-  },
-  {
-    icon: ClipboardPenLine,
-    title: "Paste a survey link",
-    description: "Drop in any Google Forms link. Surveyor reads every question and figures out how to answer it.",
+    title: "Bring your data",
+    description: "A survey link, a population of personas, an interview guide, or just a blank page — Paperstudio works from whatever you start with.",
   },
   {
     icon: Wand2,
-    title: "Generate & submit",
-    description: "Each persona writes in-character answers, with adjustable length, variation, and tone — then submits straight to the live form.",
+    title: "Let Paperstudio write",
+    description: "Chapters, decks, interview transcripts, or survey responses — generated in voice, with adjustable length, tone, and instructions.",
+  },
+  {
+    icon: ClipboardPenLine,
+    title: "Export & ship",
+    description: "Download a finished .docx, .pptx, or transcript, or submit straight to a live form — whatever the task calls for.",
   },
 ];
 
 const stats = [
-  { value: "1,000s", label: "of personas per population" },
-  { value: "100%", label: "AI-written, in-character answers" },
-  { value: "1 click", label: "to submit a full batch" },
+  { value: "6", label: "tools in one workspace" },
+  { value: "100%", label: "AI-written, in-character output" },
+  { value: "1 click", label: "to export or submit" },
   { value: "24/7", label: "ready whenever you are" },
 ];
 
-const logos = ["Google Forms", "Persona Studio", "Surveyor", "Projects", "Populations"];
+const logos = ["Writing", "Presentations", "Agent", "Interview Studio", "Persona Studio", "Fill a survey"];
 
 function Home() {
   return (
@@ -97,23 +115,23 @@ function Home() {
               Welcome back
             </span>
             <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-background sm:text-6xl">
-              Let's run a survey.
+              Let's get writing.
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-sm text-background/70 sm:text-base">
-              Generate realistic survey responses and fill live forms with AI-driven personas — built from scratch for every audience.
+              A full writing workspace — chapters, decks, interview transcripts, and survey responses, all written by AI and ready to export.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                to="/app/fill"
+                to="/app/analyze"
                 className="border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
               >
-                Fill a survey now
+                Start writing
               </Link>
               <Link
-                to="/app/personas"
+                to="/app/fill"
                 className="border-2 border-background px-6 py-3 text-sm font-bold text-background hard-shadow-hover"
               >
-                Build a population
+                Fill a survey
               </Link>
             </div>
           </div>
@@ -188,10 +206,10 @@ function Home() {
           <div className="mt-20 border-2 border-foreground bg-accent p-8 text-center hard-shadow sm:p-12">
             <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Ready when you are.</h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-accent-foreground/80">
-              Paste a survey link, pick a population, and let Surveyor do the rest.
+              Open a blank page, paste a survey link, or describe a deck — let Paperstudio do the rest.
             </p>
             <Link
-              to="/app/fill"
+              to="/app/analyze"
               className="mt-6 inline-block border-2 border-foreground bg-foreground px-6 py-3 text-sm font-bold text-background hard-shadow-sm hard-shadow-hover"
             >
               Get started

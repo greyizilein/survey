@@ -19,7 +19,7 @@ import {
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Sign in · Paperstudio" }] }),
   component: AuthPage,
 });
 
@@ -177,7 +177,7 @@ function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md p-8">
-        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Surveyor</Link>
+        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Paperstudio</Link>
         <h1 className="text-2xl font-semibold mt-4">{mode === "signin" ? "Sign in" : "Create account"}</h1>
         <p className="text-sm text-muted-foreground mt-1">Synthetic respondents for real research.</p>
 

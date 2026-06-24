@@ -213,7 +213,7 @@ function mapGoogleType(type: number, options: string[]): Question["type"] {
 
 async function fetchSurveyText(url: string) {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 Surveyor" } });
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 Paperstudio" } });
     const html = await res.text();
     const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "";
     const body = html

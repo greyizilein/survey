@@ -32,10 +32,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const SidebarBody = (
     <>
       <div className="px-5 py-5 border-b-2 border-sidebar-border flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="size-8 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">S</div>
-          <span className="font-bold tracking-tight text-lg">Surveyor</span>
-        </div>
+        <Link to="/app" className="flex items-center gap-2.5">
+          <div className="size-8 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">P</div>
+          <span className="font-bold tracking-tight text-lg">Paperstudio</span>
+        </Link>
         <button
           onClick={() => setOpen(false)}
           className="md:hidden p-1.5 hover:bg-sidebar-accent/60"
@@ -100,10 +100,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu className="size-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">S</div>
-            <span className="font-bold tracking-tight text-sm">Surveyor</span>
-          </div>
+          <Link to="/app" className="flex items-center gap-2">
+            <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">P</div>
+            <span className="font-bold tracking-tight text-sm">Paperstudio</span>
+          </Link>
         </header>
 
         <main className="flex-1 overflow-y-auto">{children}</main>

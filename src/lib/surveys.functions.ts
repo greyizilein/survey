@@ -24,7 +24,7 @@ export const parseSurvey = createServerFn({ method: "POST" })
     let guideText = data.raw_input ?? "";
     if (data.source_type === "url" && data.source_url) {
       try {
-        const res = await fetch(data.source_url, { headers: { "User-Agent": "Mozilla/5.0 Surveyor" } });
+        const res = await fetch(data.source_url, { headers: { "User-Agent": "Mozilla/5.0 Paperstudio" } });
         const html = await res.text();
         guideText = html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 30000);
       } catch (e) {

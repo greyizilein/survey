@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Wand2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/projects/$id")({
-  head: () => ({ meta: [{ title: "Project · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Project · Paperstudio" }] }),
   component: ProjectWorkspace,
 });
 

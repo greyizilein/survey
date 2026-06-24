@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ClipboardPenLine, Users, Wand2, Sparkles, Globe, Gauge, FileDown, Zap, ShieldCheck } from "lucide-react";
+import { ArrowRight, ClipboardPenLine, Users, Wand2, Sparkles, Globe, Gauge, FileDown, Zap, ShieldCheck, BarChart3, Presentation, Bot, MessageSquareText } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Surveyor — Paste a link. Fill the survey." },
-      { name: "description", content: "Surveyor fills live surveys for you with realistic AI personas. Paste any Google Forms link and watch it answer, write, and submit — at scale." },
-      { property: "og:title", content: "Surveyor — Paste a link. Fill the survey." },
-      { property: "og:description", content: "Paste any survey link. Surveyor reads every question and submits authentic answers from AI respondents." },
+      { title: "Paperstudio — A full writing workspace, powered by AI." },
+      { name: "description", content: "Paperstudio is a full writing workspace: AI-written documents, presentations, interview studies, survey autofill, and an open-ended writing agent, all in one place." },
+      { property: "og:title", content: "Paperstudio — A full writing workspace, powered by AI." },
+      { property: "og:description", content: "Write chapters, build decks, run interview studies, and fill surveys — all written by AI, in one workspace." },
     ],
   }),
   component: Landing,
@@ -19,6 +19,10 @@ const PAPER = "#f4f4ef";
 const LIME = "#c6f24e";
 
 const marqueeItems = [
+  { icon: BarChart3, label: "Writing in progress" },
+  { icon: Presentation, label: "Deck exported to .pptx" },
+  { icon: Bot, label: "Agent building a draft" },
+  { icon: MessageSquareText, label: "Interview transcript ready" },
   { icon: ClipboardPenLine, label: "Google Forms" },
   { icon: Sparkles, label: "1,243 personas live" },
   { icon: Wand2, label: "Auto-fill engaged" },
@@ -27,7 +31,6 @@ const marqueeItems = [
   { icon: Users, label: "Persona: Maya, 27, designer" },
   { icon: Zap, label: "Streaming answers" },
   { icon: ShieldCheck, label: "Human-grade text" },
-  { icon: ClipboardPenLine, label: "Typeform · MS Forms · Qualtrics" },
   { icon: FileDown, label: "CSV + transcripts exported" },
 ];
 
@@ -46,10 +49,10 @@ function Landing() {
               className="flex size-9 items-center justify-center border-2 font-extrabold"
               style={{ background: LIME, borderColor: LIME, color: INK }}
             >
-              S
+              P
             </div>
             <span className="text-sm font-bold tracking-tight" style={{ color: PAPER }}>
-              Surveyor
+              Paperstudio
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -93,23 +96,23 @@ function Landing() {
             className="inline-flex items-center gap-2 border-2 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur"
             style={{ borderColor: LIME, color: LIME, background: "rgba(198,242,78,0.08)" }}
           >
-            <Sparkles className="size-3" /> Surveys, on autopilot
+            <Sparkles className="size-3" /> Writing, on autopilot
           </span>
 
           <h1
             className="mt-6 text-[clamp(2.75rem,11vw,6rem)] font-extrabold leading-[0.95] tracking-tight"
             style={{ color: PAPER }}
           >
-            Paste a link.
+            Describe it.
             <br />
-            <span style={{ color: LIME }}>Fill the survey.</span>
+            <span style={{ color: LIME }}>Paperstudio writes it.</span>
           </h1>
 
           <p
             className="mx-auto mt-6 max-w-xl text-base sm:text-lg"
             style={{ color: "rgba(244,244,239,0.78)" }}
           >
-            Drop in any Google Forms link. Surveyor reads every question, writes real, in-character answers, and submits — for one persona or a thousand.
+            Chapters, decks, interview transcripts, and survey responses — written in voice by AI, and ready to export or submit, all in one workspace.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -118,7 +121,7 @@ function Landing() {
               className="group inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold hard-shadow-sm hard-shadow-hover"
               style={{ background: LIME, borderColor: LIME, color: INK }}
             >
-              Start filling free
+              Start writing free
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
@@ -168,23 +171,23 @@ function Landing() {
       <section className="bg-background text-foreground">
         <div className="mx-auto max-w-5xl px-6 py-20">
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
-            Built for the boring part of research.
+            One workspace for everything you write.
           </h2>
           <p className="mt-4 max-w-2xl text-base text-muted-foreground">
-            Surveyor handles every question type, writes in voice, and submits straight to the live form. You keep the insights.
+            Paperstudio writes chapters, decks, interview transcripts, and survey responses in voice — then exports or submits them for you.
           </p>
 
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <Feature icon={Users} title="Diverse personas" desc="Thousands of distinct AI respondents, each with a real point of view." />
-            <Feature icon={Globe} title="Any survey link" desc="Paste a Google Forms URL — Surveyor parses the whole thing instantly." />
-            <Feature icon={Wand2} title="In-character answers" desc="Free text, multi-choice, scales — written like a human would." />
-            <Feature icon={FileDown} title="CSV + transcripts" desc="Export clean CSVs and VTT-style interview transcripts." />
+            <Feature icon={BarChart3} title="AI-assisted writing" desc="Chapters, reports, and analysis — with your data, sources, and instructions baked in." />
+            <Feature icon={Presentation} title="Presentations" desc="Describe the deck you need and get live, editable slides exported to .pptx." />
+            <Feature icon={MessageSquareText} title="Interview Studio" desc="Upload a guide and get a full interview transcript per AI respondent." />
+            <Feature icon={ClipboardPenLine} title="Survey autofill" desc="Paste a Google Forms link — Paperstudio answers in character and submits." />
           </div>
 
           <div className="mt-16 border-2 border-foreground bg-accent p-8 text-center hard-shadow sm:p-12">
-            <h3 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Stop filling surveys by hand.</h3>
+            <h3 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Stop starting from a blank page.</h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-accent-foreground/80">
-              One link, one click, one population. Surveyor does the rest.
+              One workspace, every format. Paperstudio does the writing.
             </p>
             <Link
               to="/auth"

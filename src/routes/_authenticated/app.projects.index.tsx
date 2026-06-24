@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createProject, deleteProject, listProjects } from "@/lib/projects.functions";
 
 export const Route = createFileRoute("/_authenticated/app/projects/")({
-  head: () => ({ meta: [{ title: "Projects · Surveyor" }] }),
+  head: () => ({ meta: [{ title: "Projects · Paperstudio" }] }),
   component: Projects,
 });
 
