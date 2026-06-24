@@ -223,9 +223,24 @@ export async function buildAnalyzePrompt(
   let prompt: string;
 
   if (data.instructionsPreset === "other-writing") {
-    const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
     model = "anthropic/claude-sonnet-4.6";
-    prompt = `${OTHER_WRITING_TEMPLATE}
+    const assistantText = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
+    const promptAlreadyCreated = /\|\s*:?-{2,}:?\s*\|/.test(assistantText);
+
+    if (promptAlreadyCreated) {
+      prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}
+
+CONVERSATION SO FAR
+${history}
+
+Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard. Do not produce a prompt table. Do not describe what you are about to write or summarise the task — write the actual academic content directly.
+
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.`;
+    } else {
+      const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
+      prompt = `${OTHER_WRITING_TEMPLATE}
 
 UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${multiWorkBlock}${instructionsBlock}
 
@@ -235,6 +250,7 @@ ${history}
 Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies — otherwise produce the executable prompt table as instructed above.
 
 Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.`;
+    }
   } else {
     prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
