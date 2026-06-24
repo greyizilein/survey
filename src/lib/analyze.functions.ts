@@ -222,22 +222,41 @@ export async function buildAnalyzePrompt(
   let model = DEFAULT_MODEL;
   let prompt: string;
 
+  const assistantTextAll = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
+  const promptAlreadyCreated = /\|\s*:?-{2,}:?\s*\|/.test(assistantTextAll);
+  const needsCitations =
+    data.instructionsPreset === "chapter4-quant" ||
+    data.instructionsPreset === "chapter4-qual" ||
+    data.instructionsPreset === "chapter4-mixed" ||
+    (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
+
+  let sourcesBlock = "";
+  if (needsCitations) {
+    const latestUserMessage = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const topic = [data.background?.slice(0, 600), latestUserMessage, data.instructions].filter(Boolean).join(" — ");
+    const { gatherSources, formatSourcePoolBlock } = await import("./research.server");
+    const sources = await gatherSources(topic);
+    sourcesBlock = formatSourcePoolBlock(sources);
+  }
+
+  const sourcesMarkerBlock = sourcesBlock
+    ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the exact pool entries you actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using titles/URLs copied exactly from the VERIFIED SOURCE POOL above>\nOmit this line entirely if you cited nothing from the pool.`
+    : "";
+
   if (data.instructionsPreset === "other-writing") {
     model = "anthropic/claude-sonnet-4.6";
-    const assistantText = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
-    const promptAlreadyCreated = /\|\s*:?-{2,}:?\s*\|/.test(assistantText);
 
     if (promptAlreadyCreated) {
       prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}${sourcesBlock}
 
 CONVERSATION SO FAR
 ${history}
 
 Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard. Do not produce a prompt table. Do not describe what you are about to write or summarise the task — write the actual academic content directly.
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${sourcesMarkerBlock}`;
     } else {
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
@@ -254,7 +273,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
   } else {
     prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
-${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}
+${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -269,7 +288,7 @@ If a chart would help, end your response with a line containing ONLY:
 If a table would help, end your response with a line containing ONLY (after any chart line):
 @@TABLE@@{"columns":["Column A","Column B"],"rows":[["value","value"]]}
 
-Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.`;
+Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.${sourcesMarkerBlock}`;
   }
 
   return { model, prompt };
