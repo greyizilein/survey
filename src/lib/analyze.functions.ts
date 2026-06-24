@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const ChatMessage = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().max(40000),
+  content: z.string().max(100000),
 });
 
 const AnalyzeChatInput = z.object({
@@ -251,7 +251,7 @@ Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
 }`;
     }
 
-    const { text } = await generateText({ model: ai(model), prompt, temperature: 0.2 });
+    const { text } = await generateText({ model: ai(model), prompt, temperature: 0.2, maxOutputTokens: 8000 });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse analysis response");
     let parsed: { answer?: string; chart?: unknown; table?: unknown };
