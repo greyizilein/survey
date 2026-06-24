@@ -7,7 +7,7 @@ const ChatMessage = z.object({
   content: z.string().max(100000),
 });
 
-const AnalyzeChatInput = z.object({
+export const AnalyzeChatInput = z.object({
   messages: z.array(ChatMessage).min(1).max(40),
   source: z.union([
     z.object({ type: z.literal("project"), project_id: z.string().uuid() }),
@@ -107,7 +107,7 @@ interface Question {
   options?: string[];
 }
 
-async function buildProjectDataset(supabase: any, projectId: string) {
+export async function buildProjectDataset(supabase: any, projectId: string) {
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .select("*")
@@ -165,69 +165,67 @@ export const listAnalyzeProjects = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
-const ChartSpec = z.object({
+export const ChartSpec = z.object({
   type: z.enum(["bar", "line", "pie"]),
   title: z.string(),
   data: z.array(z.object({ name: z.string(), value: z.number() })),
 });
 
-const TableSpec = z.object({
+export const TableSpec = z.object({
   columns: z.array(z.string()),
   rows: z.array(z.array(z.union([z.string(), z.number()]))),
 });
 
-export const analyzeChat = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => AnalyzeChatInput.parse(d))
-  .handler(async ({ data, context }) => {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
-    const { generateText } = await import("ai");
-    const ai = createAi();
+export async function buildAnalyzePrompt(
+  data: z.infer<typeof AnalyzeChatInput>,
+  supabase: any,
+): Promise<{ model: string; prompt: string }> {
+  const { DEFAULT_MODEL } = await import("./ai-gateway.server");
 
-    let datasetBlock = "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
-    if (data.source.type === "project") {
-      const dataset = await buildProjectDataset(context.supabase, data.source.project_id);
-      datasetBlock = `Dataset (survey responses from project "${dataset.project_name}"):\n${JSON.stringify(dataset, null, 2)}`;
-    } else if (data.source.type === "file") {
-      const summary = summarizeRows(data.source.rows);
-      datasetBlock = `Dataset (uploaded file "${data.source.filename}", ${summary.rowCount} rows):\n${JSON.stringify(summary, null, 2)}`;
-    }
+  let datasetBlock = "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
+  if (data.source.type === "project") {
+    const dataset = await buildProjectDataset(supabase, data.source.project_id);
+    datasetBlock = `Dataset (survey responses from project "${dataset.project_name}"):\n${JSON.stringify(dataset, null, 2)}`;
+  } else if (data.source.type === "file") {
+    const summary = summarizeRows(data.source.rows);
+    datasetBlock = `Dataset (uploaded file "${data.source.filename}", ${summary.rowCount} rows):\n${JSON.stringify(summary, null, 2)}`;
+  }
 
-    const history = data.messages
-      .map((m) => `${m.role === "user" ? "USER" : "ASSISTANT"}: ${m.content}`)
-      .join("\n\n");
+  const history = data.messages
+    .map((m) => `${m.role === "user" ? "USER" : "ASSISTANT"}: ${m.content}`)
+    .join("\n\n");
 
-    const backgroundBlock = data.background?.trim()
-      ? `\n\nBACKGROUND CONTEXT (from uploaded chapters/reports — use this to understand the subject matter, never as a source of statistics):\n${data.background.trim()}`
-      : "";
+  const backgroundBlock = data.background?.trim()
+    ? `\n\nBACKGROUND CONTEXT (from uploaded chapters/reports — use this to understand the subject matter, never as a source of statistics):\n${data.background.trim()}`
+    : "";
 
-    const multiWorkBlock = data.background?.trim()
-      ? `\n\nMULTI-WORK CHECK: Look at the background context above. If it contains more than one distinct piece of work, brief, assignment, or task (for example several separate questions, case studies, chapters, projects, or briefs bundled into the same upload), do not start producing output yet. Instead, briefly list the distinct pieces of work you can identify, ask the user which one (or which ones, and in what order) they want you to focus on, and ask any other clarifying questions you genuinely need about scope, requirements, or priorities — the way a thoughtful human collaborator would. Keep the conversation going naturally across turns, answering the user's questions and asking your own, until both of you are clearly aligned and the user confirms they are ready to begin. Only once that confirmation is given should you proceed to produce the actual requested output. If the background context clearly contains only one piece of work, skip this check and proceed normally.`
-      : "";
+  const multiWorkBlock = data.background?.trim()
+    ? `\n\nMULTI-WORK CHECK: Look at the background context above. If it contains more than one distinct piece of work, brief, assignment, or task (for example several separate questions, case studies, chapters, projects, or briefs bundled into the same upload), do not start producing output yet. Instead, briefly list the distinct pieces of work you can identify, ask the user which one (or which ones, and in what order) they want you to focus on, and ask any other clarifying questions you genuinely need about scope, requirements, or priorities — the way a thoughtful human collaborator would. Keep the conversation going naturally across turns, answering the user's questions and asking your own, until both of you are clearly aligned and the user confirms they are ready to begin. Only once that confirmation is given should you proceed to produce the actual requested output. If the background context clearly contains only one piece of work, skip this check and proceed normally.`
+    : "";
 
-    let presetBlock = "";
-    if (data.instructionsPreset === "chapter4-quant") {
-      const { QUANT_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
-      presetBlock = `\n\nCHAPTER FOUR (QUANTITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUANT_CHAPTER_FOUR_TEMPLATE}`;
-    } else if (data.instructionsPreset === "chapter4-qual") {
-      const { QUAL_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
-      presetBlock = `\n\nCHAPTER FOUR (QUALITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUAL_CHAPTER_FOUR_TEMPLATE}`;
-    } else if (data.instructionsPreset === "chapter4-mixed") {
-      const { MIXED_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
-      presetBlock = `\n\nCHAPTER FOUR (MIXED METHODS) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${MIXED_CHAPTER_FOUR_TEMPLATE}`;
-    }
+  let presetBlock = "";
+  if (data.instructionsPreset === "chapter4-quant") {
+    const { QUANT_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
+    presetBlock = `\n\nCHAPTER FOUR (QUANTITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUANT_CHAPTER_FOUR_TEMPLATE}`;
+  } else if (data.instructionsPreset === "chapter4-qual") {
+    const { QUAL_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
+    presetBlock = `\n\nCHAPTER FOUR (QUALITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUAL_CHAPTER_FOUR_TEMPLATE}`;
+  } else if (data.instructionsPreset === "chapter4-mixed") {
+    const { MIXED_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
+    presetBlock = `\n\nCHAPTER FOUR (MIXED METHODS) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${MIXED_CHAPTER_FOUR_TEMPLATE}`;
+  }
 
-    const instructionsBlock = data.instructions?.trim()
-      ? `\n\nADDITIONAL RESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
-      : "";
+  const instructionsBlock = data.instructions?.trim()
+    ? `\n\nADDITIONAL RESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
+    : "";
 
-    let model = DEFAULT_MODEL;
-    let prompt: string;
+  let model = DEFAULT_MODEL;
+  let prompt: string;
 
-    if (data.instructionsPreset === "other-writing") {
-      const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
-      model = "anthropic/claude-sonnet-4.6";
-      prompt = `${OTHER_WRITING_TEMPLATE}
+  if (data.instructionsPreset === "other-writing") {
+    const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
+    model = "anthropic/claude-sonnet-4.6";
+    prompt = `${OTHER_WRITING_TEMPLATE}
 
 UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${multiWorkBlock}${instructionsBlock}
 
@@ -236,14 +234,9 @@ ${history}
 
 Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies — otherwise produce the executable prompt table as instructed above.
 
-Output ONLY valid JSON (no markdown fencing, no commentary) in this exact shape:
-{
-  "answer": "the role/context/execution paragraphs followed by the full markdown prompt table, as plain text",
-  "chart": null,
-  "table": null
-}`;
-    } else {
-      prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.`;
+  } else {
+    prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
 ${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}
 
@@ -252,30 +245,16 @@ ${history}
 
 Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies. Otherwise, decide whether a chart and/or table would help illustrate your answer (charts for comparisons/distributions, tables for multi-column breakdowns). Omit them when a plain answer is clearer.
 
-Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
-{
-  "answer": "your analysis in plain text, written conversationally",
-  "chart": { "type": "bar" | "line" | "pie", "title": "chart title", "data": [{"name": "label", "value": 0}] } or null,
-  "table": { "columns": ["Column A", "Column B"], "rows": [["value", "value"]] } or null
-}`;
-    }
+Write your answer directly as plain text, written conversationally. Do not wrap it in JSON.
 
-    const { text } = await generateText({ model: ai(model), prompt, temperature: 0.2, maxOutputTokens: 8000 });
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Could not parse analysis response");
-    let parsed: { answer?: string; chart?: unknown; table?: unknown };
-    try {
-      parsed = JSON.parse(match[0]);
-    } catch {
-      throw new Error("Invalid AI JSON");
-    }
+If a chart would help, end your response with a line containing ONLY:
+@@CHART@@{"type":"bar"|"line"|"pie","title":"chart title","data":[{"name":"label","value":0}]}
 
-    const chart = parsed.chart ? ChartSpec.safeParse(parsed.chart) : null;
-    const table = parsed.table ? TableSpec.safeParse(parsed.table) : null;
+If a table would help, end your response with a line containing ONLY (after any chart line):
+@@TABLE@@{"columns":["Column A","Column B"],"rows":[["value","value"]]}
 
-    return {
-      answer: parsed.answer?.trim() || "I couldn't generate an answer for that.",
-      chart: chart?.success ? chart.data : null,
-      table: table?.success ? table.data : null,
-    };
-  });
+Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.`;
+  }
+
+  return { model, prompt };
+}
