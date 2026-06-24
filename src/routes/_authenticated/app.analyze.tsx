@@ -30,7 +30,7 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null };
-type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed";
+type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -59,6 +59,15 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-quant": "Ch.4 Quant",
   "chapter4-qual": "Ch.4 Qual",
   "chapter4-mixed": "Ch.4 Mixed",
+  "other-writing": "Other Writing",
+};
+
+const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
+  none: "None",
+  "chapter4-quant": "Chapter Four — Quantitative",
+  "chapter4-qual": "Chapter Four — Qualitative",
+  "chapter4-mixed": "Chapter Four — Mixed Methods",
+  "other-writing": "Other Writing (Claude Sonnet 4)",
 };
 
 function AnalyzePage() {
@@ -253,10 +262,10 @@ function AnalyzePage() {
               <PopoverContent className="w-80" align="start">
                 <Label className="text-sm font-semibold">Writing template</Label>
                 <p className="text-xs text-muted-foreground mt-1 mb-2">
-                  Built-in structure, formatting, depth, and word-count rules for drafting a dissertation Chapter Four — applied automatically, no upload needed.
+                  Built-in structure, formatting, depth, and word-count rules — applied automatically, no upload needed. "Other Writing" builds an executable prompt table for any other kind of academic writing from your uploaded documents, using Claude Sonnet 4.
                 </p>
                 <div className="grid gap-1.5">
-                  {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed"] as InstructionsPreset[]).map((p) => (
+                  {(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing"] as InstructionsPreset[]).map((p) => (
                     <button
                       key={p}
                       onClick={() => setInstructionsPreset(p)}
@@ -265,13 +274,7 @@ function AnalyzePage() {
                         instructionsPreset === p ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/40",
                       )}
                     >
-                      {p === "none"
-                        ? "None"
-                        : p === "chapter4-quant"
-                          ? "Chapter Four — Quantitative"
-                          : p === "chapter4-qual"
-                            ? "Chapter Four — Qualitative"
-                            : "Chapter Four — Mixed Methods"}
+                      {PRESET_FULL_LABELS[p]}
                       {instructionsPreset === p && <Check className="size-3.5" />}
                     </button>
                   ))}
