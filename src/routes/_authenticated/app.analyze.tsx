@@ -18,6 +18,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
+import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,7 +188,10 @@ function MarkdownLite({ text }: { text: string }) {
 function AnalyzePage() {
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
+  const saveConversationFn = useServerFn(saveChatConversation);
+  const getConversationFn = useServerFn(getChatConversation);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const initialRef = useRef<Partial<PersistedState> | null>(null);
   if (initialRef.current === null) initialRef.current = loadPersistedState();
@@ -262,6 +267,58 @@ function AnalyzePage() {
   useEffect(() => {
     savePersistedState({ messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows });
   }, [messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const handle = setTimeout(() => {
+      const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
+      const title = firstUserMsg.slice(0, 80);
+      saveConversationFn({
+        data: {
+          id: conversationId ?? undefined,
+          tool: "analyze",
+          title,
+          state: { messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows },
+        },
+      }).then(({ id }: { id: string }) => {
+        if (!conversationId) setConversationId(id);
+      }).catch(() => { /* best-effort history sync */ });
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [messages, instructionsPreset, instructions, docSummary, sourceTab, projectId, fileName, fileRows, conversationId, saveConversationFn]);
+
+  function handleNewChat() {
+    setConversationId(null);
+    setMessages([]);
+    setInput("");
+    setSourceTab("project");
+    setProjectId("");
+    setFileName("");
+    setFileRows([]);
+    setDocFiles([]);
+    setDocSummary("");
+    setInstructionsPreset("basic-academia");
+    setInstructions("");
+  }
+
+  async function handleSelectConversation(id: string) {
+    try {
+      const { conversation } = await getConversationFn({ data: { id } });
+      const state = (conversation.state ?? {}) as Partial<PersistedState>;
+      setConversationId(conversation.id);
+      setMessages(state.messages ?? []);
+      setInstructionsPreset(state.instructionsPreset && state.instructionsPreset in PRESET_LABELS ? state.instructionsPreset : "basic-academia");
+      setInstructions(state.instructions ?? "");
+      setDocSummary(state.docSummary ?? "");
+      setSourceTab(state.sourceTab ?? "project");
+      setProjectId(state.projectId ?? "");
+      setFileName(state.fileName ?? "");
+      setFileRows(state.fileRows ?? []);
+      setDocFiles([]);
+    } catch {
+      toast.error("Couldn't load that chat");
+    }
+  }
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
@@ -516,6 +573,12 @@ function AnalyzePage() {
               className="resize-none min-h-0 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base"
             />
             <div className="flex items-center gap-1 mt-1">
+              <ChatHistoryMenu
+                tool="analyze"
+                activeId={conversationId}
+                onSelect={handleSelectConversation}
+                onNew={handleNewChat}
+              />
               <Popover>
                 <PopoverTrigger asChild>
                   <Button

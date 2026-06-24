@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { parseMarkdownLite, blocksToHtml } from "@/lib/markdown-lite";
 import { createAgentSessionFn } from "@/lib/agent-chat.functions";
+import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
+import { ChatHistoryMenu } from "@/components/chat-history-menu";
 
 export const Route = createFileRoute("/_authenticated/app/agent")({
   head: () => ({ meta: [{ title: "Agent · Surveyor" }] }),
@@ -22,12 +24,54 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 function AgentPage() {
   const createSession = useServerFn(createAgentSessionFn);
+  const saveConversationFn = useServerFn(saveChatConversation);
+  const getConversationFn = useServerFn(getChatConversation);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const handle = setTimeout(() => {
+      const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
+      const title = firstUserMsg.slice(0, 80);
+      saveConversationFn({
+        data: {
+          id: conversationId ?? undefined,
+          tool: "agent",
+          title,
+          state: { messages },
+          agentSessionId: sessionId ?? undefined,
+        },
+      }).then(({ id }: { id: string }) => {
+        if (!conversationId) setConversationId(id);
+      }).catch(() => { /* best-effort history sync */ });
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [messages, sessionId, conversationId, saveConversationFn]);
+
+  function handleNewChat() {
+    setConversationId(null);
+    setSessionId(null);
+    setMessages([]);
+    setInput("");
+  }
+
+  async function handleSelectConversation(id: string) {
+    try {
+      const { conversation } = await getConversationFn({ data: { id } });
+      const state = (conversation.state ?? {}) as { messages?: Msg[] };
+      setConversationId(conversation.id);
+      setSessionId(conversation.agent_session_id ?? null);
+      setMessages(state.messages ?? []);
+    } catch {
+      toast.error("Couldn't load that chat");
+    }
+  }
 
   async function ensureSession(): Promise<string> {
     if (sessionId) return sessionId;
@@ -92,15 +136,23 @@ function AgentPage() {
   return (
     <AppShell>
       <div className="flex h-full flex-col gap-4 p-6">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
-          <div>
-            <h1 className="text-lg font-semibold">Agent</h1>
-            <p className="text-sm text-muted-foreground">
-              An open-ended assistant that can analyze data, write, and build presentations end to end — generating
-              real .pptx/.xlsx/.docx files when you ask. It doesn't handle Surveys or Interviews — use those tools directly for that.
-            </p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-lg font-semibold">Agent</h1>
+              <p className="text-sm text-muted-foreground">
+                An open-ended assistant that can analyze data, write, and build presentations end to end — generating
+                real .pptx/.xlsx/.docx files when you ask. It doesn't handle Surveys or Interviews — use those tools directly for that.
+              </p>
+            </div>
           </div>
+          <ChatHistoryMenu
+            tool="agent"
+            activeId={conversationId}
+            onSelect={handleSelectConversation}
+            onNew={handleNewChat}
+          />
         </div>
 
         <Card className="flex-1 overflow-y-auto p-4">
