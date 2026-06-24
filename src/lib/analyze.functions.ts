@@ -4,7 +4,7 @@ import { z } from "zod";
 
 const ChatMessage = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().max(4000),
+  content: z.string().max(40000),
 });
 
 const AnalyzeChatInput = z.object({
