@@ -92,7 +92,6 @@ Output ONLY the bullet-point summary as plain text, no markdown headers, no comm
         source_type: data.source_type,
         source_url: data.source_url ?? null,
         raw_input: data.raw_input ?? null,
-        context_input: data.context_input ?? null,
         parsed_questions: parsed.questions as any,
         background_context: backgroundContext,
         interviewer_name: interviewerName,
