@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown } from "lucide-react";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
   CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -20,6 +20,8 @@ import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.f
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdown-lite";
+import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
   head: () => ({ meta: [{ title: "Writing · Surveyor" }] }),
@@ -106,63 +108,6 @@ function savePersistedState(state: PersistedState) {
   }
 }
 
-type MdBlock =
-  | { type: "heading"; level: number; text: string }
-  | { type: "table"; header: string[]; rows: string[][] }
-  | { type: "paragraph"; text: string };
-
-function splitTableRow(line: string): string[] {
-  let trimmed = line.trim();
-  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
-  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
-  return trimmed.split("|").map((c) => c.trim());
-}
-
-const TABLE_SEPARATOR_RE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/;
-
-function parseMarkdownLite(text: string): MdBlock[] {
-  const lines = text.split("\n");
-  const blocks: MdBlock[] = [];
-  let paragraphBuf: string[] = [];
-
-  function flushParagraph() {
-    if (paragraphBuf.length) {
-      blocks.push({ type: "paragraph", text: paragraphBuf.join("\n") });
-      paragraphBuf = [];
-    }
-  }
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headingMatch = /^(#{1,4})\s+(.*)$/.exec(line);
-    if (headingMatch) {
-      flushParagraph();
-      blocks.push({ type: "heading", level: headingMatch[1].length, text: headingMatch[2].trim() });
-      continue;
-    }
-    if (line.includes("|") && i + 1 < lines.length && TABLE_SEPARATOR_RE.test(lines[i + 1])) {
-      flushParagraph();
-      const header = splitTableRow(line);
-      const rows: string[][] = [];
-      let j = i + 2;
-      while (j < lines.length && lines[j].includes("|") && lines[j].trim() !== "") {
-        rows.push(splitTableRow(lines[j]));
-        j++;
-      }
-      blocks.push({ type: "table", header, rows });
-      i = j - 1;
-      continue;
-    }
-    if (line.trim() === "") {
-      flushParagraph();
-      continue;
-    }
-    paragraphBuf.push(line);
-  }
-  flushParagraph();
-  return blocks;
-}
-
 function renderInline(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) =>
@@ -247,14 +192,52 @@ function AnalyzePage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   async function copyMessage(index: number, content: string) {
+    const blocks = parseMarkdownLite(content);
+    const html = blocksToHtml(blocks);
+    const plain = blocksToPlainText(blocks);
     try {
-      await navigator.clipboard.writeText(content);
+      if (typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([plain], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(plain);
+      }
       setCopiedIndex(index);
       setTimeout(() => setCopiedIndex((cur) => (cur === index ? null : cur)), 1500);
     } catch {
-      toast.error("Couldn't copy to clipboard");
+      try {
+        await navigator.clipboard.writeText(plain);
+        setCopiedIndex(index);
+        setTimeout(() => setCopiedIndex((cur) => (cur === index ? null : cur)), 1500);
+      } catch {
+        toast.error("Couldn't copy to clipboard");
+      }
+    }
+  }
+
+  async function exportDocument() {
+    const sections = messages.filter((m) => m.role === "assistant").map((m) => m.content);
+    const compiled = compileWrittenSections(sections);
+    if (!compiled.trim()) {
+      toast.error("No written content to export yet");
+      return;
+    }
+    setExporting(true);
+    try {
+      const title = PRESET_FULL_LABELS[instructionsPreset] !== "None" ? PRESET_FULL_LABELS[instructionsPreset] : "Written Document";
+      const blob = await exportToDocx(compiled, title);
+      downloadBlob(blob, `${title.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.docx`);
+    } catch {
+      toast.error("Couldn't export the document");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -511,7 +494,12 @@ function AnalyzePage() {
             </Popover>
 
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => setMessages([])}>
+              <Button variant="outline" size="sm" className="ml-auto gap-1.5" onClick={exportDocument} disabled={exporting}>
+                {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} Download document
+              </Button>
+            )}
+            {messages.length > 0 && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setMessages([])}>
                 Clear conversation
               </Button>
             )}
