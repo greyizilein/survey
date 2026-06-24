@@ -415,6 +415,11 @@ function PresentationsPage() {
   const [sending, setSending] = useState(false);
   const [exporting, setExporting] = useState(false);
   const slidePreviewRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, sending]);
 
   useEffect(() => {
     savePersistedState({ messages, instructions, docSummary, deck });
@@ -629,8 +634,8 @@ function PresentationsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1500px] p-3 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
-        <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+      <div className="mx-auto max-w-[1500px] p-0 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+        <div className="flex items-center justify-between gap-2 mb-2 shrink-0 px-3 pt-3 sm:px-0 sm:pt-0">
           <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate">
             <Presentation className="size-5 shrink-0" /> Presentations
           </h1>
@@ -655,8 +660,8 @@ function PresentationsPage() {
           )}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-3 flex-1 min-h-0 overflow-hidden">
-          <Card className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden lg:max-w-md">
+        <div className="flex flex-col lg:flex-row gap-0 lg:gap-3 flex-1 min-h-0 overflow-hidden">
+          <Card className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden lg:max-w-md rounded-none border-x-0 lg:rounded-lg lg:border-x-2">
             <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
@@ -680,6 +685,7 @@ function PresentationsPage() {
                   </div>
                 </div>
               )}
+              <div ref={bottomRef} />
             </div>
 
             <div className="border-t-2 p-2 sm:p-3 shrink-0 bg-background">
@@ -769,7 +775,7 @@ function PresentationsPage() {
             </div>
           </Card>
 
-          <Card className="p-3 sm:p-4 flex-[1.4] min-h-0 overflow-y-auto">
+          <Card className="p-3 sm:p-4 flex-[1.4] min-h-0 overflow-y-auto rounded-none border-x-0 lg:rounded-lg lg:border-x-2">
             {!deck && (
               <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
                 <Presentation className="size-10 mb-3 opacity-60" />
