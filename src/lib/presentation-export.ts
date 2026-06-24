@@ -15,6 +15,8 @@ export type Slide = {
   tableColumns?: string[];
   tableRows?: string[][];
   notes?: string;
+  /** Optional self-contained decorative background HTML/SVG (sanitized), rendered behind the structured content. */
+  decoration?: string;
 };
 
 export type Theme = { primary: string; secondary: string; dark: string; light: string };
@@ -50,8 +52,42 @@ function sanitizeValue<T>(value: T): T {
   return value;
 }
 
+const DECORATION_ALLOWED_TAGS = new Set([
+  "div", "span", "svg", "path", "circle", "ellipse", "rect", "line", "polygon", "polyline",
+  "g", "defs", "lineargradient", "radialgradient", "stop", "filter", "fegaussianblur",
+  "feblend", "fecolormatrix", "feoffset", "femerge", "femergenode", "clippath", "mask",
+]);
+
+const DECORATION_STRIP_TAGS_WITH_CONTENT =
+  /<\s*(script|style|iframe|object|embed|link|meta|img|use|foreignobject|a|form|input|button|video|audio|source|base)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi;
+const DECORATION_STRIP_TAGS = /<\s*\/?\s*(script|style|iframe|object|embed|link|meta|img|use|foreignobject|a|form|input|button|video|audio|source|base)\b[^>]*\/?>/gi;
+
+/** Allowlist-based sanitizer for AI-authored decorative slide HTML/SVG — no scripts, no external resources, no event handlers. */
+export function sanitizeDecorationHtml(html: string): string {
+  if (!html) return "";
+  let out = html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(DECORATION_STRIP_TAGS_WITH_CONTENT, "")
+    .replace(DECORATION_STRIP_TAGS, "")
+    .replace(/\son\w+\s*=\s*"(?:[^"]*)"/gi, "")
+    .replace(/\son\w+\s*=\s*'(?:[^']*)'/gi, "")
+    .replace(/\s(?:href|src|xlink:href)\s*=\s*("|')[^"']*\1/gi, "")
+    .replace(/javascript\s*:/gi, "");
+  out = out.replace(/<\/?\s*([a-zA-Z][\w-]*)\b[^>]*>/g, (full, tag: string) =>
+    DECORATION_ALLOWED_TAGS.has(tag.toLowerCase()) ? full : "",
+  );
+  return out;
+}
+
 export function sanitizeDeck(deck: Deck): Deck {
-  return sanitizeValue(deck);
+  return {
+    ...sanitizeValue(deck),
+    slides: deck.slides.map((slide) => {
+      const cleaned = sanitizeValue(slide) as Slide;
+      if (slide.decoration) cleaned.decoration = sanitizeDecorationHtml(slide.decoration);
+      return cleaned;
+    }),
+  };
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
@@ -63,20 +99,25 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
+export async function exportDeckToPptx(deck: Deck, decorationImages?: (string | undefined)[]): Promise<Blob> {
   const PptxGenJS = (await import("pptxgenjs")).default;
   const theme = deckTheme(deck);
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
   pptx.title = deck.title;
 
-  for (const slide of deck.slides) {
+  for (let slideIndex = 0; slideIndex < deck.slides.length; slideIndex++) {
+    const slide = deck.slides[slideIndex];
     const s = pptx.addSlide();
     if (slide.notes) s.addNotes(slide.notes);
+    const decorationImage = decorationImages?.[slideIndex];
+    const setBackground = (fallbackColor: string) => {
+      s.background = decorationImage ? { data: decorationImage } : { color: fallbackColor };
+    };
 
     switch (slide.layout) {
       case "title": {
-        s.background = { color: theme.dark };
+        setBackground(theme.dark);
         s.addText(slide.title ?? deck.title, { x: 0.7, y: 2.6, w: 11.9, h: 1.3, fontSize: 44, bold: true, color: theme.light, align: "left", margin: 0 });
         if (slide.subtitle) {
           s.addText(slide.subtitle, { x: 0.7, y: 3.9, w: 10, h: 0.6, fontSize: 18, color: theme.light, italic: true, margin: 0 });
@@ -84,13 +125,13 @@ export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
         break;
       }
       case "section": {
-        s.background = { color: theme.dark };
+        setBackground(theme.dark);
         if (slide.number) s.addText(slide.number, { x: 0.7, y: 1.8, w: 2, h: 1, fontSize: 60, color: theme.secondary, margin: 0 });
         s.addText(slide.title ?? "", { x: 0.7, y: 2.7, w: 10, h: 1, fontSize: 34, bold: true, color: theme.light, margin: 0 });
         break;
       }
       case "bullets": {
-        s.background = { color: theme.light };
+        setBackground(theme.light);
         s.addText(slide.title ?? "", { x: 0.6, y: 0.45, w: 12.1, h: 0.8, fontSize: 28, bold: true, color: theme.primary, margin: 0 });
         const bullets = slide.bullets ?? [];
         if (bullets.length) {
@@ -103,7 +144,7 @@ export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
         break;
       }
       case "two-column": {
-        s.background = { color: theme.light };
+        setBackground(theme.light);
         s.addText(slide.title ?? "", { x: 0.6, y: 0.45, w: 12.1, h: 0.8, fontSize: 28, bold: true, color: theme.primary, margin: 0 });
         const cols = slide.columns ?? [];
         const colW = 5.9;
@@ -119,20 +160,20 @@ export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
         break;
       }
       case "stat": {
-        s.background = { color: theme.light };
+        setBackground(theme.light);
         s.addText(slide.value ?? "", { x: 0.7, y: 1.7, w: 7, h: 2, fontSize: 90, bold: true, color: theme.primary, margin: 0 });
         s.addText(slide.label ?? "", { x: 0.7, y: 3.9, w: 7, h: 1, fontSize: 18, color: "44475A", margin: 0 });
         if (slide.body) s.addText(slide.body, { x: 0.7, y: 4.9, w: 7, h: 0.8, fontSize: 14, italic: true, color: "6B7299", margin: 0 });
         break;
       }
       case "quote": {
-        s.background = { color: theme.dark };
+        setBackground(theme.dark);
         s.addText(`"${slide.quote ?? ""}"`, { x: 1.0, y: 1.9, w: 11, h: 2.2, fontSize: 28, italic: true, color: theme.light, margin: 0 });
         if (slide.author) s.addText(slide.author, { x: 1.0, y: 4.4, w: 8, h: 0.5, fontSize: 15, color: theme.secondary, margin: 0 });
         break;
       }
       case "timeline": {
-        s.background = { color: theme.light };
+        setBackground(theme.light);
         s.addText(slide.title ?? "", { x: 0.6, y: 0.45, w: 12.1, h: 0.8, fontSize: 28, bold: true, color: theme.primary, margin: 0 });
         const stages = slide.stages ?? [];
         if (stages.length) {
@@ -147,7 +188,7 @@ export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
         break;
       }
       case "grid": {
-        s.background = { color: theme.light };
+        setBackground(theme.light);
         s.addText(slide.title ?? "", { x: 0.6, y: 0.45, w: 12.1, h: 0.8, fontSize: 28, bold: true, color: theme.primary, margin: 0 });
         const items = (slide.items ?? []).slice(0, 4);
         items.forEach((item, i) => {
@@ -163,7 +204,7 @@ export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
         break;
       }
       case "table": {
-        s.background = { color: theme.light };
+        setBackground(theme.light);
         s.addText(slide.title ?? "", { x: 0.6, y: 0.45, w: 12.1, h: 0.8, fontSize: 28, bold: true, color: theme.primary, margin: 0 });
         const cols = slide.tableColumns ?? [];
         const rows = slide.tableRows ?? [];
@@ -175,7 +216,7 @@ export async function exportDeckToPptx(deck: Deck): Promise<Blob> {
         break;
       }
       case "closing": {
-        s.background = { color: theme.dark };
+        setBackground(theme.dark);
         s.addText(slide.title ?? "Thank you", { x: 0.7, y: 2.6, w: 10, h: 1, fontSize: 40, bold: true, color: theme.light, margin: 0 });
         if (slide.subtitle) s.addText(slide.subtitle, { x: 0.7, y: 3.7, w: 10, h: 0.6, fontSize: 16, color: theme.light, margin: 0 });
         break;

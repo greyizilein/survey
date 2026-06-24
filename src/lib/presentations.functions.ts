@@ -24,6 +24,7 @@ const SlideSchema = z.object({
   tableColumns: z.array(z.string()).optional(),
   tableRows: z.array(z.array(z.string())).optional(),
   notes: z.string().optional(),
+  decoration: z.string().max(6000).optional(),
 });
 
 const ThemeSchema = z.object({
