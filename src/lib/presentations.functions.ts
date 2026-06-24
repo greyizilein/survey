@@ -87,9 +87,13 @@ Output ONLY the condensed summary as plain text, no markdown headers, no comment
 
 export async function buildPresentationPrompt(
   data: z.infer<typeof PresentationChatInput>,
-): Promise<{ model: string; prompt: string }> {
-  const { DEFAULT_MODEL } = await import("./ai-gateway.server");
+): Promise<{ model: string; prompt: string; useCodeExecution: boolean }> {
+  const { DEFAULT_MODEL, codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
   const { PRESENTATION_STUDIO_TEMPLATE } = await import("./presentation-templates.server");
+  const useCodeExecution = codeExecutionAvailable();
+  const codeExecutionBlock = useCodeExecution
+    ? `\n\nYou have a code execution tool (a real Python sandbox). If any slide needs a computed figure — a percentage, average, growth rate, projection, or any other number derived from data in the brief or chat — write and run actual code to get the exact value instead of estimating it. Put only the final correct figure in the slide JSON; never reference code or sandbox output in the deck content itself.`
+    : "";
 
   const history = data.messages
     .map((m) => `${m.role === "user" ? "USER" : "ASSISTANT"}: ${m.content}`)
@@ -109,12 +113,12 @@ export async function buildPresentationPrompt(
 
   const prompt = `${PRESENTATION_STUDIO_TEMPLATE}
 
-${backgroundBlock}${instructionsBlock}${currentDeckBlock}
+${backgroundBlock}${instructionsBlock}${currentDeckBlock}${codeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
 
 Respond to the latest USER message per the workflow and JSON deck schema above.`;
 
-  return { model: DEFAULT_MODEL, prompt };
+  return { model: useCodeExecution ? CODE_EXECUTION_MODEL : DEFAULT_MODEL, prompt, useCodeExecution };
 }

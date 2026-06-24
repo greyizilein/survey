@@ -34,7 +34,7 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type SourceRef = { title: string; url: string; authors?: string[]; year?: number };
-type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null; sources?: SourceRef[] | null };
+type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null; sources?: SourceRef[] | null; chartImage?: string | null };
 type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing" | "basic-academia" | "dissertations";
 
 function readAsBase64(file: File): Promise<string> {
@@ -121,16 +121,22 @@ function renderInline(text: string) {
   );
 }
 
-function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null; sources: SourceRef[] | null } {
+function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null; sources: SourceRef[] | null; chartImage: string | null } {
   let chart: ChartSpec | null = null;
   let table: TableSpec | null = null;
   let sources: SourceRef[] | null = null;
+  let chartImage: string | null = null;
   const lines = raw.split("\n");
   const kept: string[] = [];
   for (const line of lines) {
     const chartMatch = /^@@CHART@@(.*)$/.exec(line);
     if (chartMatch) {
       try { chart = JSON.parse(chartMatch[1]); } catch { /* still streaming */ }
+      continue;
+    }
+    const chartImageMatch = /^@@CHARTIMAGE@@(.*)$/.exec(line);
+    if (chartImageMatch) {
+      chartImage = chartImageMatch[1].trim() || null;
       continue;
     }
     const tableMatch = /^@@TABLE@@(.*)$/.exec(line);
@@ -145,7 +151,7 @@ function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; 
     }
     kept.push(line);
   }
-  return { display: kept.join("\n"), chart, table, sources };
+  return { display: kept.join("\n"), chart, table, sources, chartImage };
 }
 
 function MarkdownLite({ text }: { text: string }) {
@@ -344,7 +350,7 @@ function AnalyzePage() {
         });
       }
 
-      const { display, chart, table, sources } = splitMarkers(raw);
+      const { display, chart, table, sources, chartImage } = splitMarkers(raw);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = {
@@ -353,6 +359,7 @@ function AnalyzePage() {
           chart,
           table,
           sources,
+          chartImage,
         };
         return copy;
       });
@@ -443,6 +450,11 @@ function AnalyzePage() {
                           </BarChart>
                         )}
                       </ResponsiveContainer>
+                    </div>
+                  )}
+                  {m.chartImage && (
+                    <div className="mt-3 bg-background rounded p-2">
+                      <img src={`data:image/png;base64,${m.chartImage}`} alt="Generated chart" className="max-w-full rounded" />
                     </div>
                   )}
                   {m.table && m.table.rows?.length > 0 && (

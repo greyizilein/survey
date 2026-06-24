@@ -179,7 +179,7 @@ export const TableSpec = z.object({
 export async function buildAnalyzePrompt(
   data: z.infer<typeof AnalyzeChatInput>,
   supabase: any,
-): Promise<{ model: string; prompt: string; useCodeExecution: boolean }> {
+): Promise<{ model: string; prompt: string; useCodeExecution: boolean; useWebSearch: boolean }> {
   const { DEFAULT_MODEL } = await import("./ai-gateway.server");
 
   let datasetBlock = "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
@@ -241,21 +241,30 @@ export async function buildAnalyzePrompt(
     data.instructionsPreset === "dissertations" ||
     (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
 
-  let sourcesBlock = "";
-  if (needsCitations) {
-    const latestUserMessage = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
-    const topic = [data.background?.slice(0, 600), latestUserMessage, data.instructions].filter(Boolean).join(" — ");
-    const { gatherSources, formatSourcePoolBlock } = await import("./research.server");
-    const sources = await gatherSources(topic);
-    sourcesBlock = formatSourcePoolBlock(sources);
-  }
-
-  const sourcesMarkerBlock = sourcesBlock
-    ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the exact pool entries you actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using titles/URLs copied exactly from the VERIFIED SOURCE POOL above>\nOmit this line entirely if you cited nothing from the pool.`
-    : "";
-
   const { codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
   const useCodeExecution = codeExecutionAvailable();
+
+  let sourcesBlock = "";
+  let useWebSearch = false;
+  if (needsCitations) {
+    if (useCodeExecution) {
+      useWebSearch = true;
+      sourcesBlock = `\n\nYou have live web search and web fetch tools. Search the web yourself for real, current, citable sources on this topic — peer-reviewed papers, reputable reports, official statistics — and fetch pages to verify claims before citing them. Never invent a source, author, or year; only cite something you actually found and fetched.`;
+    } else {
+      const latestUserMessage = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+      const topic = [data.background?.slice(0, 600), latestUserMessage, data.instructions].filter(Boolean).join(" — ");
+      const { gatherSources, formatSourcePoolBlock } = await import("./research.server");
+      const sources = await gatherSources(topic);
+      sourcesBlock = formatSourcePoolBlock(sources);
+    }
+  }
+
+  const sourcesMarkerBlock = needsCitations
+    ? useWebSearch
+      ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the real sources you searched/fetched and actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using the real titles/URLs you found>\nOmit this line entirely if you cited nothing.`
+      : `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the exact pool entries you actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using titles/URLs copied exactly from the VERIFIED SOURCE POOL above>\nOmit this line entirely if you cited nothing from the pool.`
+    : "";
+
   const writingCodeExecutionBlock = useCodeExecution
     ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`
     : "";
@@ -310,9 +319,12 @@ If a chart would help, end your response with a line containing ONLY:
 
 If a table would help, end your response with a line containing ONLY (after any chart line):
 @@TABLE@@{"columns":["Column A","Column B"],"rows":[["value","value"]]}
-
-Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.${sourcesMarkerBlock}`;
+${useCodeExecution ? `
+If the data calls for a chart type the simple bar/line/pie format above can't express well (scatter plots, histograms/distributions, box plots, multi-series comparisons, regression lines, anything with more than one series or axis), generate it properly instead: use matplotlib/seaborn in the sandbox, save the figure, base64-encode the PNG bytes in your code, print ONLY that base64 string, then copy it verbatim into a final line containing ONLY:
+@@CHARTIMAGE@@<the exact base64 PNG string you printed, no surrounding quotes or whitespace>
+Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.` : ""}
+Omit any marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${sourcesMarkerBlock}`;
   }
 
-  return { model, prompt, useCodeExecution };
+  return { model, prompt, useCodeExecution, useWebSearch };
 }

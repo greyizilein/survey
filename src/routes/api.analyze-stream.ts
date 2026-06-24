@@ -42,10 +42,10 @@ export const Route = createFileRoute("/api/analyze-stream")({
           return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
         }
 
-        const { createAi, createCodeExecutionAi, codeExecutionTool } = await import("@/lib/ai-gateway.server");
+        const { createAi, createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
-        const { model, prompt, useCodeExecution } = await buildAnalyzePrompt(parsed.data, supabase);
+        const { model, prompt, useCodeExecution, useWebSearch } = await buildAnalyzePrompt(parsed.data, supabase);
 
         const result = useCodeExecution
           ? streamText({
@@ -53,7 +53,10 @@ export const Route = createFileRoute("/api/analyze-stream")({
               prompt,
               temperature: 0.2,
               maxOutputTokens: 8000,
-              tools: { code_execution: codeExecutionTool() },
+              tools: {
+                code_execution: codeExecutionTool(),
+                ...(useWebSearch ? { web_search: webSearchTool(), web_fetch: webFetchTool() } : {}),
+              },
             })
           : streamText({ model: createAi()(model), prompt, temperature: 0.2, maxOutputTokens: 8000 });
         return result.toTextStreamResponse();
