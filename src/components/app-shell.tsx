@@ -1,5 +1,5 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { Home, ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText } from "lucide-react";
+import { Home, ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
@@ -11,6 +11,7 @@ const nav = [
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
   { to: "/app/personas", label: "Persona Studio", icon: Users },
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
+  { to: "/app/analyze", label: "Analyze", icon: BarChart3 },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
