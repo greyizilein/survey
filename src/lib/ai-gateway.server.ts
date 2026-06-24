@@ -29,3 +29,11 @@ export const CODE_EXECUTION_MODEL = "claude-sonnet-4-6";
 export function codeExecutionTool() {
   return anthropic.tools.codeExecution_20250825();
 }
+
+export function webSearchTool() {
+  return anthropic.tools.webSearch_20260209({ maxUses: 6 });
+}
+
+export function webFetchTool() {
+  return anthropic.tools.webFetch_20260209({ maxUses: 6 });
+}
