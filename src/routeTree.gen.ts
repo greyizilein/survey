@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
+import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenticated/app.projects'
@@ -22,6 +23,7 @@ import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
 import { Route as AuthenticatedAppAnalyzeRouteImport } from './routes/_authenticated/app.analyze'
+import { Route as AuthenticatedAppAgentRouteImport } from './routes/_authenticated/app.agent'
 import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app.projects.index'
 import { Route as AuthenticatedAppProjectsIdRouteImport } from './routes/_authenticated/app.projects.$id'
 
@@ -47,6 +49,11 @@ const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
 const ApiAnalyzeStreamRoute = ApiAnalyzeStreamRouteImport.update({
   id: '/api/analyze-stream',
   path: '/api/analyze-stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentStreamRoute = ApiAgentStreamRouteImport.update({
+  id: '/api/agent-stream',
+  path: '/api/agent-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
@@ -93,6 +100,11 @@ const AuthenticatedAppAnalyzeRoute = AuthenticatedAppAnalyzeRouteImport.update({
   path: '/analyze',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppAgentRoute = AuthenticatedAppAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => AuthenticatedAppRoute,
+} as any)
 const AuthenticatedAppProjectsIndexRoute =
   AuthenticatedAppProjectsIndexRouteImport.update({
     id: '/',
@@ -110,8 +122,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
+  '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
@@ -125,8 +139,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
@@ -142,8 +158,10 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
+  '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
@@ -160,8 +178,10 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/app'
+    | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/presentations-stream'
+    | '/app/agent'
     | '/app/analyze'
     | '/app/fill'
     | '/app/interviews'
@@ -175,8 +195,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/presentations-stream'
+    | '/app/agent'
     | '/app/analyze'
     | '/app/fill'
     | '/app/interviews'
@@ -191,8 +213,10 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/app'
+    | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/presentations-stream'
+    | '/_authenticated/app/agent'
     | '/_authenticated/app/analyze'
     | '/_authenticated/app/fill'
     | '/_authenticated/app/interviews'
@@ -208,6 +232,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAnalyzeStreamRoute: typeof ApiAnalyzeStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
 }
@@ -247,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/api/analyze-stream'
       fullPath: '/api/analyze-stream'
       preLoaderRoute: typeof ApiAnalyzeStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent-stream': {
+      id: '/api/agent-stream'
+      path: '/api/agent-stream'
+      fullPath: '/api/agent-stream'
+      preLoaderRoute: typeof ApiAgentStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app': {
@@ -305,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAnalyzeRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/agent': {
+      id: '/_authenticated/app/agent'
+      path: '/agent'
+      fullPath: '/app/agent'
+      preLoaderRoute: typeof AuthenticatedAppAgentRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/projects/': {
       id: '/_authenticated/app/projects/'
       path: '/'
@@ -339,6 +378,7 @@ const AuthenticatedAppProjectsRouteWithChildren =
   )
 
 interface AuthenticatedAppRouteChildren {
+  AuthenticatedAppAgentRoute: typeof AuthenticatedAppAgentRoute
   AuthenticatedAppAnalyzeRoute: typeof AuthenticatedAppAnalyzeRoute
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
@@ -349,6 +389,7 @@ interface AuthenticatedAppRouteChildren {
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
+  AuthenticatedAppAgentRoute: AuthenticatedAppAgentRoute,
   AuthenticatedAppAnalyzeRoute: AuthenticatedAppAnalyzeRoute,
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
@@ -376,6 +417,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAnalyzeStreamRoute: ApiAnalyzeStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
 }

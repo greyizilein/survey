@@ -37,3 +37,14 @@ export function webSearchTool() {
 export function webFetchTool() {
   return anthropic.tools.webFetch_20260209({ maxUses: 6 });
 }
+
+/**
+ * The Vercel AI SDK's Anthropic provider has no Files API / container-upload / Agent Skills
+ * support, so raw-document sandbox ingestion needs the official Anthropic SDK directly.
+ */
+export async function createRawAnthropic() {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("ANTHROPIC_API_KEY missing");
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  return new Anthropic({ apiKey: key });
+}

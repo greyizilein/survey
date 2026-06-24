@@ -55,9 +55,10 @@ export const summarizePresentationDocuments = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SummarizeDocsInput.parse(d))
   .handler(async ({ data }) => {
     const { extractText } = await import("./interviews.functions");
+    const { extractWithSandbox } = await import("./sandbox-extract.server");
     const texts: string[] = [];
     for (const f of data.files) {
-      const t = await extractText(f.data, f.name);
+      const t = (await extractWithSandbox(f.data, f.name)) ?? (await extractText(f.data, f.name));
       texts.push(`===== FILE: ${f.name} =====\n${t}`);
     }
     let combined = texts.join("\n\n");
