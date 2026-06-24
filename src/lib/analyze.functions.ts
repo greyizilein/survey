@@ -40,18 +40,23 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
     const MAX = 50_000;
     if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";
 
+    const RAW_PASSTHROUGH_LIMIT = 7800;
+    if (combined.length <= RAW_PASSTHROUGH_LIMIT) {
+      return { summary: combined.trim() };
+    }
+
     const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    const prompt = `Summarize the following written material (chapters, reports, methodology, notes) into concise bullet points capturing the concrete facts, themes, definitions, and findings that matter for analyzing related data. This is background context, not data to compute statistics from.
+    const prompt = `Condense the following written material (chapters, reports, briefs, assignments, methodology, notes) into background context for later use. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
 
 Source content:
 """
 ${combined}
 """
 
-Output ONLY the bullet-point summary as plain text, no markdown headers, no commentary.`;
+Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
     return { summary: text.trim() };
   });
