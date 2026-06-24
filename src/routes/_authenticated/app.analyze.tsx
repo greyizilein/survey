@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2 } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check } from "lucide-react";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
   CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -15,8 +15,10 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { analyzeChat, listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
   head: () => ({ meta: [{ title: "Analyze · Surveyor" }] }),
@@ -28,6 +30,7 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null };
+type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -51,6 +54,12 @@ function parseCsv(text: string): Record<string, unknown>[] {
   });
 }
 
+const PRESET_LABELS: Record<InstructionsPreset, string> = {
+  none: "None",
+  "chapter4-quant": "Ch.4 Quant",
+  "chapter4-qual": "Ch.4 Qual",
+};
+
 function AnalyzePage() {
   const analyzeFn = useServerFn(analyzeChat);
   const projectsFn = useServerFn(listAnalyzeProjects);
@@ -66,7 +75,7 @@ function AnalyzePage() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docSummary, setDocSummary] = useState<string>("");
   const [summarizingDocs, setSummarizingDocs] = useState(false);
-  const [instructionsPreset, setInstructionsPreset] = useState<"none" | "chapter4-quant" | "chapter4-qual">("none");
+  const [instructionsPreset, setInstructionsPreset] = useState<InstructionsPreset>("none");
   const [instructions, setInstructions] = useState("");
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -147,189 +156,217 @@ function AnalyzePage() {
     ? (projectsQ.data ?? []).find((p: any) => p.id === projectId)?.name
     : fileName;
 
+  const sourceActive = sourceTab === "project" ? !!projectId : !!fileName;
+
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1400px] p-4 sm:p-6">
-        <h1 className="text-2xl font-semibold mb-1 flex items-center gap-2"><BarChart3 className="size-6" /> Analyze</h1>
-        <p className="text-sm text-muted-foreground mb-6">Chat with your survey data — ask questions, get charts and tables back.</p>
+      <div className="mx-auto max-w-[900px] p-4 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+        <h1 className="text-2xl font-semibold mb-1 flex items-center gap-2 shrink-0"><BarChart3 className="size-6" /> Analyze</h1>
+        <p className="text-sm text-muted-foreground mb-3 shrink-0">Chat with your survey data — ask questions, get charts and tables back.</p>
 
-        <div className="grid gap-4 lg:grid-cols-[320px,minmax(0,1fr)]">
-          <div className="space-y-4">
-            <Card className="p-4">
-              <h3 className="font-semibold text-sm mb-3">Data source</h3>
-              <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSource(); }}>
-                <TabsList className="grid grid-cols-2 w-full">
-                  <TabsTrigger value="project">Project</TabsTrigger>
-                  <TabsTrigger value="file">Upload file</TabsTrigger>
-                </TabsList>
-                <TabsContent value="project" className="space-y-2 mt-3">
-                  <Select value={projectId} onValueChange={setProjectId}>
-                    <SelectTrigger><SelectValue placeholder="Choose a project" /></SelectTrigger>
-                    <SelectContent>
-                      {(projectsQ.data ?? []).map((p: any) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Analyzes that project's surveys, responses, and personas.</p>
-                </TabsContent>
-                <TabsContent value="file" className="space-y-2 mt-3">
-                  <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-6 cursor-pointer hover:bg-muted/30 transition-colors">
-                    <Upload className="size-5 text-muted-foreground" />
-                    <span className="text-sm font-medium">Choose a CSV file</span>
-                    <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
-                  </label>
-                  {fileName && (
-                    <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {fileName} ({fileRows.length} rows)</span>
-                      <button onClick={clearSource} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground">CSV with a header row. Columns are auto-summarized for the AI.</p>
-                </TabsContent>
-              </Tabs>
-            </Card>
+        <Card className="p-0 flex flex-col flex-1 min-h-0">
+          <div className="flex flex-wrap items-center gap-2 border-b-2 p-3 shrink-0">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={sourceActive ? "default" : "outline"} size="sm" className="gap-1.5">
+                  <Database className="size-3.5" /> {sourceActive ? sourceLabel : "Data source"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="start">
+                <h3 className="font-semibold text-sm mb-3">Data source</h3>
+                <Tabs value={sourceTab} onValueChange={(v) => { setSourceTab(v as any); clearSource(); }}>
+                  <TabsList className="grid grid-cols-2 w-full">
+                    <TabsTrigger value="project">Project</TabsTrigger>
+                    <TabsTrigger value="file">Upload file</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="project" className="space-y-2 mt-3">
+                    <Select value={projectId} onValueChange={setProjectId}>
+                      <SelectTrigger><SelectValue placeholder="Choose a project" /></SelectTrigger>
+                      <SelectContent>
+                        {(projectsQ.data ?? []).map((p: any) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Analyzes that project's surveys, responses, and personas.</p>
+                  </TabsContent>
+                  <TabsContent value="file" className="space-y-2 mt-3">
+                    <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                      <Upload className="size-5 text-muted-foreground" />
+                      <span className="text-sm font-medium">Choose a CSV file</span>
+                      <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                    </label>
+                    {fileName && (
+                      <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                        <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {fileName} ({fileRows.length} rows)</span>
+                        <button onClick={clearSource} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">CSV with a header row. Columns are auto-summarized for the AI.</p>
+                  </TabsContent>
+                </Tabs>
+              </PopoverContent>
+            </Popover>
 
-            <Card className="p-4">
-              <h3 className="font-semibold text-sm mb-1">Background documents</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Upload chapters, reports, or methodology so the AI has full context. Summarized once and never used as data to compute statistics from.
-              </p>
-              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                <Upload className="size-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Choose documents</span>
-                <span className="text-xs text-muted-foreground">PDF, Word (.docx), .txt, or .md</span>
-                <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
-                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
-              </label>
-              {docFiles.length > 0 && (
-                <div className="mt-3 space-y-1.5">
-                  {docFiles.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                      <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
-                    </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={docFiles.length > 0 ? "default" : "outline"} size="sm" className="gap-1.5">
+                  <FileStack className="size-3.5" /> {docFiles.length > 0 ? `${docFiles.length} doc${docFiles.length > 1 ? "s" : ""}` : "Background docs"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="start">
+                <h3 className="font-semibold text-sm mb-1">Background documents</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Upload chapters, reports, or methodology so the AI has full context. Summarized once and never used as data to compute statistics from.
+                </p>
+                <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                  <Upload className="size-5 text-muted-foreground" />
+                  <span className="text-sm font-medium">Choose documents</span>
+                  <span className="text-xs text-muted-foreground">PDF, Word (.docx), .txt, or .md</span>
+                  <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
+                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
+                </label>
+                {docFiles.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {docFiles.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                        <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
+                        <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {summarizingDocs && (
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant={instructionsPreset !== "none" || instructions.trim() ? "default" : "outline"} size="sm" className="gap-1.5">
+                  <ListChecks className="size-3.5" /> {instructionsPreset !== "none" ? PRESET_LABELS[instructionsPreset] : "Instructions"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="start">
+                <Label className="text-sm font-semibold">Writing template</Label>
+                <p className="text-xs text-muted-foreground mt-1 mb-2">
+                  Built-in structure, formatting, depth, and word-count rules for drafting a dissertation Chapter Four — applied automatically, no upload needed.
+                </p>
+                <div className="grid gap-1.5">
+                  {(["none", "chapter4-quant", "chapter4-qual"] as InstructionsPreset[]).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setInstructionsPreset(p)}
+                      className={cn(
+                        "flex items-center justify-between rounded border px-3 py-2 text-sm text-left transition-colors",
+                        instructionsPreset === p ? "border-primary bg-primary/5 font-medium" : "hover:bg-muted/40",
+                      )}
+                    >
+                      {p === "none" ? "None" : p === "chapter4-quant" ? "Chapter Four — Quantitative" : "Chapter Four — Qualitative"}
+                      {instructionsPreset === p && <Check className="size-3.5" />}
+                    </button>
                   ))}
                 </div>
-              )}
-              {summarizingDocs && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
-              )}
-            </Card>
 
-            <Card className="p-4">
-              <Label className="text-sm font-semibold">Writing template (optional)</Label>
-              <p className="text-xs text-muted-foreground mt-1 mb-2">
-                Built-in structure, formatting, depth, and word-count rules for drafting a dissertation Chapter Four — applied automatically, no upload needed.
-              </p>
-              <Select value={instructionsPreset} onValueChange={(v) => setInstructionsPreset(v as typeof instructionsPreset)}>
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="chapter4-quant">Chapter Four — Quantitative</SelectItem>
-                  <SelectItem value="chapter4-qual">Chapter Four — Qualitative</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Label className="text-sm font-semibold mt-4 block">Additional instructions (optional)</Label>
-              <p className="text-xs text-muted-foreground mt-1 mb-2">
-                Anything extra to steer the AI — a lens to apply, terminology to use, what to prioritize.
-              </p>
-              <Textarea
-                rows={3}
-                placeholder="e.g. Focus on differences by region. Use the terminology from the methodology chapter."
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-              />
-            </Card>
+                <Label className="text-sm font-semibold mt-4 block">Additional instructions</Label>
+                <p className="text-xs text-muted-foreground mt-1 mb-2">
+                  Anything extra to steer the AI — a lens to apply, terminology to use, what to prioritize.
+                </p>
+                <Textarea
+                  rows={3}
+                  placeholder="e.g. Focus on differences by region."
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                />
+              </PopoverContent>
+            </Popover>
 
             {messages.length > 0 && (
-              <Button variant="outline" size="sm" className="w-full" onClick={() => setMessages([])}>
+              <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => setMessages([])}>
                 Clear conversation
               </Button>
             )}
           </div>
 
-          <Card className="p-0 flex flex-col h-[70vh]">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-8">
-                  <BarChart3 className="size-8 mb-2" />
-                  <p className="text-sm">
-                    {sourceLabel ? `Ask anything about "${sourceLabel}" — e.g. "what's the breakdown of answers to question 2?"` : "Pick a project or upload a file, then ask a question."}
-                  </p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+            {messages.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-8">
+                <BarChart3 className="size-8 mb-2" />
+                <p className="text-sm">
+                  {sourceActive ? `Ask anything about "${sourceLabel}" — e.g. "what's the breakdown of answers to question 2?"` : "Pick a data source above, then ask a question."}
+                </p>
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  {m.chart && m.chart.data?.length > 0 && (
+                    <div className="mt-3 bg-background rounded p-2">
+                      <p className="text-xs font-medium mb-1">{m.chart.title}</p>
+                      <ResponsiveContainer width="100%" height={220}>
+                        {m.chart.type === "pie" ? (
+                          <PieChart>
+                            <Pie data={m.chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                              {m.chart.data.map((_, idx) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip /><Legend />
+                          </PieChart>
+                        ) : m.chart.type === "line" ? (
+                          <LineChart data={m.chart.data}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" /><YAxis /><Tooltip />
+                            <Line type="monotone" dataKey="value" stroke="#84cc16" strokeWidth={2} />
+                          </LineChart>
+                        ) : (
+                          <BarChart data={m.chart.data}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" /><YAxis /><Tooltip />
+                            <Bar dataKey="value" fill="#84cc16" />
+                          </BarChart>
+                        )}
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  {m.table && m.table.rows?.length > 0 && (
+                    <div className="mt-3 overflow-x-auto bg-background rounded p-2">
+                      <table className="text-xs w-full">
+                        <thead><tr>{m.table.columns.map((c, idx) => <th key={idx} className="text-left font-semibold px-2 py-1 border-b">{c}</th>)}</tr></thead>
+                        <tbody>
+                          {m.table.rows.map((row, ri) => (
+                            <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-2 py-1 border-b">{String(cell)}</td>)}</tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-              )}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                    <p className="whitespace-pre-wrap">{m.content}</p>
-                    {m.chart && m.chart.data?.length > 0 && (
-                      <div className="mt-3 bg-background rounded p-2">
-                        <p className="text-xs font-medium mb-1">{m.chart.title}</p>
-                        <ResponsiveContainer width="100%" height={220}>
-                          {m.chart.type === "pie" ? (
-                            <PieChart>
-                              <Pie data={m.chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                {m.chart.data.map((_, idx) => <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />)}
-                              </Pie>
-                              <Tooltip /><Legend />
-                            </PieChart>
-                          ) : m.chart.type === "line" ? (
-                            <LineChart data={m.chart.data}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="name" /><YAxis /><Tooltip />
-                              <Line type="monotone" dataKey="value" stroke="#84cc16" strokeWidth={2} />
-                            </LineChart>
-                          ) : (
-                            <BarChart data={m.chart.data}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="name" /><YAxis /><Tooltip />
-                              <Bar dataKey="value" fill="#84cc16" />
-                            </BarChart>
-                          )}
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                    {m.table && m.table.rows?.length > 0 && (
-                      <div className="mt-3 overflow-x-auto bg-background rounded p-2">
-                        <table className="text-xs w-full">
-                          <thead><tr>{m.table.columns.map((c, idx) => <th key={idx} className="text-left font-semibold px-2 py-1 border-b">{c}</th>)}</tr></thead>
-                          <tbody>
-                            {m.table.rows.map((row, ri) => (
-                              <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-2 py-1 border-b">{String(cell)}</td>)}</tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+              </div>
+            ))}
+            {sending && (
+              <div className="flex justify-start">
+                <div className="bg-muted rounded-lg px-3 py-2 text-sm flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="size-3.5 animate-spin" /> Thinking...
                 </div>
-              ))}
-              {sending && (
-                <div className="flex justify-start">
-                  <div className="bg-muted rounded-lg px-3 py-2 text-sm flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="size-3.5 animate-spin" /> Thinking...
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="border-t-2 p-3 flex gap-2">
-              <Textarea
-                rows={1}
-                placeholder="Ask about your data..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                className="resize-none min-h-0"
-              />
-              <Button onClick={send} disabled={sending || !input.trim()}>
-                <Send className="size-4" />
-              </Button>
-            </div>
-          </Card>
-        </div>
+              </div>
+            )}
+          </div>
+          <div className="border-t-2 p-3 flex gap-2 shrink-0">
+            <Textarea
+              rows={1}
+              placeholder="Ask about your data..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              className="resize-none min-h-0"
+            />
+            <Button onClick={send} disabled={sending || !input.trim()}>
+              <Send className="size-4" />
+            </Button>
+          </div>
+        </Card>
       </div>
     </AppShell>
   );
