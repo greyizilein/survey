@@ -32,7 +32,8 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
-type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null };
+type SourceRef = { title: string; url: string; authors?: string[]; year?: number };
+type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null; sources?: SourceRef[] | null };
 type InstructionsPreset = "none" | "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing";
 
 function readAsBase64(file: File): Promise<string> {
@@ -115,9 +116,10 @@ function renderInline(text: string) {
   );
 }
 
-function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null } {
+function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null; sources: SourceRef[] | null } {
   let chart: ChartSpec | null = null;
   let table: TableSpec | null = null;
+  let sources: SourceRef[] | null = null;
   const lines = raw.split("\n");
   const kept: string[] = [];
   for (const line of lines) {
@@ -131,9 +133,14 @@ function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; 
       try { table = JSON.parse(tableMatch[1]); } catch { /* still streaming */ }
       continue;
     }
+    const sourcesMatch = /^@@SOURCES@@(.*)$/.exec(line);
+    if (sourcesMatch) {
+      try { sources = JSON.parse(sourcesMatch[1]); } catch { /* still streaming */ }
+      continue;
+    }
     kept.push(line);
   }
-  return { display: kept.join("\n"), chart, table };
+  return { display: kept.join("\n"), chart, table, sources };
 }
 
 function MarkdownLite({ text }: { text: string }) {
@@ -332,7 +339,7 @@ function AnalyzePage() {
         });
       }
 
-      const { display, chart, table } = splitMarkers(raw);
+      const { display, chart, table, sources } = splitMarkers(raw);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = {
@@ -340,6 +347,7 @@ function AnalyzePage() {
           content: display.trim() || "I couldn't generate an answer for that.",
           chart,
           table,
+          sources,
         };
         return copy;
       });
@@ -556,6 +564,22 @@ function AnalyzePage() {
                         </tbody>
                       </table>
                     </div>
+                  )}
+                  {m.sources && m.sources.length > 0 && (
+                    <details className="mt-3 bg-background rounded p-2 border">
+                      <summary className="text-xs font-medium cursor-pointer select-none">
+                        Verified sources used ({m.sources.length})
+                      </summary>
+                      <ul className="mt-2 space-y-1.5">
+                        {m.sources.map((s, si) => (
+                          <li key={si} className="text-xs">
+                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                              {s.authors?.length ? `${s.authors.join(", ")} ` : ""}{s.year ? `(${s.year}) ` : ""}{s.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   )}
                   {m.role === "assistant" && m.content.trim() !== "" && !(sending && i === messages.length - 1) && (
                     <button

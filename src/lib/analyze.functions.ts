@@ -222,22 +222,43 @@ export async function buildAnalyzePrompt(
   let model = DEFAULT_MODEL;
   let prompt: string;
 
+  const assistantTextAll = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
+  const promptAlreadyCreated = /\|\s*:?-{2,}:?\s*\|/.test(assistantTextAll);
+  const needsCitations =
+    data.instructionsPreset === "chapter4-quant" ||
+    data.instructionsPreset === "chapter4-qual" ||
+    data.instructionsPreset === "chapter4-mixed" ||
+    (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
+
+  let sourcesBlock = "";
+  if (needsCitations) {
+    const latestUserMessage = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const topic = [data.background?.slice(0, 600), latestUserMessage, data.instructions].filter(Boolean).join(" — ");
+    const { gatherSources, formatSourcePoolBlock } = await import("./research.server");
+    const sources = await gatherSources(topic);
+    sourcesBlock = formatSourcePoolBlock(sources);
+  }
+
+  const sourcesMarkerBlock = sourcesBlock
+    ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the exact pool entries you actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using titles/URLs copied exactly from the VERIFIED SOURCE POOL above>\nOmit this line entirely if you cited nothing from the pool.`
+    : "";
+
   if (data.instructionsPreset === "other-writing") {
     model = "anthropic/claude-sonnet-4.6";
-    const assistantText = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
-    const promptAlreadyCreated = /\|\s*:?-{2,}:?\s*\|/.test(assistantText);
 
     if (promptAlreadyCreated) {
-      prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
+      prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, summarise, preview, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}
+ABSOLUTE OUTPUT RULE FOR THIS TURN: This response must contain ONLY the requested academic content — the actual section/chapter prose (with its own heading, tables of data/results if the section itself requires one as content, and figures), and nothing else. Specifically forbidden anywhere in this response: any markdown table that restates section breakdowns, word counts, learning outcomes, formatting standards, constraints, or marking criteria; any restatement or paraphrase of the specification; any preamble such as "Here is...", "Based on the prompt...", "I will now write...", or a summary of what you are about to do; any meta-commentary about the table, the task, or your process. Your very first character must be the start of the section's actual heading or opening sentence — go straight into the academic writing itself, exactly as if you were a writer who already has the brief memorised and is simply continuing the document.
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}${sourcesBlock}
 
 CONVERSATION SO FAR
 ${history}
 
-Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard. Do not produce a prompt table. Do not describe what you are about to write or summarise the task — write the actual academic content directly.
+Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard, beginning immediately with the section's heading and prose per the ABSOLUTE OUTPUT RULE above.
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${sourcesMarkerBlock}`;
     } else {
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
@@ -254,7 +275,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
   } else {
     prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
 
-${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}
+${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -269,7 +290,7 @@ If a chart would help, end your response with a line containing ONLY:
 If a table would help, end your response with a line containing ONLY (after any chart line):
 @@TABLE@@{"columns":["Column A","Column B"],"rows":[["value","value"]]}
 
-Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.`;
+Omit either marker line entirely when not needed. These marker lines must be the very last lines of your response, valid single-line JSON, and never appear anywhere else in your answer.${sourcesMarkerBlock}`;
   }
 
   return { model, prompt };
