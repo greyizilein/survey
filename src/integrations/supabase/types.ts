@@ -361,8 +361,11 @@ export type Database = {
       }
       surveys: {
         Row: {
+          background_context: string | null
           created_at: string
           id: string
+          interviewer_affiliation: string | null
+          interviewer_name: string | null
           parsed_questions: Json
           project_id: string
           raw_input: string | null
@@ -372,8 +375,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          background_context?: string | null
           created_at?: string
           id?: string
+          interviewer_affiliation?: string | null
+          interviewer_name?: string | null
           parsed_questions?: Json
           project_id: string
           raw_input?: string | null
@@ -383,8 +389,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          background_context?: string | null
           created_at?: string
           id?: string
+          interviewer_affiliation?: string | null
+          interviewer_name?: string | null
           parsed_questions?: Json
           project_id?: string
           raw_input?: string | null
