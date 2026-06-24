@@ -19,7 +19,7 @@ const AnalyzeChatInput = z.object({
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(8000).optional(),
-  instructions: z.string().max(3000).optional(),
+  instructions: z.string().max(20000).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), data: z.string() });
@@ -53,6 +53,27 @@ ${combined}
 Output ONLY the bullet-point summary as plain text, no markdown headers, no commentary.`;
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
     return { summary: text.trim() };
+  });
+
+const ExtractInstructionsInput = z.object({ files: z.array(DocFile).min(1).max(4) });
+
+// Instructions documents (chapter templates, word-count specs, formatting rules)
+// must be used verbatim — summarizing them would lose exact figures like
+// per-section word counts, so this returns the raw extracted text instead.
+export const extractInstructionsDocument = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ExtractInstructionsInput.parse(d))
+  .handler(async ({ data }) => {
+    const { extractText } = await import("./interviews.functions");
+    const texts: string[] = [];
+    for (const f of data.files) {
+      const t = await extractText(f.data, f.name);
+      texts.push(texts.length || data.files.length > 1 ? `===== ${f.name} =====\n${t}` : t);
+    }
+    let combined = texts.join("\n\n").trim();
+    const MAX = 20_000;
+    if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated — instructions exceeded 20,000 characters]";
+    return { text: combined };
   });
 
 interface ColumnSummary {
