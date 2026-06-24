@@ -160,7 +160,7 @@ function AnalyzePage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[900px] p-4 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+      <div className="mx-auto max-w-[1400px] p-4 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
         <h1 className="text-2xl font-semibold mb-1 flex items-center gap-2 shrink-0"><BarChart3 className="size-6" /> Analyze</h1>
         <p className="text-sm text-muted-foreground mb-3 shrink-0">Chat with your survey data — ask questions, get charts and tables back.</p>
 
