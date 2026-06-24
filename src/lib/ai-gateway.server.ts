@@ -1,15 +1,9 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createGateway } from "@ai-sdk/gateway";
 
 export function createAi() {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY missing");
-  return createOpenAICompatible({
-    name: "lovable",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: {
-      Authorization: `Bearer ${key}`,
-    },
-  });
+  const key = process.env.AI_GATEWAY_API_KEY;
+  if (!key) throw new Error("AI_GATEWAY_API_KEY missing");
+  return createGateway({ apiKey: key });
 }
 
 export const DEFAULT_MODEL = "google/gemini-2.5-flash";
