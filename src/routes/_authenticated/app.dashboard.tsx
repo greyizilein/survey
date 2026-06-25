@@ -79,7 +79,7 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:py-14 lg:px-8">
+      <div className="mx-auto min-w-0 max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:py-14 lg:px-8">
         {/* Header */}
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="grid size-8 sm:size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
@@ -101,29 +101,29 @@ function Dashboard() {
         </div>
 
         {/* Two-column area */}
-        <div className="mt-6 sm:mt-8 grid gap-3 sm:gap-5 lg:grid-cols-3">
+        <div className="mt-6 sm:mt-8 grid gap-3 sm:gap-5 lg:grid-cols-3 min-w-0">
           {/* Quick actions */}
-          <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5">
+          <div className="min-w-0 rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5">
             <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
               Quick actions
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2 min-w-0">
               {quickActions.map((a) => (
                 <Link
                   key={a.title}
                   to={a.to}
-                  className="group flex flex-col items-start gap-1 rounded-xl border border-border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/5"
+                  className="group flex min-w-0 flex-col items-start gap-1 rounded-xl border border-border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/5"
                 >
                   <div className="text-primary">{a.icon}</div>
-                  <div className="text-[12px] font-bold text-foreground">{a.title}</div>
-                  <div className="text-[10px] leading-tight text-muted-foreground">{a.desc}</div>
+                  <div className="w-full truncate text-[12px] font-bold text-foreground">{a.title}</div>
+                  <div className="w-full truncate text-[10px] leading-tight text-muted-foreground">{a.desc}</div>
                 </Link>
               ))}
             </div>
           </div>
 
           {/* Recent activity */}
-          <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5 lg:col-span-2">
+          <div className="min-w-0 rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5 lg:col-span-2">
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
                 Recent activity
