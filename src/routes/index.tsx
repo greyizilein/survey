@@ -105,7 +105,7 @@ function Landing() {
         />
 
         {/* Centered headline */}
-        <div className="relative z-10 mx-auto flex flex-1 max-w-3xl flex-col items-center justify-center text-center animate-fade-up">
+        <div className="relative z-10 mx-auto flex flex-1 max-w-4xl flex-col items-center justify-center text-center animate-fade-up">
           <span
             className="inline-flex items-center gap-2 border-2 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur"
             style={{ borderColor: LIME, color: LIME, background: "rgba(182,222,72,0.08)" }}
@@ -114,7 +114,7 @@ function Landing() {
           </span>
 
           <h1
-            className="mt-6 text-[clamp(2.75rem,11vw,6rem)] font-extrabold leading-[0.95] tracking-tight"
+            className="mt-6 text-[clamp(2.75rem,11vw,8rem)] font-extrabold leading-[0.95] tracking-tight"
             style={{ color: PAPER }}
           >
             Describe it.
