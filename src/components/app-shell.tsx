@@ -3,7 +3,14 @@ import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareTe
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+
+const AppShellMenuContext = createContext<() => void>(() => {});
+
+/** Lets a full-screen-mobile page open the nav drawer from its own inline header. */
+export function useOpenMobileMenu() {
+  return useContext(AppShellMenuContext);
+}
 
 const nav = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -161,7 +168,7 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
         {MobileSidebarBody}
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
         {!fullScreenMobile && (
           <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
@@ -179,17 +186,11 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
           </header>
         )}
 
-        {fullScreenMobile && (
-          <button
-            onClick={() => setOpen(true)}
-            className="md:hidden fixed top-3 left-3 z-30 rounded-full bg-background/90 backdrop-blur border border-border p-2 shadow-md shadow-black/10"
-            aria-label="Open menu"
-          >
-            <Menu className="size-5" />
-          </button>
-        )}
-
-        <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto")}>{children}</main>
+        <AppShellMenuContext.Provider value={() => setOpen(true)}>
+          <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
+            {children}
+          </main>
+        </AppShellMenuContext.Provider>
       </div>
     </div>
   );

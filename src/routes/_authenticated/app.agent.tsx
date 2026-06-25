@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square, Copy, CopyCheck } from "lucide-react";
+import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square, Copy, CopyCheck, Menu } from "lucide-react";
 import { toast } from "sonner";
 
-import { AppShell } from "@/components/app-shell";
+import { AppShell, useOpenMobileMenu } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import { createAgentSessionFn, downloadAgentFileFn } from "@/lib/agent-chat.func
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
+import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -56,6 +57,8 @@ function splitFileMarkers(raw: string): { display: string; files: AgentFile[] } 
 }
 
 function AgentPage() {
+  const openMobileMenu = useOpenMobileMenu();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const createSession = useServerFn(createAgentSessionFn);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
@@ -76,6 +79,8 @@ function AgentPage() {
   const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useAutosizeTextarea(textareaRef, input);
 
   async function copyMessage(index: number, content: string) {
     const blocks = parseMarkdownLite(content);
@@ -297,10 +302,13 @@ function AgentPage() {
 
   return (
     <AppShell fullScreenMobile>
-      <div className="flex h-dvh flex-col gap-4 p-2 sm:p-6">
-        <div className="flex items-center justify-between gap-2 pl-9 pt-1 sm:px-0 sm:pt-0">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary shrink-0" />
+      <div className="flex h-dvh flex-col gap-4 p-0 sm:p-6">
+        <div className="flex items-center justify-between gap-2 px-3 pt-3 sm:px-0 sm:pt-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <button onClick={openMobileMenu} className="md:hidden -ml-1.5 p-1.5 shrink-0 text-muted-foreground" aria-label="Open menu">
+              <Menu className="size-5" />
+            </button>
+            <Bot className="h-5 w-5 text-primary shrink-0 hidden sm:block" />
             <div>
               <h1 className="text-lg font-semibold">Agent</h1>
               <p className="text-sm text-muted-foreground hidden sm:block">
@@ -317,7 +325,7 @@ function AgentPage() {
           />
         </div>
 
-        <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-xl border border-border shadow-sm shadow-black/5 sm:rounded-lg sm:border-x-2 sm:shadow-none">
+        <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow">
           {messages.length === 0 && (
             <p className="text-sm text-muted-foreground">
               {starting ? "Starting a session…" : "Ask it to analyze something, write a draft, or build a deck — say what you want, including any files it should produce."}
@@ -374,50 +382,10 @@ function AgentPage() {
           <div ref={bottomRef} />
         </Card>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={docFiles.length > 0 ? "default" : "ghost"}
-                size="sm"
-                className="h-8 gap-1.5 px-2"
-                title="Background docs"
-              >
-                <FileStack className="size-4 shrink-0" />
-                <span className="text-xs hidden sm:inline">{docFiles.length > 0 ? `${docFiles.length}` : "Docs"}</span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="start" side="top">
-              <h3 className="font-semibold text-sm mb-1">Background documents</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Upload files so the agent has context for what you're asking it to do.
-              </p>
-              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                <Upload className="size-5 text-muted-foreground" />
-                <span className="text-sm font-medium">Choose documents</span>
-                <span className="text-xs text-muted-foreground">PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md</span>
-                <input type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
-                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
-              </label>
-              {docFiles.length > 0 && (
-                <div className="mt-3 space-y-1.5">
-                  {docFiles.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                      <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {readingDocs && (
-                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="flex gap-2 shrink-0">
+        <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-md sm:border sm:shadow-none sm:p-0 sm:bg-transparent shrink-0">
           <Textarea
+            ref={textareaRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -427,18 +395,62 @@ function AgentPage() {
               }
             }}
             placeholder="Ask the agent anything…"
-            className="min-h-[60px]"
+            className="resize-none min-h-0 max-h-40 overflow-y-auto border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base sm:border sm:shadow-sm sm:px-3 sm:py-2"
             disabled={sending}
           />
-          {sending ? (
-            <Button onClick={stopGenerating} variant="secondary" size="icon" className="h-auto" title="Stop">
-              <Square className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button onClick={send} disabled={!input.trim()} size="icon" className="h-auto">
-              <Send className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1 mt-1 sm:mt-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={docFiles.length > 0 ? "default" : "ghost"}
+                  size="sm"
+                  className="h-8 gap-1.5 px-2"
+                  title="Background docs"
+                >
+                  <FileStack className="size-4 shrink-0" />
+                  <span className="text-xs hidden sm:inline">{docFiles.length > 0 ? `${docFiles.length}` : "Docs"}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="start" side="top">
+                <h3 className="font-semibold text-sm mb-1">Background documents</h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Upload files so the agent has context for what you're asking it to do.
+                </p>
+                <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                  <Upload className="size-5 text-muted-foreground" />
+                  <span className="text-sm font-medium">Choose documents</span>
+                  <span className="text-xs text-muted-foreground">PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md</span>
+                  <input type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
+                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
+                </label>
+                {docFiles.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {docFiles.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                        <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
+                        <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {readingDocs && (
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            <div className="ml-auto">
+              {sending ? (
+                <Button onClick={stopGenerating} variant="secondary" size="icon" className="size-9" title="Stop">
+                  <Square className="size-4" />
+                </Button>
+              ) : (
+                <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
+                  <Send className="size-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </AppShell>
