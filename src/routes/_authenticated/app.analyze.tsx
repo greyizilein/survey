@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { generateFigureImage } from "@/lib/image-gen.server";
 import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { Label } from "@/components/ui/label";
@@ -36,7 +37,18 @@ const PIE_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899", "#14b
 type ChartSpec = { type: "bar" | "line" | "pie"; title: string; data: { name: string; value: number }[] };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type SourceRef = { title: string; url: string; authors?: string[]; year?: number };
-type Msg = { role: "user" | "assistant"; content: string; chart?: ChartSpec | null; table?: TableSpec | null; sources?: SourceRef[] | null; chartImage?: string | null };
+type FigureRequest = { prompt: string; caption?: string };
+type FigureImage = { caption?: string; base64: string; mediaType: string };
+type Msg = {
+  role: "user" | "assistant";
+  content: string;
+  chart?: ChartSpec | null;
+  table?: TableSpec | null;
+  sources?: SourceRef[] | null;
+  chartImage?: string | null;
+  figures?: FigureImage[] | null;
+  generatingFigures?: boolean;
+};
 type InstructionsPreset = "chapter4-quant" | "chapter4-qual" | "chapter4-mixed" | "other-writing" | "basic-academia" | "dissertations";
 
 function readAsBase64(file: File): Promise<string> {
@@ -121,11 +133,12 @@ function renderInline(text: string) {
   );
 }
 
-function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null; sources: SourceRef[] | null; chartImage: string | null } {
+function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null; sources: SourceRef[] | null; chartImage: string | null; figureRequests: FigureRequest[] } {
   let chart: ChartSpec | null = null;
   let table: TableSpec | null = null;
   let sources: SourceRef[] | null = null;
   let chartImage: string | null = null;
+  const figureRequests: FigureRequest[] = [];
   const lines = raw.split("\n");
   const kept: string[] = [];
   for (const line of lines) {
@@ -149,9 +162,17 @@ function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; 
       try { sources = JSON.parse(sourcesMatch[1]); } catch { /* still streaming */ }
       continue;
     }
+    const figureMatch = /^@@FIGURE@@(.*)$/.exec(line);
+    if (figureMatch) {
+      try {
+        const parsed = JSON.parse(figureMatch[1]);
+        if (parsed?.prompt) figureRequests.push({ prompt: parsed.prompt, caption: parsed.caption });
+      } catch { /* still streaming */ }
+      continue;
+    }
     kept.push(line);
   }
-  return { display: kept.join("\n"), chart, table, sources, chartImage };
+  return { display: kept.join("\n"), chart, table, sources, chartImage, figureRequests };
 }
 
 function MarkdownLite({ text }: { text: string }) {
@@ -188,6 +209,7 @@ function MarkdownLite({ text }: { text: string }) {
 function AnalyzePage() {
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
+  const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
@@ -412,7 +434,7 @@ function AnalyzePage() {
         });
       }
 
-      const { display, chart, table, sources, chartImage } = splitMarkers(raw);
+      const { display, chart, table, sources, chartImage, figureRequests } = splitMarkers(raw);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = {
@@ -422,9 +444,30 @@ function AnalyzePage() {
           table,
           sources,
           chartImage,
+          generatingFigures: figureRequests.length > 0,
         };
         return copy;
       });
+
+      if (figureRequests.length > 0) {
+        const messageIndex = nextMessages.length;
+        const figures = await Promise.all(
+          figureRequests.map(async (req): Promise<FigureImage | null> => {
+            try {
+              const { base64, mediaType } = await generateFigureImageFn({ data: { prompt: req.prompt } });
+              return { caption: req.caption, base64, mediaType };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        setMessages((prev) => {
+          const copy = [...prev];
+          const current = copy[messageIndex];
+          if (current) copy[messageIndex] = { ...current, figures: figures.filter((f): f is FigureImage => f !== null), generatingFigures: false };
+          return copy;
+        });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Analysis failed");
       setMessages((prev) => {
@@ -517,6 +560,21 @@ function AnalyzePage() {
                   {m.chartImage && (
                     <div className="mt-3 bg-background rounded p-2">
                       <img src={`data:image/png;base64,${m.chartImage}`} alt="Generated chart" className="max-w-full rounded" />
+                    </div>
+                  )}
+                  {m.generatingFigures && (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="size-3.5 animate-spin" /> Drawing figure…
+                    </div>
+                  )}
+                  {m.figures && m.figures.length > 0 && (
+                    <div className="mt-3 space-y-3">
+                      {m.figures.map((fig, fi) => (
+                        <figure key={fi} className="bg-background rounded p-2 border">
+                          <img src={`data:${fig.mediaType};base64,${fig.base64}`} alt={fig.caption || "Generated figure"} className="max-w-full rounded" />
+                          {fig.caption && <figcaption className="mt-1.5 text-xs text-muted-foreground text-center">{fig.caption}</figcaption>}
+                        </figure>
+                      ))}
                     </div>
                   )}
                   {m.table && m.table.rows?.length > 0 && (

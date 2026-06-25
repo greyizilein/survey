@@ -48,3 +48,17 @@ export async function createRawAnthropic() {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
   return new Anthropic({ apiKey: key });
 }
+
+/**
+ * Claude has no native image-generation model, so real figures/illustrations are
+ * routed through the gateway to a dedicated image model instead. gpt-image-1 is the
+ * pick for academic figures specifically: it renders in-image text (axis labels,
+ * flowchart node names, legends) far more reliably than Imagen, which matters for
+ * diagrams and schematics that need to be legible, not just pretty.
+ */
+export const FIGURE_IMAGE_MODEL = "openai/gpt-image-1";
+
+export function figureImageModel() {
+  return createAi().image(FIGURE_IMAGE_MODEL);
+}
+
