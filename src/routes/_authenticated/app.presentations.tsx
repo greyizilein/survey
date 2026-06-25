@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { splitStreamError } from "@/lib/stream-error-marker";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -564,7 +565,8 @@ function PresentationsPage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
-        const { display } = splitDeckMarker(raw);
+        const { text: withoutError } = splitStreamError(raw);
+        const { display } = splitDeckMarker(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
           copy[copy.length - 1] = { role: "assistant", content: display };
@@ -572,7 +574,9 @@ function PresentationsPage() {
         });
       }
 
-      const { display, deck: newDeck } = splitDeckMarker(raw);
+      const { text: rawText, error: streamError } = splitStreamError(raw);
+      if (streamError) throw new Error(streamError);
+      const { display, deck: newDeck } = splitDeckMarker(rawText);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = { role: "assistant", content: display.trim() || "Here's the deck." };

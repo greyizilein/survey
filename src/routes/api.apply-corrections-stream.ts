@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/apply-corrections-stream")({
         }
         const { documentTitle, documentText, feedbackItems } = parsed.data;
 
-        const { createCodeExecutionAi, CODE_EXECUTION_MODEL } = await import("@/lib/ai-gateway.server");
+        const { createCodeExecutionAi, CODE_EXECUTION_MODEL, toTextStreamResponseWithErrors } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         const itemsBlock = feedbackItems
@@ -99,7 +99,7 @@ Instructions:
               console.error("[apply-corrections-stream] generation error:", error);
             },
           });
-          return result.toTextStreamResponse();
+          return toTextStreamResponseWithErrors(result);
         } catch (e) {
           console.error("[apply-corrections-stream] setup error:", e);
           return new Response(e instanceof Error ? e.message : "Failed to start generation", { status: 500 });

@@ -9,6 +9,7 @@ import {
   CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { toast } from "sonner";
+import { splitStreamError } from "@/lib/stream-error-marker";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -442,7 +443,8 @@ function AnalyzePage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
-        const { display } = splitMarkers(raw);
+        const { text: withoutError } = splitStreamError(raw);
+        const { display } = splitMarkers(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
           copy[copy.length - 1] = { role: "assistant", content: display };
@@ -450,7 +452,9 @@ function AnalyzePage() {
         });
       }
 
-      const { display, chart, table, sources, chartImage, figureRequests } = splitMarkers(raw);
+      const { text: rawText, error: streamError } = splitStreamError(raw);
+      if (streamError) throw new Error(streamError);
+      const { display, chart, table, sources, chartImage, figureRequests } = splitMarkers(rawText);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = {
