@@ -89,13 +89,21 @@ Instructions:
 - Output ONLY the full revised document text, start to finish — no preamble, no commentary, no markdown code fences.
 - After the revised document, on its own line, add an HTML comment listing which correction IDs you applied, in this exact form: <!-- CORRECTIONS_LOG Applied: id1, id2, id3 -->`;
 
-        const result = streamText({
-          model: createCodeExecutionAi()(CODE_EXECUTION_MODEL),
-          prompt,
-          temperature: 0.2,
-          maxOutputTokens: 8000,
-        });
-        return result.toTextStreamResponse();
+        try {
+          const result = streamText({
+            model: createCodeExecutionAi()(CODE_EXECUTION_MODEL),
+            prompt,
+            temperature: 0.2,
+            maxOutputTokens: 8000,
+            onError: ({ error }) => {
+              console.error("[apply-corrections-stream] generation error:", error);
+            },
+          });
+          return result.toTextStreamResponse();
+        } catch (e) {
+          console.error("[apply-corrections-stream] setup error:", e);
+          return new Response(e instanceof Error ? e.message : "Failed to start generation", { status: 500 });
+        }
       },
     },
   },
