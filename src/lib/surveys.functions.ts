@@ -17,7 +17,7 @@ export const parseSurvey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ParseInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -54,7 +54,7 @@ Output ONLY valid JSON (no markdown, no commentary) in this exact shape:
   "interviewer_affiliation": "detected affiliation/institution/programme, or empty string"
 }`;
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt: guidePrompt, temperature: 0 });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt: guidePrompt, temperature: 0 });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("Could not parse questions");
     let parsed: { questions?: unknown; interviewer_name?: string; interviewer_affiliation?: string };
@@ -75,7 +75,7 @@ ${contextText}
 """
 
 Output ONLY the bullet-point summary as plain text, no markdown headers, no commentary.`;
-      const { text: contextSummary } = await generateText({ model: ai(DEFAULT_MODEL), prompt: contextPrompt, temperature: 0 });
+      const { text: contextSummary } = await generateText({ model: ai(textModelForTier()), prompt: contextPrompt, temperature: 0 });
       backgroundContext = contextSummary.trim() || null;
     }
 

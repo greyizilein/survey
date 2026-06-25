@@ -67,7 +67,7 @@ export const summarizePresentationDocuments = createServerFn({ method: "POST" })
       return { summary: combined.trim() };
     }
 
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -79,14 +79,14 @@ ${combined}
 """
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0 });
     return { summary: text.trim().slice(0, 24000) };
   });
 
 export async function buildPresentationPrompt(
   data: z.infer<typeof PresentationChatInput>,
 ): Promise<{ model: string; prompt: string; useCodeExecution: boolean }> {
-  const { DEFAULT_MODEL, codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
+  const { textModelForTier, codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
   const { PRESENTATION_STUDIO_TEMPLATE } = await import("./presentation-templates.server");
   const useCodeExecution = codeExecutionAvailable();
   const codeExecutionBlock = useCodeExecution
@@ -120,5 +120,5 @@ ${history}
 
 Respond to the latest USER message per the workflow and JSON deck schema above.`;
 
-  return { model: useCodeExecution ? CODE_EXECUTION_MODEL : DEFAULT_MODEL, prompt, useCodeExecution };
+  return { model: useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(), prompt, useCodeExecution };
 }

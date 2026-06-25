@@ -232,7 +232,7 @@ async function fetchSurveyText(url: string) {
 
 async function parseQuestions(title: string, sourceText: string, url: string): Promise<Question[]> {
   try {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
     const prompt = `Extract the survey questions from this page. If the page text is sparse or blocked, infer 6-10 likely questions from the title and URL.
@@ -246,7 +246,7 @@ ${sourceText}
 
 Return ONLY valid JSON, an array of questions:
 [{"id":"q1","text":"Question text","type":"multiple_choice|single_choice|open_ended|likert|matrix|yes_no|rating","options":["only if visible or likely"],"required":true}]`;
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt });
     const match = text.match(/\[[\s\S]*\]/);
     if (!match) return fallbackQuestions(title, url);
     return normalizeQuestions(JSON.parse(match[0]), title, url);
@@ -270,7 +270,7 @@ interface AnswerStyle {
 
 async function answerSurvey(questions: Question[], personas: Persona[], brief: string, style?: AnswerStyle) {
   try {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
     const questionList = questions.map((q, idx) => `${idx + 1}. id="${q.id}" [${q.type}] ${q.text}${q.options?.length ? `\n   Options: ${q.options.map((o) => `"${o}"`).join(" | ")}` : ""}${q.required === false ? " (optional)" : ""}`).join("\n");
@@ -329,7 +329,7 @@ Rules:
 - Open-ended answers must sound like a real person speaking, not a survey-bot. No corporate fluff.
 - Do not invent extra questions or skip required ones.`;
       try {
-        const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.8 });
+        const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0.8 });
         const match = text.match(/\[[\s\S]*\]/);
         const parsed = match ? JSON.parse(match[0]) : null;
         return { persona, answers: normalizeAnswers(parsed, questions, persona) };

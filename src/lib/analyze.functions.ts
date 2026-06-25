@@ -40,7 +40,7 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
       return { summary: combined.trim() };
     }
 
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -52,7 +52,7 @@ ${combined}
 """
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0 });
     return { summary: text.trim().slice(0, 24000) };
   });
 
@@ -233,14 +233,17 @@ export async function buildAnalyzePrompt(
     data.instructionsPreset === "dissertations" ||
     (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
 
-  const { CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
-  const useCodeExecution = true;
-  let model = CODE_EXECUTION_MODEL;
+  const { CODE_EXECUTION_MODEL, textModelForTier, getModelTier } = await import("./ai-gateway.server");
+  const tier = getModelTier();
+  const useCodeExecution = tier === "max";
+  let model = useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(tier);
 
   let sourcesBlock = "";
-  const useWebSearch = needsCitations;
-  if (needsCitations) {
+  const useWebSearch = needsCitations && tier === "max";
+  if (useWebSearch) {
     sourcesBlock = `\n\nYou have live web search and web fetch tools — use them yourself, via your actual tool-calling mechanism, never by writing tool-call or tool-result syntax as visible text. Search the web for real, current, citable sources on this topic — peer-reviewed papers, reputable reports, official statistics, primary sources — and fetch pages to verify claims before citing them. Do this proactively as part of writing; never pause to ask the user for a source list, a "verified source pool," or permission to search — searching is your job, not theirs. Never narrate a fake tool call (e.g. lines like "<tool_call>", "<tool_response>", or any JSON describing a search you are pretending to run) — that text would be shown to the user verbatim and is never acceptable; only invoke the real tool. Only if you have genuinely searched and still cannot find a real source for a specific claim should you flag it as [citation needed] rather than inventing one.`;
+  } else if (needsCitations) {
+    sourcesBlock = `\n\nYou do NOT have a web search tool in this mode. Never invent, guess, or fabricate citations, URLs, or sources — instead, flag every claim that would normally need a citation as [citation needed], and tell the user up front that verified sourcing requires the Max tier.`;
   }
 
   const sourcesMarkerBlock = needsCitations
@@ -251,7 +254,9 @@ export async function buildAnalyzePrompt(
     ? `\n\nREFERENCE LIST: This piece uses citations, so it must end with a complete, correctly formatted Reference List (or Bibliography, per the citation style in use) of every source actually cited in the text — never omit it, and never wait to be asked for it. List only real sources you searched/fetched/were given, formatted consistently in the required citation style. The reference list is NOT part of, and does not count toward, any requested word count for this piece — write the requested word count of body content first, then add the reference list as additional, uncounted material.`
     : "";
 
-  const writingCodeExecutionBlock = `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`;
+  const writingCodeExecutionBlock = useCodeExecution
+    ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`
+    : `\n\nYou do NOT have a code execution tool in this mode. Never fabricate computed figures (statistics, calculations, derived numbers) — work them out carefully by hand and show your reasoning, or flag clearly that exact computation requires the Max tier.`;
 
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
 
