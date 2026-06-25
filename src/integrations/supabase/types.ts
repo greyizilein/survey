@@ -14,39 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      chat_conversations: {
-        Row: {
-          agent_session_id: string | null
-          created_at: string
-          id: string
-          state: Json
-          title: string
-          tool: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          agent_session_id?: string | null
-          created_at?: string
-          id?: string
-          state?: Json
-          title?: string
-          tool: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          agent_session_id?: string | null
-          created_at?: string
-          id?: string
-          state?: Json
-          title?: string
-          tool?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       interview_participants: {
         Row: {
           created_at: string
