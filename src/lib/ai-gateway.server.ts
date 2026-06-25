@@ -58,6 +58,11 @@ export function webFetchTool() {
   return anthropic.tools.webFetch_20260209({ maxUses: 6 });
 }
 
+/** Provider-agnostic web search, for Fast/Pro tiers that aren't on Anthropic models. */
+export function gatewaySearchTool() {
+  return createAi().tools.perplexitySearch();
+}
+
 /**
  * The Vercel AI SDK's Anthropic provider has no Files API / container-upload / Agent Skills
  * support, so raw-document sandbox ingestion needs the official Anthropic SDK directly.

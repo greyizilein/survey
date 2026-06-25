@@ -197,15 +197,15 @@ function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; 
 function MarkdownLite({ text }: { text: string }) {
   const blocks = parseMarkdownLite(text);
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 min-w-0 max-w-full">
       {blocks.map((block, i) => {
         if (block.type === "heading") {
           const sizeClass = block.level <= 2 ? "text-sm font-semibold" : "text-sm font-medium";
-          return <p key={i} className={cn(sizeClass, "mt-1")}>{renderInline(block.text)}</p>;
+          return <p key={i} className={cn(sizeClass, "mt-1 break-words")}>{renderInline(block.text)}</p>;
         }
         if (block.type === "table") {
           return (
-            <div key={i} className="overflow-x-auto bg-background rounded p-2 border">
+            <div key={i} className="overflow-x-auto bg-background rounded p-2 border min-w-0 max-w-full">
               <table className="text-xs w-full">
                 <thead>
                   <tr>{block.header.map((c, ci) => <th key={ci} className="text-left font-semibold px-2 py-1 border-b">{renderInline(c)}</th>)}</tr>
@@ -219,7 +219,7 @@ function MarkdownLite({ text }: { text: string }) {
             </div>
           );
         }
-        return <p key={i} className="whitespace-pre-wrap">{renderInline(block.text)}</p>;
+        return <p key={i} className="whitespace-pre-wrap break-words">{renderInline(block.text)}</p>;
       })}
     </div>
   );
