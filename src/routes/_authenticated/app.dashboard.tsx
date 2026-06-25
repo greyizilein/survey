@@ -1,10 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Loader2, Clock, LayoutDashboard } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
+import {
+  Loader2,
+  Clock,
+  LayoutDashboard,
+  MessageSquareText,
+  FolderOpen,
+  Mic,
+  Globe,
+  Users,
+  PenLine,
+  Presentation,
+  Bot,
+  ClipboardPenLine,
+  ArrowUpRight,
+} from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
+import { AnimatedRing } from "@/components/animated-ring";
 import { getDashboardSummary } from "@/lib/dashboard.functions";
 
 export const Route = createFileRoute("/_authenticated/app/dashboard")({
@@ -13,8 +27,6 @@ export const Route = createFileRoute("/_authenticated/app/dashboard")({
 });
 
 type Summary = Awaited<ReturnType<typeof getDashboardSummary>>;
-
-const BAR_COLORS = ["#84cc16", "#0ea5e9", "#f97316", "#a855f7", "#ec4899"];
 
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -28,6 +40,15 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+const ACTIVITY_DOT: Record<string, string> = {
+  Writing: "hsl(var(--primary))",
+  Presentations: "#0ea5e9",
+  Agent: "#a855f7",
+  Project: "#f97316",
+  "Interview study": "#ec4899",
+  Population: "#b6de48",
+};
+
 function Dashboard() {
   const getDashboardSummaryFn = useServerFn(getDashboardSummary);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -40,85 +61,115 @@ function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const stats = summary?.counts;
-  const statRows = [
-    { label: "Chats", value: stats?.chats },
-    { label: "Projects", value: stats?.projects },
-    { label: "Interview studies", value: stats?.interviewStudies },
-    { label: "Populations", value: stats?.populations },
-    { label: "Personas", value: stats?.personas },
+  const c = summary?.counts;
+  const statCards = [
+    { label: "Chats", value: c?.chats ?? 0, icon: <MessageSquareText size={16} />, max: 50 },
+    { label: "Projects", value: c?.projects ?? 0, icon: <FolderOpen size={16} />, max: 20 },
+    { label: "Interviews", value: c?.interviewStudies ?? 0, icon: <Mic size={16} />, max: 10 },
+    { label: "Populations", value: c?.populations ?? 0, icon: <Globe size={16} />, max: 10 },
+    { label: "Personas", value: c?.personas ?? 0, icon: <Users size={16} />, max: 5000 },
   ];
-  const chartData = statRows.map((s) => ({ name: s.label, value: s.value ?? 0 }));
+
+  const quickActions = [
+    { icon: <PenLine size={16} />, title: "Open writer", desc: "Start a new document", to: "/app/analyze" },
+    { icon: <Presentation size={16} />, title: "New deck", desc: "Generate slides", to: "/app/presentations" },
+    { icon: <ClipboardPenLine size={16} />, title: "Fill a survey", desc: "Paste a form link", to: "/app/fill" },
+    { icon: <Bot size={16} />, title: "Run agent", desc: "Open-ended task", to: "/app/agent" },
+  ];
 
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        <div className="flex items-center gap-2.5">
-          <LayoutDashboard className="size-6 text-primary" />
-          <div>
-            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">An overview of everything across your workspace.</p>
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+            <LayoutDashboard className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-extrabold tracking-tight sm:text-3xl">Dashboard</h1>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {summary?.displayName ? `Welcome back, ${summary.displayName}.` : "An overview of everything across your workspace."}
+            </p>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {statRows.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-border bg-card p-4 shadow-md shadow-black/5">
-              <div className="text-2xl font-extrabold text-primary">
-                {loading ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : s.value ?? 0}
-              </div>
-              <div className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">{s.label}</div>
-            </div>
+        {/* Stat ring cards */}
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {statCards.map((s) => (
+            <StatRingCard key={s.label} {...s} loading={loading} />
           ))}
         </div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-3">
-          {/* Activity breakdown chart */}
-          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-md shadow-black/5">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Activity breakdown</h2>
-            <div className="mt-4 h-64">
-              {loading ? (
-                <div className="flex h-full items-center justify-center">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={50} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {chartData.map((_, i) => (
-                        <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+        {/* Two-column area */}
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+          {/* Quick actions */}
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
+              Quick actions
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {quickActions.map((a) => (
+                <Link
+                  key={a.title}
+                  to={a.to}
+                  className="group flex flex-col items-start gap-1 rounded-xl border border-border p-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <div className="text-primary">{a.icon}</div>
+                  <div className="text-[12px] font-bold text-foreground">{a.title}</div>
+                  <div className="text-[10px] leading-tight text-muted-foreground">{a.desc}</div>
+                </Link>
+              ))}
             </div>
           </div>
 
           {/* Recent activity */}
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Recent activity</h2>
-            <div className="mt-4 rounded-2xl border border-border bg-card shadow-md shadow-black/5 overflow-hidden">
+          <div className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
+                Recent activity
+              </div>
+              <Link
+                to="/app/projects"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+              >
+                See all <ArrowUpRight size={12} />
+              </Link>
+            </div>
+
+            <div className="mt-4">
               {loading ? (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 </div>
               ) : !summary?.activity.length ? (
-                <p className="p-5 text-sm text-muted-foreground">Nothing yet — start a chat, run an interview study, or fill a survey to see it here.</p>
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Nothing yet — start a chat, run an interview study, or fill a survey to see it here.
+                </p>
               ) : (
                 <ul className="divide-y divide-border">
                   {summary.activity.map((item, i) => (
                     <li key={i}>
-                      <Link to={item.href} className="flex items-start gap-3 p-4 hover:bg-secondary/60 transition-colors">
-                        <Clock className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{item.title}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{item.kind} · {timeAgo(item.at)}</p>
+                      <Link
+                        to={item.href}
+                        className="group flex items-start gap-3 py-3 transition-colors hover:bg-secondary/40 -mx-2 px-2 rounded-lg"
+                      >
+                        <div
+                          className="mt-1.5 size-2 shrink-0 rounded-full"
+                          style={{ background: ACTIVITY_DOT[item.kind] ?? "hsl(var(--primary))" }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{item.title}</p>
+                          <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span className="font-medium">{item.kind}</span>
+                            <span>·</span>
+                            <Clock className="size-3" />
+                            {timeAgo(item.at)}
+                          </p>
                         </div>
+                        <ArrowUpRight
+                          size={14}
+                          className="mt-1 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                        />
                       </Link>
                     </li>
                   ))}
@@ -129,5 +180,60 @@ function Dashboard() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function StatRingCard({
+  label,
+  value,
+  max,
+  icon,
+  loading,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  icon: React.ReactNode;
+  loading: boolean;
+}) {
+  const [display, setDisplay] = useState(0);
+  const pct = max ? Math.min(Math.round((value / max) * 100), 100) : 0;
+
+  useEffect(() => {
+    if (!value) {
+      setDisplay(0);
+      return;
+    }
+    const dur = 800;
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min((now - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(ease * value));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [value]);
+
+  const formatted = display >= 1000 ? `${(display / 1000).toFixed(1)}k` : `${display}`;
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40">
+      <div className="relative shrink-0">
+        <AnimatedRing size={52} strokeWidth={4} percent={pct} color="hsl(var(--primary))">
+          <foreignObject x={10} y={10} width={32} height={32}>
+            <div className="flex h-full w-full items-center justify-center text-foreground">{icon}</div>
+          </foreignObject>
+        </AnimatedRing>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </div>
+        <div className="text-xl font-black leading-tight text-foreground">
+          {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : formatted}
+        </div>
+      </div>
+    </div>
   );
 }

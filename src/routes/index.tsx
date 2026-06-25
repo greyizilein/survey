@@ -51,7 +51,7 @@ function Landing() {
     <div className="min-h-screen" style={{ background: INK, color: PAPER }}>
       {/* HERO — near-fullscreen */}
       <section
-        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8 md:min-h-[93svh]"
+        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8 md:min-h-[84svh]"
         style={{ background: INK, color: PAPER }}
       >
         {/* Header */}
@@ -151,7 +151,7 @@ function Landing() {
         </div>
 
         {/* Scrolling marquee — bottom of hero */}
-        <div className="relative z-10 mt-auto">
+        <div className="relative z-10 mt-auto pt-10 md:pt-14">
           <p
             className="mb-3 text-center text-[11px] uppercase tracking-[0.3em]"
             style={{ color: "rgba(244,244,239,0.55)" }}
