@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import {
   ClipboardPenLine, Users, FolderKanban, ArrowUpRight, Loader2,
-  MessageSquareText, BarChart3, Presentation, Bot, Clock,
+  MessageSquareText, BarChart3, Presentation, Bot, Clock, ClipboardCheck,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
@@ -34,6 +34,13 @@ const cards = [
     icon: MessageSquareText,
     title: "Interview Studio",
     description: "Upload your study and guide; get a full interview transcript per respondent to download.",
+  },
+  {
+    to: "/app/analyze",
+    search: { corrections: "1" },
+    icon: ClipboardCheck,
+    title: "Corrections",
+    description: "Upload reviewer feedback (.docx with tracked changes, or pasted comments) and apply it to your draft automatically.",
   },
   {
     to: "/app/presentations",
@@ -133,7 +140,7 @@ function Home() {
             <h2 className="text-lg font-bold">Tools</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {cards.map((card) => (
-                <Link key={card.to} to={card.to} className={"big" in card ? "sm:col-span-2" : ""}>
+                <Link key={card.title} to={card.to} search={"search" in card ? card.search : undefined} className={"big" in card ? "sm:col-span-2" : ""}>
                   <div className="group h-full border-2 border-foreground bg-card p-5 hard-shadow-sm hard-shadow-hover">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex size-10 items-center justify-center border-2 border-foreground bg-primary text-primary-foreground">
