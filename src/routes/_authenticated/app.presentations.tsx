@@ -777,8 +777,8 @@ function PresentationsPage() {
                     <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
                       <Upload className="size-5 text-muted-foreground" />
                       <span className="text-sm font-medium">Choose documents</span>
-                      <span className="text-xs text-muted-foreground">PDF, Word (.docx), .txt, or .md</span>
-                      <input type="file" multiple accept=".pdf,.docx,.txt,.md,.markdown" className="hidden"
+                      <span className="text-xs text-muted-foreground">PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md</span>
+                      <input type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
                         onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
                     </label>
                     {docFiles.length > 0 && (

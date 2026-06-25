@@ -262,7 +262,7 @@ function InterviewStudio() {
               {/* Interview guide — the ONLY source of questions */}
               <Label className="text-base font-semibold">1. Interview guide</Label>
               <p className="text-sm text-muted-foreground mt-1 mb-3">
-                The file with your actual interview questions/prompts. These are used verbatim — nothing else here is treated as a question. Accepts PDF, Word (.docx), .txt, and .md.
+                The file with your actual interview questions/prompts. These are used verbatim — nothing else here is treated as a question. Accepts PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, and .md.
               </p>
               <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
                 <Upload className="size-6 text-muted-foreground" />
@@ -271,7 +271,7 @@ function InterviewStudio() {
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.docx,.txt,.md,.markdown"
+                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
                   className="hidden"
                   onChange={(e) => setGuideFiles(Array.from(e.target.files ?? []))}
                 />
@@ -301,7 +301,7 @@ function InterviewStudio() {
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.docx,.txt,.md,.markdown"
+                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
                   className="hidden"
                   onChange={(e) => setContextFiles(Array.from(e.target.files ?? []))}
                 />
