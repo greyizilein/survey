@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizePresentationDocuments } from "@/lib/presentations.functions";
+import { generateFigureImage } from "@/lib/image-gen.server";
 import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { exportDeckToPptx, downloadBlob, deckTheme, sanitizeDeck, type Deck, type Slide } from "@/lib/presentation-export";
@@ -136,12 +137,24 @@ function SlidePreview({ slide, theme, captureRef }: { slide: Slide; theme: Retur
           <p className="font-bold text-base">{slide.title || "Section"}</p>
         </div>
       )}
-      {(slide.layout === "bullets" || slide.layout === "grid" === false) && slide.layout === "bullets" && (
+      {(slide.layout === "grid" === false) && slide.layout === "bullets" && (
         <div className="flex-1 flex flex-col gap-1">
           <p className="font-semibold" style={{ color: `#${theme.primary}` }}>{slide.title || "Untitled"}</p>
-          <ul className="list-disc pl-3 space-y-0.5 mt-1">
-            {(slide.bullets ?? []).slice(0, 6).map((b, i) => <li key={i}>{b}</li>)}
-          </ul>
+          <div className="flex-1 flex gap-2 mt-1 min-h-0">
+            <ul className="list-disc pl-3 space-y-0.5 flex-1">
+              {(slide.bullets ?? []).slice(0, 6).map((b, i) => <li key={i}>{b}</li>)}
+            </ul>
+            {slide.figurePrompt && (
+              <div className="w-1/3 shrink-0 flex flex-col items-center justify-center gap-1">
+                {slide.figureImage ? (
+                  <img src={slide.figureImage} alt={slide.figureCaption || "Figure"} className="max-w-full max-h-full rounded object-contain" />
+                ) : (
+                  <Loader2 className="size-4 animate-spin opacity-60" />
+                )}
+                {slide.figureCaption && <p className="opacity-70 text-center">{slide.figureCaption}</p>}
+              </div>
+            )}
+          </div>
         </div>
       )}
       {slide.layout === "two-column" && (
@@ -396,6 +409,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
 
 function PresentationsPage() {
   const summarizeDocsFn = useServerFn(summarizePresentationDocuments);
+  const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -493,6 +507,29 @@ function PresentationsPage() {
     summarizeDocFiles(docFiles.filter((_, i) => i !== index));
   }
 
+  async function resolveFigures(targetDeck: Deck) {
+    const pending = targetDeck.slides
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s.figurePrompt && !s.figureImage);
+    if (!pending.length) return;
+    await Promise.all(
+      pending.map(async ({ s, i }) => {
+        try {
+          const { base64, mediaType } = await generateFigureImageFn({ data: { prompt: s.figurePrompt! } });
+          const dataUrl = `data:${mediaType};base64,${base64}`;
+          setDeck((prev) => {
+            if (!prev) return prev;
+            const slides = [...prev.slides];
+            if (slides[i]) slides[i] = { ...slides[i], figureImage: dataUrl };
+            return { ...prev, slides };
+          });
+        } catch {
+          // leave figureImage unset on failure — slide just renders without it
+        }
+      }),
+    );
+  }
+
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
@@ -541,8 +578,10 @@ function PresentationsPage() {
         copy[copy.length - 1] = { role: "assistant", content: display.trim() || "Here's the deck." };
         return copy;
       });
-      if (newDeck && newDeck.slides?.length) setDeck(newDeck);
-      else if (!newDeck) toast.error("Didn't get a deck back — try rephrasing your request.");
+      if (newDeck && newDeck.slides?.length) {
+        setDeck(newDeck);
+        resolveFigures(newDeck);
+      } else if (!newDeck) toast.error("Didn't get a deck back — try rephrasing your request.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
       setMessages((prev) => {
