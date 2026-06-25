@@ -64,7 +64,7 @@ function Dashboard() {
         {/* Stats */}
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {statRows.map((s) => (
-            <div key={s.label} className="border-2 border-foreground bg-card p-4 hard-shadow-sm">
+            <div key={s.label} className="rounded-2xl border border-border bg-card p-4 shadow-md shadow-black/5">
               <div className="text-2xl font-extrabold text-primary">
                 {loading ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : s.value ?? 0}
               </div>
@@ -75,7 +75,7 @@ function Dashboard() {
 
         <div className="mt-10 grid gap-6 lg:grid-cols-3">
           {/* Activity breakdown chart */}
-          <div className="lg:col-span-2 border-2 border-foreground bg-card p-5 hard-shadow-sm">
+          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-md shadow-black/5">
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Activity breakdown</h2>
             <div className="mt-4 h-64">
               {loading ? (
@@ -102,7 +102,7 @@ function Dashboard() {
           {/* Recent activity */}
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Recent activity</h2>
-            <div className="mt-4 border-2 border-foreground bg-card hard-shadow-sm">
+            <div className="mt-4 rounded-2xl border border-border bg-card shadow-md shadow-black/5 overflow-hidden">
               {loading ? (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -110,7 +110,7 @@ function Dashboard() {
               ) : !summary?.activity.length ? (
                 <p className="p-5 text-sm text-muted-foreground">Nothing yet — start a chat, run an interview study, or fill a survey to see it here.</p>
               ) : (
-                <ul className="divide-y-2 divide-foreground">
+                <ul className="divide-y divide-border">
                   {summary.activity.map((item, i) => (
                     <li key={i}>
                       <Link to={item.href} className="flex items-start gap-3 p-4 hover:bg-secondary/60 transition-colors">

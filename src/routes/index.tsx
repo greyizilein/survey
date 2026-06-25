@@ -200,7 +200,7 @@ function Landing() {
             <Feature icon={ClipboardPenLine} title="Survey autofill" desc="Paste a Google Forms link — Paperstudio answers in character and submits." />
           </div>
 
-          <div className="mt-16 border-2 border-foreground bg-accent p-8 text-center hard-shadow sm:p-12">
+          <div className="mt-16 rounded-2xl bg-accent p-8 text-center shadow-md shadow-black/5 sm:p-12">
             <h3 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Stop starting from a blank page.</h3>
             <p className="mx-auto mt-2 max-w-md text-sm text-accent-foreground/80">
               One workspace, every format. Paperstudio does the writing.
@@ -218,21 +218,10 @@ function Landing() {
   );
 }
 
-function FloatChip({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={`pointer-events-auto inline-flex items-center gap-2 border-2 px-3 py-1.5 text-xs font-bold hard-shadow-sm ${className}`}
-      style={{ background: PAPER, borderColor: LIME, color: INK, boxShadow: `4px 4px 0 0 ${LIME}` }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function Feature({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) {
   return (
-    <div className="border-2 border-foreground bg-card p-5 hard-shadow-sm hard-shadow-hover">
-      <div className="flex size-10 items-center justify-center border-2 border-foreground bg-primary text-primary-foreground">
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-md shadow-black/5 transition-shadow hover:shadow-lg hover:shadow-black/10">
+      <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
         <Icon className="size-5" />
       </div>
       <h3 className="mt-4 text-lg font-bold">{title}</h3>
