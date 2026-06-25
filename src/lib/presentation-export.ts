@@ -17,6 +17,11 @@ export type Slide = {
   notes?: string;
   /** Optional self-contained decorative background HTML/SVG (sanitized), rendered behind the structured content. */
   decoration?: string;
+  /** Description of a real illustrative figure (diagram/schematic/illustration) to render via an image model — not the decorative background motif. */
+  figurePrompt?: string;
+  figureCaption?: string;
+  /** Resolved data: URL for the rendered figure, filled in client-side after generation. */
+  figureImage?: string;
 };
 
 export type Theme = { primary: string; secondary: string; dark: string; light: string };
@@ -85,6 +90,8 @@ export function sanitizeDeck(deck: Deck): Deck {
     slides: deck.slides.map((slide) => {
       const cleaned = sanitizeValue(slide) as Slide;
       if (slide.decoration) cleaned.decoration = sanitizeDecorationHtml(slide.decoration);
+      if (slide.figureImage) cleaned.figureImage = slide.figureImage;
+      if (slide.figurePrompt) cleaned.figurePrompt = slide.figurePrompt;
       return cleaned;
     }),
   };
@@ -134,9 +141,14 @@ export async function exportDeckToPptx(deck: Deck, decorationImages?: (string | 
         setBackground(theme.light);
         s.addText(slide.title ?? "", { x: 0.6, y: 0.45, w: 12.1, h: 0.8, fontSize: 28, bold: true, color: theme.primary, margin: 0 });
         const bullets = slide.bullets ?? [];
+        const bulletsW = slide.figureImage ? 6.4 : 11.8;
         if (bullets.length) {
           s.addText(bullets.map((t, i) => ({ text: t, options: { bullet: true, breakLine: i < bullets.length - 1 } })),
-            { x: 0.6, y: 1.5, w: 11.8, h: 4.5, fontSize: 18, color: "33384A", margin: 0 });
+            { x: 0.6, y: 1.5, w: bulletsW, h: 4.5, fontSize: 18, color: "33384A", margin: 0 });
+        }
+        if (slide.figureImage) {
+          s.addImage({ data: slide.figureImage, x: 7.3, y: 1.5, w: 5.1, h: 4.0, sizing: { type: "contain", w: 5.1, h: 4.0 } });
+          if (slide.figureCaption) s.addText(slide.figureCaption, { x: 7.3, y: 5.55, w: 5.1, h: 0.4, fontSize: 11, italic: true, align: "center", color: "6B7299", margin: 0 });
         }
         if (slide.body) {
           s.addText(slide.body, { x: 0.6, y: 6.1, w: 11.8, h: 0.7, fontSize: 14, italic: true, color: "6B7299", margin: 0 });
