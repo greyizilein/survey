@@ -98,3 +98,50 @@ export function toTextStreamResponseWithErrors(
   return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }
 
+/**
+ * Some Anthropic API keys (workspace-level "auto-injected tools" policies) silently add a
+ * server-side tool to every request. If our own request also explicitly declares a tool with
+ * the same name (e.g. "code_execution"), Anthropic rejects the call with "Auto-injecting tools
+ * would conflict with existing tool names". Since the auto-injected tool already covers the
+ * capability, the fix is to retry once without our own explicit tool declarations.
+ */
+function isAutoInjectToolConflict(message: string): boolean {
+  return /auto-inject(ing)? tools? would conflict/i.test(message);
+}
+
+export function toTextStreamResponseWithToolFallback(
+  primary: { fullStream: AsyncIterable<{ type: string; text?: string; error?: unknown }> },
+  makeFallback: () => { fullStream: AsyncIterable<{ type: string; text?: string; error?: unknown }> },
+): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let switchedToFallback = false;
+      const consume = async (source: AsyncIterable<{ type: string; text?: string; error?: unknown }>) => {
+        for await (const part of source) {
+          if (part.type === "text-delta" && part.text) {
+            controller.enqueue(encoder.encode(part.text));
+          } else if (part.type === "error") {
+            const message = part.error instanceof Error ? part.error.message : String(part.error);
+            if (!switchedToFallback && isAutoInjectToolConflict(message)) {
+              switchedToFallback = true;
+              await consume(makeFallback().fullStream);
+              return;
+            }
+            controller.enqueue(encoder.encode(`${STREAM_ERROR_MARKER}${message}`));
+          }
+        }
+      };
+      try {
+        await consume(primary.fullStream);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Generation failed";
+        controller.enqueue(encoder.encode(`${STREAM_ERROR_MARKER}${message}`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+}
+
