@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/analyze-stream")({
           return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
         }
 
-        const { createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool } = await import("@/lib/ai-gateway.server");
+        const { createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool, toTextStreamResponseWithErrors } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         try {
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/analyze-stream")({
               console.error("[analyze-stream] generation error:", error);
             },
           });
-          return result.toTextStreamResponse();
+          return toTextStreamResponseWithErrors(result);
         } catch (e) {
           console.error("[analyze-stream] setup error:", e);
           return new Response(e instanceof Error ? e.message : "Failed to start generation", { status: 500 });

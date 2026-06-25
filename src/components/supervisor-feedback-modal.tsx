@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { parseSupervisorFeedback } from "@/lib/supervisor-feedback.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { splitStreamError } from "@/lib/stream-error-marker";
 
 interface FeedbackItem {
   id: string;
@@ -269,12 +270,16 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
 
       clearInterval(ramp);
       clearInterval(statusInterval);
+
+      const { text: accText, error: streamError } = splitStreamError(acc);
+      if (streamError) throw new Error(streamError);
+
       setApplyProgress(100);
       setApplyStatus("Done!");
 
-      const logMatch = acc.match(/CORRECTIONS_LOG\s*Applied:\s*([^\n-]*)/);
+      const logMatch = accText.match(/CORRECTIONS_LOG\s*Applied:\s*([^\n-]*)/);
       const appliedIds = logMatch ? logMatch[1].split(",").map((s) => s.trim()).filter(Boolean) : [];
-      const cleaned = acc.replace(/<!--\s*CORRECTIONS_LOG[\s\S]*?-->/g, "").trim();
+      const cleaned = accText.replace(/<!--\s*CORRECTIONS_LOG[\s\S]*?-->/g, "").trim();
       const count = appliedIds.length || selected.length;
       setAppliedCount(count);
 
