@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/agent-stream")({
                 if (chunk.type === "text" || chunk.type === "status") {
                   controller.enqueue(encoder.encode(chunk.text));
                 } else if (chunk.type === "file") {
-                  controller.enqueue(encoder.encode(`\n@@FILE@@${JSON.stringify({ fileId: chunk.fileId })}\n`));
+                  controller.enqueue(encoder.encode(`\n@@FILE@@${JSON.stringify({ fileId: chunk.fileId, filename: chunk.filename })}\n`));
                 } else if (chunk.type === "error") {
                   controller.enqueue(encoder.encode(`\n\n_Error: ${chunk.text}_`));
                 } else if (chunk.type === "done") {

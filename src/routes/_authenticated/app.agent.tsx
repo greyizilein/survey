@@ -20,10 +20,11 @@ export const Route = createFileRoute("/_authenticated/app/agent")({
   component: AgentPage,
 });
 
-type Msg = { role: "user" | "assistant"; content: string; fileIds?: string[] };
+type AgentFile = { fileId: string; filename?: string };
+type Msg = { role: "user" | "assistant"; content: string; files?: AgentFile[] };
 
-function splitFileMarkers(raw: string): { display: string; fileIds: string[] } {
-  const fileIds: string[] = [];
+function splitFileMarkers(raw: string): { display: string; files: AgentFile[] } {
+  const files: AgentFile[] = [];
   const lines = raw.split("\n");
   const kept: string[] = [];
   for (const line of lines) {
@@ -31,7 +32,7 @@ function splitFileMarkers(raw: string): { display: string; fileIds: string[] } {
     if (match) {
       try {
         const parsed = JSON.parse(match[1]);
-        if (parsed?.fileId) fileIds.push(parsed.fileId);
+        if (parsed?.fileId) files.push({ fileId: parsed.fileId, filename: parsed.filename });
       } catch {
         // still streaming
       }
@@ -39,7 +40,7 @@ function splitFileMarkers(raw: string): { display: string; fileIds: string[] } {
     }
     kept.push(line);
   }
-  return { display: kept.join("\n"), fileIds };
+  return { display: kept.join("\n"), files };
 }
 
 function AgentPage() {
@@ -161,10 +162,10 @@ function AgentPage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
-        const { display, fileIds } = splitFileMarkers(raw);
+        const { display, files } = splitFileMarkers(raw);
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: display, fileIds };
+          copy[copy.length - 1] = { role: "assistant", content: display, files };
           return copy;
         });
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -217,22 +218,22 @@ function AgentPage() {
                 ) : (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
-                {m.fileIds && m.fileIds.length > 0 && (
+                {m.files && m.files.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {m.fileIds.map((fileId) => (
+                    {m.files.map((f) => (
                       <Button
-                        key={fileId}
+                        key={f.fileId}
                         size="sm"
                         variant="secondary"
-                        disabled={downloadingFile === fileId}
-                        onClick={() => handleDownloadFile(fileId)}
+                        disabled={downloadingFile === f.fileId}
+                        onClick={() => handleDownloadFile(f.fileId)}
                       >
-                        {downloadingFile === fileId ? (
+                        {downloadingFile === f.fileId ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
                         ) : (
                           <FileDown className="h-3.5 w-3.5 mr-1.5" />
                         )}
-                        Download file
+                        {f.filename || "Download file"}
                       </Button>
                     ))}
                   </div>

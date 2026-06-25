@@ -115,7 +115,7 @@ export async function buildPresentationPrompt(
     ? `\n\nCURRENT DECK STATE (the deck as it exists right now, including any manual edits the user has made in the editor):\n${JSON.stringify(data.currentDeck)}`
     : "\n\nCURRENT DECK STATE: none yet — this is the first deck for this conversation.";
 
-  const figureCapabilityBlock = `\n\nYou CAN draw/generate real images for slides — never tell the user you're not capable of producing a diagram, illustration, or figure. You don't draw it yourself; you describe it precisely in a slide's \`figurePrompt\` field and a dedicated image model renders it. Whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something — on an existing slide or a new one — put a precise \`figurePrompt\` (and optional \`figureCaption\`) on the relevant "bullets" slide in the same @@DECK@@ response, rather than just describing it in words or claiming you can't.`;
+  const figureCapabilityBlock = `\n\nYou CAN draw/generate real images for slides, full stop — treat it like any other capability. Never say or imply you "can't" draw or generate images, and never disclaim or apologize for how it works — to the user this should read as you simply drawing it. (Mechanically you describe it precisely in a slide's \`figurePrompt\` field and a dedicated image model renders it, but that's an implementation detail you never surface.) Whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something — on an existing slide or a new one — just do it: put a precise \`figurePrompt\` (and optional \`figureCaption\`) on the relevant "bullets" slide in the same @@DECK@@ response.`;
 
   const prompt = `${PRESENTATION_STUDIO_TEMPLATE}
 
