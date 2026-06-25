@@ -51,7 +51,7 @@ function Landing() {
     <div className="min-h-screen" style={{ background: INK, color: PAPER }}>
       {/* HERO — near-fullscreen */}
       <section
-        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8 md:min-h-[98svh]"
+        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8 md:min-h-[93svh]"
         style={{ background: INK, color: PAPER }}
       >
         {/* Header */}
