@@ -181,8 +181,6 @@ export async function buildAnalyzePrompt(
   data: z.infer<typeof AnalyzeChatInput>,
   supabase: any,
 ): Promise<{ model: string; prompt: string; useCodeExecution: boolean; useWebSearch: boolean }> {
-  const { DEFAULT_MODEL } = await import("./ai-gateway.server");
-
   let datasetBlock = "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
   let hasRealDataset = false;
   if (data.source.type === "project") {
@@ -229,7 +227,6 @@ export async function buildAnalyzePrompt(
     ? `\n\nADDITIONAL RESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
     : "";
 
-  let model = DEFAULT_MODEL;
   let prompt: string;
 
   const assistantTextAll = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
@@ -242,36 +239,23 @@ export async function buildAnalyzePrompt(
     data.instructionsPreset === "dissertations" ||
     (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
 
-  const { codeExecutionAvailable, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
-  const useCodeExecution = codeExecutionAvailable();
+  const { CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
+  const useCodeExecution = true;
+  let model = CODE_EXECUTION_MODEL;
 
   let sourcesBlock = "";
-  let useWebSearch = false;
+  const useWebSearch = needsCitations;
   if (needsCitations) {
-    if (useCodeExecution) {
-      useWebSearch = true;
-      sourcesBlock = `\n\nYou have live web search and web fetch tools. Search the web yourself for real, current, citable sources on this topic — peer-reviewed papers, reputable reports, official statistics — and fetch pages to verify claims before citing them. Never invent a source, author, or year; only cite something you actually found and fetched.`;
-    } else {
-      const latestUserMessage = [...data.messages].reverse().find((m) => m.role === "user")?.content ?? "";
-      const topic = [data.background?.slice(0, 600), latestUserMessage, data.instructions].filter(Boolean).join(" — ");
-      const { gatherSources, formatSourcePoolBlock } = await import("./research.server");
-      const sources = await gatherSources(topic);
-      sourcesBlock = formatSourcePoolBlock(sources);
-    }
+    sourcesBlock = `\n\nYou have live web search and web fetch tools — use them yourself. Search the web for real, current, citable sources on this topic — peer-reviewed papers, reputable reports, official statistics, primary sources — and fetch pages to verify claims before citing them. Do this proactively as part of writing; never pause to ask the user for a source list, a "verified source pool," or permission to search — searching is your job, not theirs. Only if you have genuinely searched and still cannot find a real source for a specific claim should you flag it as [citation needed] rather than inventing one.`;
   }
 
   const sourcesMarkerBlock = needsCitations
-    ? useWebSearch
-      ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the real sources you searched/fetched and actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using the real titles/URLs you found>\nOmit this line entirely if you cited nothing.`
-      : `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the exact pool entries you actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using titles/URLs copied exactly from the VERIFIED SOURCE POOL above>\nOmit this line entirely if you cited nothing from the pool.`
+    ? `\n\nAfter writing the full response, add ONE final line containing ONLY:\n@@SOURCES@@<JSON array of the real sources you searched/fetched and actually cited, each shaped {"title":"...","url":"...","authors":["..."],"year":2024}, using the real titles/URLs you found>\nOmit this line entirely if you cited nothing.`
     : "";
 
-  const writingCodeExecutionBlock = useCodeExecution
-    ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`
-    : "";
+  const writingCodeExecutionBlock = `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`;
 
   if (data.instructionsPreset === "other-writing") {
-    model = useCodeExecution ? CODE_EXECUTION_MODEL : "anthropic/claude-sonnet-4.6";
 
     if (promptAlreadyCreated) {
       prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, summarise, preview, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
@@ -300,11 +284,8 @@ Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it appl
 Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.`;
     }
   } else {
-    const codeExecutionBlock = useCodeExecution
-      ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy). Use it: write and run actual code against the RAW ROWS / dataset above to compute every statistic you report — counts, percentages, means, correlations, significance tests, etc. Never state a number you have not derived by running code. Show your work only as the final reported figures and any chart/table markers below; do not paste raw code or sandbox output into the chat answer itself.`
-      : "";
-    if (useCodeExecution) model = CODE_EXECUTION_MODEL;
-    prompt = `You are a data analyst assistant embedded in a chat interface. You answer questions about the dataset below using only the facts and counts it contains — never invent numbers that aren't derivable from it.
+    const codeExecutionBlock = `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy). Use it: write and run actual code against the RAW ROWS / dataset above to compute every statistic you report — counts, percentages, means, correlations, significance tests, etc. Never state a number you have not derived by running code. Show your work only as the final reported figures and any chart/table markers below; do not paste raw code or sandbox output into the chat answer itself.`;
+    prompt = `You are a skilled writer embedded in a chat interface, capable of any kind of writing the user needs — academic chapters, reports, analysis, narrative, or anything else. When a dataset is provided below, ground any numbers or claims about it strictly in the facts and counts it actually contains — never invent numbers that aren't derivable from it. When no dataset is relevant, just write.
 
 ${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}${codeExecutionBlock}
 
