@@ -455,7 +455,10 @@ function PresentationsPage() {
         },
       }).then(({ id }: { id: string }) => {
         if (!conversationId) setConversationId(id);
-      }).catch(() => { /* best-effort history sync */ });
+      }).catch((err) => {
+        console.error("[chat-history] save failed:", err);
+        toast.error(`Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`);
+      });
     }, 1000);
     return () => clearTimeout(handle);
   }, [messages, instructions, docSummary, deck, conversationId, saveConversationFn]);
@@ -490,7 +493,7 @@ function PresentationsPage() {
       .then(({ conversations }: { conversations: { id: string }[] }) => {
         if (conversations.length > 0) handleSelectConversation(conversations[0].id);
       })
-      .catch(() => { /* fall back to whatever local state was restored */ });
+      .catch((err) => console.error("[chat-history] list failed:", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

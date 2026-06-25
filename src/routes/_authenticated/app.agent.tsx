@@ -98,7 +98,10 @@ function AgentPage() {
         },
       }).then(({ id }: { id: string }) => {
         if (!conversationId) setConversationId(id);
-      }).catch(() => { /* best-effort history sync */ });
+      }).catch((err) => {
+        console.error("[chat-history] save failed:", err);
+        toast.error(`Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`);
+      });
     }, 1000);
     return () => clearTimeout(handle);
   }, [messages, sessionId, conversationId, saveConversationFn]);
@@ -127,7 +130,7 @@ function AgentPage() {
       .then(({ conversations }: { conversations: { id: string }[] }) => {
         if (conversations.length > 0) handleSelectConversation(conversations[0].id);
       })
-      .catch(() => { /* fall back to an empty new chat */ });
+      .catch((err) => console.error("[chat-history] list failed:", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
