@@ -692,7 +692,7 @@ function PresentationsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1500px] p-0 sm:p-6 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+      <div className="mx-auto max-w-[1500px] p-0 sm:p-6 flex flex-col h-[calc(100dvh-3.5rem)] md:h-dvh">
         <div className="flex items-center justify-between gap-2 mb-2 shrink-0 px-3 pt-3 sm:px-0 sm:pt-0">
           <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate">
             <Presentation className="size-5 shrink-0" /> Presentations

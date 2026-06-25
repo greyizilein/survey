@@ -18,7 +18,7 @@ export const Route = createFileRoute("/")({
 // Fixed dark palette for the hero so contrast is correct in any theme.
 const INK = "#0a0a0a";
 const PAPER = "#f4f4ef";
-const LIME = "#c6f24e";
+const LIME = "#b6de48";
 
 const marqueeItems = [
   { icon: BarChart3, label: "Writing in progress" },
@@ -79,7 +79,7 @@ function Landing() {
             )}
             <Link
               to={ctaHref}
-              className="border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest hard-shadow-sm hard-shadow-hover"
+              className="lime-cta border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest hard-shadow-sm hard-shadow-hover"
               style={{ background: LIME, borderColor: LIME, color: INK }}
             >
               {authed ? "Office" : "Get started"}
@@ -108,7 +108,7 @@ function Landing() {
         <div className="relative z-10 mx-auto flex flex-1 max-w-3xl flex-col items-center justify-center text-center animate-fade-up">
           <span
             className="inline-flex items-center gap-2 border-2 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur"
-            style={{ borderColor: LIME, color: LIME, background: "rgba(198,242,78,0.08)" }}
+            style={{ borderColor: LIME, color: LIME, background: "rgba(182,222,72,0.08)" }}
           >
             <Sparkles className="size-3" /> Writing, on autopilot
           </span>
@@ -132,7 +132,7 @@ function Landing() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               to={ctaHref}
-              className="group inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold hard-shadow-sm hard-shadow-hover"
+              className="lime-cta group inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold hard-shadow-sm hard-shadow-hover"
               style={{ background: LIME, borderColor: LIME, color: INK }}
             >
               {authed ? "Enter Office" : "Start writing free"}

@@ -138,7 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-dvh flex bg-background">
       {/* Desktop sidebar */}
       <aside className={cn("hidden md:flex border-r-2 border-sidebar-border bg-sidebar flex-col transition-[width] duration-150 animate-in fade-in slide-in-from-left-4 duration-300", collapsed ? "w-16" : "w-60")}>
         {DesktopSidebarBody}
