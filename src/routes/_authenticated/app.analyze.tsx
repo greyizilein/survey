@@ -349,12 +349,13 @@ function AnalyzePage() {
     setInstructions("");
   }
 
-  async function handleSelectConversation(id: string) {
+  async function handleSelectConversation(id: string): Promise<Msg[] | null> {
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
+      const loadedMessages = state.messages ?? [];
       setConversationId(conversation.id);
-      setMessages(state.messages ?? []);
+      setMessages(loadedMessages);
       setInstructionsPreset(state.instructionsPreset && state.instructionsPreset in PRESET_LABELS ? state.instructionsPreset : "basic-academia");
       setInstructions(state.instructions ?? "");
       setDocSummary(state.docSummary ?? "");
@@ -363,30 +364,41 @@ function AnalyzePage() {
       setFileName(state.fileName ?? "");
       setFileRows(state.fileRows ?? []);
       setDocFiles([]);
+      return loadedMessages;
     } catch {
       toast.error("Couldn't load that chat");
+      return null;
     }
   }
 
   useEffect(() => {
+    const wantsCorrections = new URLSearchParams(window.location.search).get("corrections") === "1";
+    if (wantsCorrections) window.history.replaceState(null, "", window.location.pathname);
+
     listConversationsFn({ data: { tool: "analyze" } })
-      .then(({ conversations }: { conversations: { id: string }[] }) => {
-        if (conversations.length > 0) handleSelectConversation(conversations[0].id);
+      .then(async ({ conversations }: { conversations: { id: string }[] }) => {
+        let resolvedMessages = messages;
+        if (conversations.length > 0) {
+          const loaded = await handleSelectConversation(conversations[0].id);
+          if (loaded) resolvedMessages = loaded;
+        }
+        if (wantsCorrections) {
+          if (resolvedMessages.length > 0) {
+            setFeedbackModalOpen(true);
+          } else {
+            toast.info("Start a draft first, then apply corrections from the menu.");
+          }
+        }
       })
-      .catch((err) => console.error("[chat-history] list failed:", err));
+      .catch((err) => {
+        console.error("[chat-history] list failed:", err);
+        if (wantsCorrections) {
+          if (messages.length > 0) setFeedbackModalOpen(true);
+          else toast.info("Start a draft first, then apply corrections from the menu.");
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("corrections") !== "1") return;
-    if (messages.length > 0) {
-      setFeedbackModalOpen(true);
-    } else {
-      toast.info("Start a draft first, then apply corrections from the menu.");
-    }
-    window.history.replaceState(null, "", window.location.pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length]);
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);

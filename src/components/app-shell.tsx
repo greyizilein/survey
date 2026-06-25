@@ -1,12 +1,11 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { Home, ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard } from "lucide-react";
+import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
 import { useEffect, useState, type ReactNode } from "react";
 
 const nav = [
-  { to: "/app", label: "Home", icon: Home },
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
@@ -50,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
       <nav className="flex-1 p-3 space-y-1.5">
         {nav.map((n) => {
-          const active = n.to === "/app" ? pathname === "/app" : pathname.startsWith(n.to) && !("search" in n);
+          const active = pathname.startsWith(n.to) && !("search" in n);
           return (
             <Link
               key={n.label}
@@ -77,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const MobileSidebarBody = (
     <>
       <div className="px-5 py-5 border-b-2 border-sidebar-border flex items-center justify-between">
-        <Link to="/app" className="flex items-center gap-2.5">
+        <Link to="/app/dashboard" className="flex items-center gap-2.5">
           <div className="size-8 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">O</div>
           <span className="font-bold tracking-tight text-lg">Office</span>
         </Link>
@@ -99,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const DesktopSidebarBody = (
     <>
       <div className={cn("py-5 border-b-2 border-sidebar-border flex items-center", collapsed ? "justify-center px-2" : "justify-between px-5")}>
-        <Link to="/app" className="flex items-center gap-2.5 overflow-hidden">
+        <Link to="/app/dashboard" className="flex items-center gap-2.5 overflow-hidden">
           <div className="size-8 shrink-0 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">O</div>
           {!collapsed && <span className="font-bold tracking-tight text-lg whitespace-nowrap">Office</span>}
         </Link>
@@ -172,7 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <Menu className="size-5" />
           </button>
-          <Link to="/app" className="flex items-center gap-2">
+          <Link to="/app/dashboard" className="flex items-center gap-2">
             <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">O</div>
             <span className="font-bold tracking-tight text-sm">Office</span>
           </Link>

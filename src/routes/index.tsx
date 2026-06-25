@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ArrowRight, ClipboardPenLine, Users, Wand2, Sparkles, Globe, Gauge, FileDown, Zap, ShieldCheck, BarChart3, Presentation, Bot, MessageSquareText } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,6 +37,16 @@ const marqueeItems = [
 ];
 
 function Landing() {
+  const [authed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setAuthed(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const ctaHref = authed ? "/app/dashboard" : "/auth";
+
   return (
     <div className="min-h-screen" style={{ background: INK, color: PAPER }}>
       {/* HERO — near-fullscreen */}
@@ -56,19 +68,21 @@ function Landing() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
+            {!authed && (
+              <Link
+                to="/auth"
+                className="hidden sm:inline-flex border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors"
+                style={{ borderColor: "rgba(244,244,239,0.25)", color: PAPER }}
+              >
+                Sign in
+              </Link>
+            )}
             <Link
-              to="/auth"
-              className="hidden sm:inline-flex border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors"
-              style={{ borderColor: "rgba(244,244,239,0.25)", color: PAPER }}
-            >
-              Sign in
-            </Link>
-            <Link
-              to="/auth"
+              to={ctaHref}
               className="border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest hard-shadow-sm hard-shadow-hover"
               style={{ background: LIME, borderColor: LIME, color: INK }}
             >
-              Get started
+              {authed ? "Office" : "Get started"}
             </Link>
           </div>
         </header>
@@ -117,20 +131,22 @@ function Landing() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
-              to="/auth"
+              to={ctaHref}
               className="group inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold hard-shadow-sm hard-shadow-hover"
               style={{ background: LIME, borderColor: LIME, color: INK }}
             >
-              Start writing free
+              {authed ? "Enter Office" : "Start writing free"}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
-            <Link
-              to="/auth"
-              className="inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold"
-              style={{ borderColor: "rgba(244,244,239,0.5)", color: PAPER }}
-            >
-              See a demo
-            </Link>
+            {!authed && (
+              <Link
+                to="/auth"
+                className="inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold"
+                style={{ borderColor: "rgba(244,244,239,0.5)", color: PAPER }}
+              >
+                See a demo
+              </Link>
+            )}
           </div>
         </div>
 
@@ -190,10 +206,10 @@ function Landing() {
               One workspace, every format. Paperstudio does the writing.
             </p>
             <Link
-              to="/auth"
+              to={ctaHref}
               className="mt-6 inline-flex items-center gap-2 border-2 border-foreground bg-foreground px-6 py-3 text-sm font-bold text-background hard-shadow-sm hard-shadow-hover"
             >
-              Get started <ArrowRight className="size-4" />
+              {authed ? "Office" : "Get started"} <ArrowRight className="size-4" />
             </Link>
           </div>
         </div>

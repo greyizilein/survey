@@ -54,18 +54,18 @@ function AuthPage() {
 
   async function maybeOfferEnrollment() {
     if (!(await isPasskeySupported())) {
-      navigate({ to: "/app" });
+      navigate({ to: "/" });
       return;
     }
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
-      navigate({ to: "/app" });
+      navigate({ to: "/" });
       return;
     }
     // Already enrolled for this email? skip.
     const stored = getStoredPasskey();
     if (stored && stored.email === data.session.user.email) {
-      navigate({ to: "/app" });
+      navigate({ to: "/" });
       return;
     }
     setEnrollOffer({
@@ -82,7 +82,7 @@ function AuthPage() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: window.location.origin + "/app" },
+          options: { emailRedirectTo: window.location.origin + "/" },
         });
         if (error) throw error;
         toast.success("Account created. Check your email if confirmation is required.");
@@ -99,7 +99,7 @@ function AuthPage() {
 
   async function handleGoogle() {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/app" });
+    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/" });
     if (result.error) { toast.error("Google sign-in failed"); setLoading(false); return; }
     if (result.redirected) return;
     await maybeOfferEnrollment();
@@ -118,7 +118,7 @@ function AuthPage() {
         throw new Error("Fingerprint session expired. Please sign in again.");
       }
       updateStoredRefreshToken(data.session.refresh_token);
-      navigate({ to: "/app" });
+      navigate({ to: "/" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Fingerprint sign-in failed");
     } finally {
@@ -132,10 +132,10 @@ function AuthPage() {
     try {
       await enrollPasskey(enrollOffer);
       toast.success("Fingerprint sign-in enabled on this device");
-      navigate({ to: "/app" });
+      navigate({ to: "/" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not enable fingerprint");
-      navigate({ to: "/app" });
+      navigate({ to: "/" });
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ function AuthPage() {
 
   function skipEnroll() {
     setEnrollOffer(null);
-    navigate({ to: "/app" });
+    navigate({ to: "/" });
   }
 
   // Enrollment prompt screen

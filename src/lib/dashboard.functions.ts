@@ -7,17 +7,6 @@ const TOOL_HREF: Record<string, string> = {
   agent: "/app/agent",
 };
 
-export const getProfileSummary = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data } = await context.supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", context.userId)
-      .maybeSingle();
-    return { displayName: data?.display_name ?? null };
-  });
-
 export const getDashboardSummary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
