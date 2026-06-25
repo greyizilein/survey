@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
-import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
+import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -214,6 +214,7 @@ function AnalyzePage() {
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
+  const listConversationsFn = useServerFn(listChatConversations);
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
   const [conversationId, setConversationId] = useState<string | null>(null);
 
@@ -363,6 +364,15 @@ function AnalyzePage() {
       toast.error("Couldn't load that chat");
     }
   }
+
+  useEffect(() => {
+    listConversationsFn({ data: { tool: "analyze" } })
+      .then(({ conversations }: { conversations: { id: string }[] }) => {
+        if (conversations.length > 0) handleSelectConversation(conversations[0].id);
+      })
+      .catch(() => { /* fall back to whatever local state was restored */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);

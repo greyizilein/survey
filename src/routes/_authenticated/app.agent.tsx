@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { parseMarkdownLite, blocksToHtml } from "@/lib/markdown-lite";
 import { createAgentSessionFn, downloadAgentFileFn } from "@/lib/agent-chat.functions";
-import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
+import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 
 export const Route = createFileRoute("/_authenticated/app/agent")({
@@ -47,6 +47,7 @@ function AgentPage() {
   const createSession = useServerFn(createAgentSessionFn);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
+  const listConversationsFn = useServerFn(listChatConversations);
   const downloadFileFn = useServerFn(downloadAgentFileFn);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -120,6 +121,15 @@ function AgentPage() {
       toast.error("Couldn't load that chat");
     }
   }
+
+  useEffect(() => {
+    listConversationsFn({ data: { tool: "agent" } })
+      .then(({ conversations }: { conversations: { id: string }[] }) => {
+        if (conversations.length > 0) handleSelectConversation(conversations[0].id);
+      })
+      .catch(() => { /* fall back to an empty new chat */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function ensureSession(): Promise<string> {
     if (sessionId) return sessionId;
