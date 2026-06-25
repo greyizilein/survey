@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/analyze-stream")({
           return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
         }
 
-        const { createAi, createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
+        const { createAi, createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool, gatewaySearchTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         try {
@@ -60,6 +60,9 @@ export const Route = createFileRoute("/api/analyze-stream")({
                       ...(useWebSearch ? { web_search: webSearchTool(), web_fetch: webFetchTool() } : {}),
                     },
                   }
+                : {}),
+              ...(withTools && !useCodeExecution && useWebSearch
+                ? { tools: { web_search: gatewaySearchTool() } }
                 : {}),
               onError: ({ error }) => {
                 console.error("[analyze-stream] generation error:", error);

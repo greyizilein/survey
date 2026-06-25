@@ -180,7 +180,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-dvh flex bg-background">
+    <div className="min-h-dvh flex bg-background overflow-x-hidden">
       {/* Desktop sidebar */}
       <aside className={cn("hidden md:flex border-r-2 border-sidebar-border bg-sidebar flex-col transition-[width] duration-150 animate-in fade-in slide-in-from-left-4 duration-300", collapsed ? "w-16" : "w-60")}>
         {DesktopSidebarBody}
@@ -221,7 +221,7 @@ export function AppShell({
           </header>
         )}
 
-        <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
+        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
           {typeof children === "function" ? children(() => setOpen(true)) : children}
         </main>
       </div>

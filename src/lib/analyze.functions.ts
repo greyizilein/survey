@@ -239,11 +239,9 @@ export async function buildAnalyzePrompt(
   let model = useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(tier);
 
   let sourcesBlock = "";
-  const useWebSearch = needsCitations && tier === "max";
+  const useWebSearch = needsCitations;
   if (useWebSearch) {
-    sourcesBlock = `\n\nYou have live web search and web fetch tools — use them yourself, via your actual tool-calling mechanism, never by writing tool-call or tool-result syntax as visible text. Search the web for real, current, citable sources on this topic — peer-reviewed papers, reputable reports, official statistics, primary sources — and fetch pages to verify claims before citing them. Do this proactively as part of writing; never pause to ask the user for a source list, a "verified source pool," or permission to search — searching is your job, not theirs. Never narrate a fake tool call (e.g. lines like "<tool_call>", "<tool_response>", or any JSON describing a search you are pretending to run) — that text would be shown to the user verbatim and is never acceptable; only invoke the real tool. Only if you have genuinely searched and still cannot find a real source for a specific claim should you flag it as [citation needed] rather than inventing one.`;
-  } else if (needsCitations) {
-    sourcesBlock = `\n\nYou do NOT have a web search tool in this mode. Never invent, guess, or fabricate citations, URLs, or sources — instead, flag every claim that would normally need a citation as [citation needed], and tell the user up front that verified sourcing requires the Max tier.`;
+    sourcesBlock = `\n\nYou have a live web search tool (and, on Max, a web fetch tool too) — use it yourself, via your actual tool-calling mechanism, never by writing tool-call or tool-result syntax as visible text. Search the web for real, current, citable sources on this topic — peer-reviewed papers, reputable reports, official statistics, primary sources — and verify claims against the search results before citing them. Do this proactively as part of writing; never pause to ask the user for a source list, a "verified source pool," or permission to search — searching is your job, not theirs. Never narrate a fake tool call (e.g. lines like "<tool_call>", "<tool_response>", or any JSON describing a search you are pretending to run) — that text would be shown to the user verbatim and is never acceptable; only invoke the real tool. Only if you have genuinely searched and still cannot find a real source for a specific claim should you flag it as [citation needed] rather than inventing one.`;
   }
 
   const sourcesMarkerBlock = needsCitations

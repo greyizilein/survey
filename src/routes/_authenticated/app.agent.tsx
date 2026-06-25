@@ -343,7 +343,10 @@ function AgentPage() {
                 )}
               >
                 {m.content ? (
-                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: blocksToHtml(parseMarkdownLite(m.content)) }} />
+                  <div
+                    className="prose prose-sm max-w-none min-w-0 break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
+                    dangerouslySetInnerHTML={{ __html: blocksToHtml(parseMarkdownLite(m.content)) }}
+                  />
                 ) : (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
