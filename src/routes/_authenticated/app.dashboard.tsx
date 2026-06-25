@@ -79,31 +79,31 @@ function Dashboard() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <div className="mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-10 lg:py-14 lg:px-8">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <LayoutDashboard className="size-5" />
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="grid size-8 sm:size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+            <LayoutDashboard className="size-4 sm:size-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-extrabold tracking-tight sm:text-3xl">Dashboard</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+            <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl lg:text-3xl">Dashboard</h1>
+            <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
               {summary?.displayName ? `Welcome back, ${summary.displayName}.` : "An overview of everything across your workspace."}
             </p>
           </div>
         </div>
 
         {/* Stat ring cards */}
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-5 sm:mt-8 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {statCards.map((s) => (
             <StatRingCard key={s.label} {...s} loading={loading} />
           ))}
         </div>
 
         {/* Two-column area */}
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
+        <div className="mt-6 sm:mt-8 grid gap-3 sm:gap-5 lg:grid-cols-3">
           {/* Quick actions */}
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5">
             <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
               Quick actions
             </div>
@@ -123,7 +123,7 @@ function Dashboard() {
           </div>
 
           {/* Recent activity */}
-          <div className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+          <div className="rounded-xl sm:rounded-2xl border border-border bg-card p-3 sm:p-5 lg:col-span-2">
             <div className="flex items-center justify-between">
               <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted-foreground">
                 Recent activity
@@ -136,7 +136,7 @@ function Dashboard() {
               </Link>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3 sm:mt-4">
               {loading ? (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -218,19 +218,24 @@ function StatRingCard({
   const formatted = display >= 1000 ? `${(display / 1000).toFixed(1)}k` : `${display}`;
 
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40">
+    <div className="flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border border-border bg-card p-2.5 sm:p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40">
       <div className="relative shrink-0">
-        <AnimatedRing size={52} strokeWidth={4} percent={pct} color="hsl(var(--primary))">
+        <AnimatedRing size={40} strokeWidth={4} percent={pct} color="hsl(var(--primary))" className="sm:hidden">
+          <foreignObject x={4} y={4} width={32} height={32}>
+            <div className="flex h-full w-full items-center justify-center text-foreground">{icon}</div>
+          </foreignObject>
+        </AnimatedRing>
+        <AnimatedRing size={52} strokeWidth={4} percent={pct} color="hsl(var(--primary))" className="hidden sm:block">
           <foreignObject x={10} y={10} width={32} height={32}>
             <div className="flex h-full w-full items-center justify-center text-foreground">{icon}</div>
           </foreignObject>
         </AnimatedRing>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-[0.1em] sm:tracking-[0.12em] text-muted-foreground truncate">
           {label}
         </div>
-        <div className="text-xl font-black leading-tight text-foreground">
+        <div className="text-lg sm:text-xl font-black leading-tight text-foreground">
           {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : formatted}
         </div>
       </div>
