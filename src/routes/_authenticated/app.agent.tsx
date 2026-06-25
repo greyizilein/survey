@@ -333,7 +333,15 @@ function AgentPage() {
           )}
           <div className="space-y-4">
             {messages.map((m, i) => (
-              <div key={i} className={cn("rounded-lg p-3", m.role === "user" ? "bg-muted ml-auto max-w-[80%]" : "bg-background")}>
+              <div
+                key={i}
+                className={cn(
+                  "rounded-none p-0 sm:rounded-lg sm:p-3",
+                  m.role === "user"
+                    ? "ml-auto w-full text-right font-medium sm:w-auto sm:max-w-[80%] sm:bg-muted sm:text-left sm:font-normal"
+                    : "bg-transparent sm:bg-background"
+                )}
+              >
                 {m.content ? (
                   <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: blocksToHtml(parseMarkdownLite(m.content)) }} />
                 ) : (

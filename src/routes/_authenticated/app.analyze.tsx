@@ -652,7 +652,13 @@ function AnalyzePage() {
             )}
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                <div
+                  className={`w-full sm:w-auto sm:max-w-[85%] rounded-none px-0 py-0 text-sm sm:rounded-lg sm:px-3 sm:py-2 ${
+                    m.role === "user"
+                      ? "text-right text-foreground font-medium sm:bg-primary sm:text-primary-foreground sm:text-left sm:font-normal"
+                      : "bg-transparent sm:bg-muted"
+                  }`}
+                >
                   {m.role === "assistant" ? <MarkdownLite text={m.content} /> : <p className="whitespace-pre-wrap">{m.content}</p>}
                   {m.chart && m.chart.data?.length > 0 && (
                     <div className="mt-3 bg-background rounded p-2">
@@ -751,7 +757,7 @@ function AnalyzePage() {
             ))}
             {sending && messages[messages.length - 1]?.content === "" && (
               <div className="flex justify-start">
-                <div className="bg-muted rounded-lg px-3 py-2 text-sm flex items-center gap-2 text-muted-foreground">
+                <div className="bg-transparent px-0 py-0 text-sm flex items-center gap-2 text-muted-foreground sm:bg-muted sm:rounded-lg sm:px-3 sm:py-2">
                   <Loader2 className="size-3.5 animate-spin" /> Thinking...
                 </div>
               </div>
