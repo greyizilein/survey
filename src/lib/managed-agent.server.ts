@@ -225,7 +225,12 @@ export async function createAgentSession(userId: string): Promise<string> {
   return session.id;
 }
 
-export type AgentStreamChunk = { type: "text"; text: string } | { type: "status"; text: string } | { type: "done" } | { type: "error"; text: string };
+export type AgentStreamChunk =
+  | { type: "text"; text: string }
+  | { type: "status"; text: string }
+  | { type: "file"; fileId: string; filename?: string; mediaType?: string }
+  | { type: "done" }
+  | { type: "error"; text: string };
 
 export async function* streamAgentTurn(sessionId: string, message: string): AsyncGenerator<AgentStreamChunk> {
   const client = await createRawAnthropic();
@@ -242,6 +247,13 @@ export async function* streamAgentTurn(sessionId: string, message: string): Asyn
       }
     } else if (event.type === "agent.tool_use") {
       yield { type: "status", text: `\n_using ${event.name}…_\n` };
+    } else if (event.type === "agent.tool_result") {
+      for (const block of event.content ?? []) {
+        const source = (block as { source?: { type?: string; file_id?: string } }).source;
+        if (source?.type === "file" && source.file_id) {
+          yield { type: "file", fileId: source.file_id };
+        }
+      }
     } else if (event.type === "session.error") {
       yield { type: "error", text: event.error.message ?? "The agent hit an error." };
     } else if (event.type === "session.status_idle" || event.type === "session.status_terminated") {
@@ -249,4 +261,14 @@ export async function* streamAgentTurn(sessionId: string, message: string): Asyn
       break;
     }
   }
+}
+
+export async function downloadAgentFile(fileId: string): Promise<{ base64: string; mediaType: string; filename: string }> {
+  const client = await createRawAnthropic();
+  const [metadata, response] = await Promise.all([
+    client.beta.files.retrieveMetadata(fileId),
+    client.beta.files.download(fileId),
+  ]);
+  const buf = Buffer.from(await response.arrayBuffer());
+  return { base64: buf.toString("base64"), mediaType: metadata.mime_type, filename: metadata.filename };
 }

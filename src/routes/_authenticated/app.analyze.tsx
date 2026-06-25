@@ -476,7 +476,9 @@ function AnalyzePage() {
             try {
               const { base64, mediaType } = await generateFigureImageFn({ data: { prompt: req.prompt } });
               return { caption: req.caption, base64, mediaType };
-            } catch {
+            } catch (err) {
+              console.error("[analyze] figure generation failed:", err);
+              toast.error(`Couldn't render a figure: ${err instanceof Error ? err.message : "image generation failed"}`);
               return null;
             }
           }),
