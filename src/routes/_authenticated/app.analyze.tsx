@@ -25,7 +25,7 @@ import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdown-lite";
+import { parseMarkdownLite, blocksToHtml, blocksToPlainText, splitInlineRuns } from "@/lib/markdown-lite";
 import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
 import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
 
@@ -129,10 +129,11 @@ function savePersistedState(state: PersistedState) {
 }
 
 function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : <span key={i}>{part}</span>,
-  );
+  return splitInlineRuns(text).map((run, i) => {
+    if (run.bold) return <strong key={i}>{run.text}</strong>;
+    if (run.italic) return <em key={i}>{run.text}</em>;
+    return <span key={i}>{run.text}</span>;
+  });
 }
 
 /**
