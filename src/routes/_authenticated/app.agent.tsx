@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Loader2 } from "lucide-react";
+import { Bot, Send, Loader2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { parseMarkdownLite, blocksToHtml } from "@/lib/markdown-lite";
-import { createAgentSessionFn } from "@/lib/agent-chat.functions";
+import { createAgentSessionFn, downloadAgentFileFn } from "@/lib/agent-chat.functions";
 import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 
@@ -20,19 +20,62 @@ export const Route = createFileRoute("/_authenticated/app/agent")({
   component: AgentPage,
 });
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; fileIds?: string[] };
+
+function splitFileMarkers(raw: string): { display: string; fileIds: string[] } {
+  const fileIds: string[] = [];
+  const lines = raw.split("\n");
+  const kept: string[] = [];
+  for (const line of lines) {
+    const match = /^@@FILE@@(.*)$/.exec(line);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (parsed?.fileId) fileIds.push(parsed.fileId);
+      } catch {
+        // still streaming
+      }
+      continue;
+    }
+    kept.push(line);
+  }
+  return { display: kept.join("\n"), fileIds };
+}
 
 function AgentPage() {
   const createSession = useServerFn(createAgentSessionFn);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
+  const downloadFileFn = useServerFn(downloadAgentFileFn);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  async function handleDownloadFile(fileId: string) {
+    setDownloadingFile(fileId);
+    try {
+      const { base64, mediaType, filename } = await downloadFileFn({ data: { fileId } });
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: mediaType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "download";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't download that file");
+    } finally {
+      setDownloadingFile(null);
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -118,9 +161,10 @@ function AgentPage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
+        const { display, fileIds } = splitFileMarkers(raw);
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: raw };
+          copy[copy.length - 1] = { role: "assistant", content: display, fileIds };
           return copy;
         });
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -172,6 +216,26 @@ function AgentPage() {
                   <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: blocksToHtml(parseMarkdownLite(m.content)) }} />
                 ) : (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {m.fileIds && m.fileIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {m.fileIds.map((fileId) => (
+                      <Button
+                        key={fileId}
+                        size="sm"
+                        variant="secondary"
+                        disabled={downloadingFile === fileId}
+                        onClick={() => handleDownloadFile(fileId)}
+                      >
+                        {downloadingFile === fileId ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        ) : (
+                          <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        Download file
+                      </Button>
+                    ))}
+                  </div>
                 )}
               </div>
             ))}

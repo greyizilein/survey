@@ -524,7 +524,9 @@ function PresentationsPage() {
             if (slides[i]) slides[i] = { ...slides[i], figureImage: dataUrl };
             return { ...prev, slides };
           });
-        } catch {
+        } catch (err) {
+          console.error("[presentations] figure generation failed:", err);
+          toast.error(`Couldn't render a slide figure: ${err instanceof Error ? err.message : "image generation failed"}`);
           // leave figureImage unset on failure — slide just renders without it
         }
       }),
