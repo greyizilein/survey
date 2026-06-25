@@ -51,7 +51,7 @@ function Landing() {
     <div className="min-h-screen" style={{ background: INK, color: PAPER }}>
       {/* HERO — near-fullscreen */}
       <section
-        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8"
+        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8 md:min-h-[98svh]"
         style={{ background: INK, color: PAPER }}
       >
         {/* Header */}
@@ -214,6 +214,59 @@ function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border bg-background text-foreground">
+        <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <Link to="/" className="flex items-center gap-2">
+                <div
+                  className="flex size-8 items-center justify-center border-2 font-extrabold"
+                  style={{ background: LIME, borderColor: INK, color: INK }}
+                >
+                  P
+                </div>
+                <span className="text-sm font-bold tracking-tight">Paperstudio</span>
+              </Link>
+              <p className="mt-3 max-w-xs text-sm text-muted-foreground">
+                The writing workspace. Serious work, done.
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Product</h4>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li><Link to={ctaHref} className="text-foreground/80 hover:text-foreground">Writing</Link></li>
+                <li><Link to={ctaHref} className="text-foreground/80 hover:text-foreground">Presentations</Link></li>
+                <li><Link to={ctaHref} className="text-foreground/80 hover:text-foreground">Interview Studio</Link></li>
+                <li><Link to={ctaHref} className="text-foreground/80 hover:text-foreground">Survey autofill</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Resources</h4>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li><Link to="/" className="text-foreground/80 hover:text-foreground">Pricing</Link></li>
+                <li><Link to="/" className="text-foreground/80 hover:text-foreground">Help center</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Company</h4>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li><Link to="/" className="text-foreground/80 hover:text-foreground">About</Link></li>
+                <li><Link to="/auth" className="text-foreground/80 hover:text-foreground">Sign in</Link></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row">
+            <span>© {new Date().getFullYear()} Paperstudio. All rights reserved.</span>
+            <span>A slice of grey.</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
