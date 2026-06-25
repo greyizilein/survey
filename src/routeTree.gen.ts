@@ -23,6 +23,7 @@ import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
+import { Route as AuthenticatedAppDashboardRouteImport } from './routes/_authenticated/app.dashboard'
 import { Route as AuthenticatedAppAnalyzeRouteImport } from './routes/_authenticated/app.analyze'
 import { Route as AuthenticatedAppAgentRouteImport } from './routes/_authenticated/app.agent'
 import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app.projects.index'
@@ -102,6 +103,12 @@ const AuthenticatedAppFillRoute = AuthenticatedAppFillRouteImport.update({
   path: '/fill',
   getParentRoute: () => AuthenticatedAppRoute,
 } as any)
+const AuthenticatedAppDashboardRoute =
+  AuthenticatedAppDashboardRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppAnalyzeRoute = AuthenticatedAppAnalyzeRouteImport.update({
   id: '/analyze',
   path: '/analyze',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
+  '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
+  '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
+  '/_authenticated/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/api/presentations-stream'
     | '/app/agent'
     | '/app/analyze'
+    | '/app/dashboard'
     | '/app/fill'
     | '/app/interviews'
     | '/app/personas'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/api/presentations-stream'
     | '/app/agent'
     | '/app/analyze'
+    | '/app/dashboard'
     | '/app/fill'
     | '/app/interviews'
     | '/app/personas'
@@ -231,6 +243,7 @@ export interface FileRouteTypes {
     | '/api/presentations-stream'
     | '/_authenticated/app/agent'
     | '/_authenticated/app/analyze'
+    | '/_authenticated/app/dashboard'
     | '/_authenticated/app/fill'
     | '/_authenticated/app/interviews'
     | '/_authenticated/app/personas'
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppFillRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/dashboard': {
+      id: '/_authenticated/app/dashboard'
+      path: '/dashboard'
+      fullPath: '/app/dashboard'
+      preLoaderRoute: typeof AuthenticatedAppDashboardRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/analyze': {
       id: '/_authenticated/app/analyze'
       path: '/analyze'
@@ -401,6 +421,7 @@ const AuthenticatedAppProjectsRouteWithChildren =
 interface AuthenticatedAppRouteChildren {
   AuthenticatedAppAgentRoute: typeof AuthenticatedAppAgentRoute
   AuthenticatedAppAnalyzeRoute: typeof AuthenticatedAppAnalyzeRoute
+  AuthenticatedAppDashboardRoute: typeof AuthenticatedAppDashboardRoute
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
@@ -412,6 +433,7 @@ interface AuthenticatedAppRouteChildren {
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppAgentRoute: AuthenticatedAppAgentRoute,
   AuthenticatedAppAnalyzeRoute: AuthenticatedAppAnalyzeRoute,
+  AuthenticatedAppDashboardRoute: AuthenticatedAppDashboardRoute,
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
