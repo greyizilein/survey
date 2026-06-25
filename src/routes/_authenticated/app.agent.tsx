@@ -296,9 +296,9 @@ function AgentPage() {
   }
 
   return (
-    <AppShell>
-      <div className="flex h-[calc(100dvh-3.5rem)] md:h-dvh flex-col gap-4 p-0 sm:p-6">
-        <div className="flex items-center justify-between gap-2 px-3 pt-3 sm:px-0 sm:pt-0">
+    <AppShell fullScreenMobile>
+      <div className="flex h-dvh flex-col gap-4 p-2 sm:p-6">
+        <div className="flex items-center justify-between gap-2 pl-9 pt-1 sm:px-0 sm:pt-0">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary shrink-0" />
             <div>
@@ -317,7 +317,7 @@ function AgentPage() {
           />
         </div>
 
-        <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-none border-x-0 sm:rounded-lg sm:border-x-2">
+        <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-xl border border-border shadow-sm shadow-black/5 sm:rounded-lg sm:border-x-2 sm:shadow-none">
           {messages.length === 0 && (
             <p className="text-sm text-muted-foreground">
               {starting ? "Starting a session…" : "Ask it to analyze something, write a draft, or build a deck — say what you want, including any files it should produce."}
@@ -374,7 +374,7 @@ function AgentPage() {
           <div ref={bottomRef} />
         </Card>
 
-        <div className="flex items-center gap-2 px-3 sm:px-0 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -416,7 +416,7 @@ function AgentPage() {
           </Popover>
         </div>
 
-        <div className="flex gap-2 px-3 pb-3 sm:px-0 sm:pb-0 shrink-0">
+        <div className="flex gap-2 shrink-0">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
