@@ -3,14 +3,7 @@ import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareTe
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-
-const AppShellMenuContext = createContext<() => void>(() => {});
-
-/** Lets a full-screen-mobile page open the nav drawer from its own inline header. */
-export function useOpenMobileMenu() {
-  return useContext(AppShellMenuContext);
-}
+import { useEffect, useState, type ReactNode } from "react";
 
 const nav = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -26,7 +19,13 @@ const nav = [
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 
-export function AppShell({ children, fullScreenMobile }: { children: ReactNode; fullScreenMobile?: boolean }) {
+export function AppShell({
+  children,
+  fullScreenMobile,
+}: {
+  children: ReactNode | ((openMobileMenu: () => void) => ReactNode);
+  fullScreenMobile?: boolean;
+}) {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -186,11 +185,9 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
           </header>
         )}
 
-        <AppShellMenuContext.Provider value={() => setOpen(true)}>
-          <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
-            {children}
-          </main>
-        </AppShellMenuContext.Provider>
+        <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
+          {typeof children === "function" ? children(() => setOpen(true)) : children}
+        </main>
       </div>
     </div>
   );
