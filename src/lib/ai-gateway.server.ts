@@ -46,6 +46,13 @@ export function createCodeExecutionAi() {
 
 export const CODE_EXECUTION_MODEL = "claude-sonnet-4-6";
 
+/**
+ * Fixed cheap model for mechanical reading/extraction tasks (e.g. scanning a brief for
+ * required submission fields) that don't need writing quality and shouldn't be tied to
+ * the user's selected tier. Independent of ModelTier on purpose.
+ */
+export const CHEAP_EXTRACTION_MODEL = "google/gemini-2.5-flash-lite";
+
 export function codeExecutionTool() {
   return anthropic.tools.codeExecution_20250825();
 }
