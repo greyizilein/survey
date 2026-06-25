@@ -1,5 +1,5 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { Home, ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot } from "lucide-react";
+import { Home, ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
@@ -12,6 +12,7 @@ const nav = [
   { to: "/app/personas", label: "Persona Studio", icon: Users },
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/analyze", label: "Writing", icon: BarChart3 },
+  { to: "/app/analyze", search: { corrections: "1" }, label: "Corrections", icon: ClipboardCheck },
   { to: "/app/presentations", label: "Presentations", icon: Presentation },
   { to: "/app/agent", label: "Agent", icon: Bot },
 ] as const;
@@ -46,9 +47,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       <nav className="flex-1 p-3 space-y-1.5">
         {nav.map((n) => {
-          const active = n.to === "/app" ? pathname === "/app" : pathname.startsWith(n.to);
+          const active = n.to === "/app" ? pathname === "/app" : pathname.startsWith(n.to) && !("search" in n);
           return (
-            <Link key={n.to} to={n.to} className={cn(
+            <Link key={n.label} to={n.to} search={"search" in n ? n.search : undefined} className={cn(
               "flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all border-2",
               active
                 ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"

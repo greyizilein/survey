@@ -377,6 +377,17 @@ function AnalyzePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("corrections") !== "1") return;
+    if (messages.length > 0) {
+      setFeedbackModalOpen(true);
+    } else {
+      toast.info("Start a draft first, then apply corrections from the menu.");
+    }
+    window.history.replaceState(null, "", window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length]);
+
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
     if (!files.length) { setDocSummary(""); return; }
