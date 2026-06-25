@@ -197,7 +197,7 @@ function AgentPage() {
 
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-3.5rem)] md:h-screen flex-col gap-4 p-0 sm:p-6">
+      <div className="flex h-[calc(100dvh-3.5rem)] md:h-dvh flex-col gap-4 p-0 sm:p-6">
         <div className="flex items-center justify-between gap-2 px-3 pt-3 sm:px-0 sm:pt-0">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary shrink-0" />
