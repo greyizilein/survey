@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
+import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.apply-corrections-stream'
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
@@ -46,6 +47,12 @@ const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
   path: '/api/presentations-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiApplyCorrectionsStreamRoute =
+  ApiApplyCorrectionsStreamRouteImport.update({
+    id: '/api/apply-corrections-stream',
+    path: '/api/apply-corrections-stream',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAnalyzeStreamRoute = ApiAnalyzeStreamRouteImport.update({
   id: '/api/analyze-stream',
   path: '/api/analyze-stream',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AuthenticatedAppRouteWithChildren
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
+  '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
+  '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
+  '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/agent-stream'
     | '/api/analyze-stream'
+    | '/api/apply-corrections-stream'
     | '/api/presentations-stream'
     | '/app/agent'
     | '/app/analyze'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/api/agent-stream'
     | '/api/analyze-stream'
+    | '/api/apply-corrections-stream'
     | '/api/presentations-stream'
     | '/app/agent'
     | '/app/analyze'
@@ -215,6 +227,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app'
     | '/api/agent-stream'
     | '/api/analyze-stream'
+    | '/api/apply-corrections-stream'
     | '/api/presentations-stream'
     | '/_authenticated/app/agent'
     | '/_authenticated/app/analyze'
@@ -234,6 +247,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAnalyzeStreamRoute: typeof ApiAnalyzeStreamRoute
+  ApiApplyCorrectionsStreamRoute: typeof ApiApplyCorrectionsStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
 }
 
@@ -265,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: '/api/presentations-stream'
       fullPath: '/api/presentations-stream'
       preLoaderRoute: typeof ApiPresentationsStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/apply-corrections-stream': {
+      id: '/api/apply-corrections-stream'
+      path: '/api/apply-corrections-stream'
+      fullPath: '/api/apply-corrections-stream'
+      preLoaderRoute: typeof ApiApplyCorrectionsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analyze-stream': {
@@ -419,6 +440,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAnalyzeStreamRoute: ApiAnalyzeStreamRoute,
+  ApiApplyCorrectionsStreamRoute: ApiApplyCorrectionsStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
 }
 export const routeTree = rootRouteImport

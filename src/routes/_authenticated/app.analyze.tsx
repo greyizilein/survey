@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdown-lite";
 import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
+import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
   head: () => ({ meta: [{ title: "Writing · Paperstudio" }] }),
@@ -238,7 +239,22 @@ function AnalyzePage() {
   const [sending, setSending] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  function documentTitle() {
+    return PRESET_FULL_LABELS[instructionsPreset] !== "None" ? PRESET_FULL_LABELS[instructionsPreset] : "Written Document";
+  }
+
+  function documentText() {
+    const sections = messages.filter((m) => m.role === "assistant").map((m) => m.content);
+    return compileWrittenSections(sections);
+  }
+
+  function handleCorrectionsApplied(revisedContent: string, itemsAppliedCount: number) {
+    setMessages((prev) => [...prev, { role: "assistant", content: revisedContent }]);
+    toast.success(`Applied ${itemsAppliedCount} correction${itemsAppliedCount === 1 ? "" : "s"} to the document`);
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -504,6 +520,10 @@ function AnalyzePage() {
                 <DropdownMenuItem onClick={exportDocument} disabled={exporting}>
                   {exporting ? <Loader2 className="size-4 animate-spin mr-2" /> : <FileDown className="size-4 mr-2" />}
                   Download document
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFeedbackModalOpen(true)}>
+                  <ClipboardCheck className="size-4 mr-2" />
+                  Apply feedback corrections
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setMessages([])} className="text-destructive focus:text-destructive">
@@ -795,6 +815,13 @@ function AnalyzePage() {
           </div>
         </Card>
       </div>
+      <SupervisorFeedbackModal
+        open={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        documentText={documentText()}
+        documentTitle={documentTitle()}
+        onApplied={handleCorrectionsApplied}
+      />
     </AppShell>
   );
 }
