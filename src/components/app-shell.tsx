@@ -1,5 +1,5 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard, Zap, Gem, Crown } from "lucide-react";
+import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard, Zap, Gem, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
@@ -113,27 +113,66 @@ export function AppShell({
     );
   }
 
-  const MobileSidebarBody = (
-    <>
-      <div className="px-5 py-5 border-b-2 border-sidebar-border flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5">
-          <div className="size-8 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">O</div>
-          <span className="font-bold tracking-tight text-lg">Office</span>
-        </Link>
-        <button
-          onClick={() => setOpen(false)}
-          className="md:hidden p-1.5 hover:bg-sidebar-accent/60"
-          aria-label="Close menu"
-        >
-          <X className="size-4" />
-        </button>
+  function renderFloatingNav() {
+    return (
+      <nav className="p-2">
+        {nav.map((n) => {
+          const active = pathname.startsWith(n.to) && !("search" in n);
+          return (
+            <Link
+              key={n.label}
+              to={n.to}
+              search={"search" in n ? n.search : undefined}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-colors",
+                active ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <n.icon className="size-4 shrink-0" />
+              {n.label}
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
+
+  const MobileFloatingMenu = (
+    <div className="md:hidden fixed inset-0 z-50 flex items-center justify-center px-6 pointer-events-none">
+      <div className="w-full max-w-xs rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl text-white overflow-hidden pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="px-3 py-2.5 border-b border-white/10">
+          <div className="grid grid-cols-3 gap-1">
+            {(["fast", "pro", "max"] as const).map((t) => {
+              const Icon = TIER_ICON[t];
+              const active = tier === t;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTier(t)}
+                  title={MODEL_TIER_DESCRIPTIONS[t]}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all",
+                    active ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80"
+                  )}
+                >
+                  <Icon className="size-3.5" />
+                  {MODEL_TIER_LABELS[t]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {renderFloatingNav()}
+        <div className="border-t border-white/10 p-2">
+          <button
+            onClick={signOut}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <LogOut className="size-4" /> Sign out
+          </button>
+        </div>
       </div>
-      <TierPicker tier={tier} setTier={setTier} />
-      {renderNav(true)}
-      <button onClick={signOut} className="m-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all">
-        <LogOut className="size-4" /> Sign out
-      </button>
-    </>
+    </div>
   );
 
   const DesktopSidebarBody = (
@@ -186,22 +225,17 @@ export function AppShell({
         {DesktopSidebarBody}
       </aside>
 
-      {/* Mobile drawer + overlay */}
+      {/* Mobile floating menu + click-outside overlay */}
       {open && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/40 z-40"
-          onClick={() => setOpen(false)}
-          aria-hidden
-        />
+        <>
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => setOpen(false)}
+            aria-hidden
+          />
+          {MobileFloatingMenu}
+        </>
       )}
-      <aside
-        className={cn(
-          "md:hidden fixed inset-y-0 left-0 z-50 w-64 border-r-2 border-sidebar-border bg-sidebar flex flex-col transition-transform duration-200",
-          open ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        {MobileSidebarBody}
-      </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
