@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizePresentationDocuments } from "@/lib/presentations.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
-import { saveChatConversation, getChatConversation } from "@/lib/chat-history.functions";
+import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { exportDeckToPptx, downloadBlob, deckTheme, sanitizeDeck, type Deck, type Slide } from "@/lib/presentation-export";
 
@@ -413,6 +413,7 @@ function PresentationsPage() {
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
+  const listConversationsFn = useServerFn(listChatConversations);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   const initialRef = useRef<Partial<PersistedState> | null>(null);
@@ -483,6 +484,15 @@ function PresentationsPage() {
       toast.error("Couldn't load that chat");
     }
   }
+
+  useEffect(() => {
+    listConversationsFn({ data: { tool: "presentations" } })
+      .then(({ conversations }: { conversations: { id: string }[] }) => {
+        if (conversations.length > 0) handleSelectConversation(conversations[0].id);
+      })
+      .catch(() => { /* fall back to whatever local state was restored */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
