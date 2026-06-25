@@ -20,6 +20,7 @@ import {
   analyzeInterviewDoc, createInterviewStudy, generateTranscript,
   listInterviewStudies, getInterviewStudy, deleteInterviewStudy,
 } from "@/lib/interviews.functions";
+import { extractDocumentText } from "@/lib/document-extract.functions";
 import {
   renderTranscript, downloadBlob, downloadAllAsZip,
   type TranscriptFormat, type TranscriptMeta, type Turn,
@@ -62,6 +63,7 @@ async function runPool<T>(items: T[], limit: number, worker: (item: T) => Promis
 function InterviewStudio() {
   const qc = useQueryClient();
   const analyzeFn = useServerFn(analyzeInterviewDoc);
+  const extractDocTextFn = useServerFn(extractDocumentText);
   const createFn = useServerFn(createInterviewStudy);
   const genFn = useServerFn(generateTranscript);
   const listFn = useServerFn(listInterviewStudies);
@@ -115,8 +117,17 @@ function InterviewStudio() {
     if (!guideFiles.length) { toast.error("Upload your interview guide"); return; }
     setAnalyzing(true);
     try {
-      const guidePayload = await Promise.all(guideFiles.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
-      const contextPayload = await Promise.all(contextFiles.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      async function extractAll(fileList: File[]) {
+        const out: { name: string; text: string }[] = [];
+        for (const f of fileList) {
+          const data = await readAsBase64(f);
+          const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+          out.push({ name: f.name, text });
+        }
+        return out;
+      }
+      const guidePayload = await extractAll(guideFiles);
+      const contextPayload = await extractAll(contextFiles);
       const res = await analyzeFn({ data: { guide_files: guidePayload, context_files: contextPayload.length ? contextPayload : undefined, notes: notes.trim() || undefined } });
       setTitle(res.title);
       setContextSummary(res.context_summary);

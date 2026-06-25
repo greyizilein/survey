@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck, Square } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
@@ -19,13 +19,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
 import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdown-lite";
+import { parseMarkdownLite, blocksToHtml, blocksToPlainText, splitInlineRuns } from "@/lib/markdown-lite";
 import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
 import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
 
@@ -129,10 +130,11 @@ function savePersistedState(state: PersistedState) {
 }
 
 function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) =>
-    part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : <span key={i}>{part}</span>,
-  );
+  return splitInlineRuns(text).map((run, i) => {
+    if (run.bold) return <strong key={i}>{run.text}</strong>;
+    if (run.italic) return <em key={i}>{run.text}</em>;
+    return <span key={i}>{run.text}</span>;
+  });
 }
 
 /**
@@ -225,6 +227,7 @@ function MarkdownLite({ text }: { text: string }) {
 function AnalyzePage() {
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
+  const extractDocTextFn = useServerFn(extractDocumentText);
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
@@ -257,6 +260,11 @@ function AnalyzePage() {
   const [exporting, setExporting] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
 
   function documentTitle() {
     return PRESET_FULL_LABELS[instructionsPreset] !== "None" ? PRESET_FULL_LABELS[instructionsPreset] : "Written Document";
@@ -419,7 +427,12 @@ function AnalyzePage() {
     if (!files.length) { setDocSummary(""); return; }
     setSummarizingDocs(true);
     try {
-      const payload = await Promise.all(files.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      const payload: { name: string; text: string }[] = [];
+      for (const f of files) {
+        const data = await readAsBase64(f);
+        const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+        payload.push({ name: f.name, text });
+      }
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
       toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);
@@ -465,6 +478,9 @@ function AnalyzePage() {
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
     setInput("");
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let raw = "";
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -480,6 +496,7 @@ function AnalyzePage() {
           instructionsPreset,
           instructions: instructions.trim() || undefined,
         }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => "");
@@ -488,7 +505,6 @@ function AnalyzePage() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let raw = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -541,14 +557,24 @@ function AnalyzePage() {
         });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Analysis failed");
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't process that — please try again." };
-        return copy;
-      });
+      if (e instanceof DOMException && e.name === "AbortError") {
+        const { display } = splitMarkers(splitStreamError(raw).text);
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: display.trim() || "(stopped)" };
+          return copy;
+        });
+      } else {
+        toast.error(e instanceof Error ? e.message : "Analysis failed");
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't process that — please try again." };
+          return copy;
+        });
+      }
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
   }
 
@@ -863,9 +889,15 @@ function AnalyzePage() {
               </Popover>
 
               <div className="ml-auto">
-                <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="size-9">
-                  <Send className="size-4" />
-                </Button>
+                {sending ? (
+                  <Button onClick={stopGenerating} variant="secondary" size="icon" className="size-9" title="Stop">
+                    <Square className="size-4" />
+                  </Button>
+                ) : (
+                  <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
+                    <Send className="size-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>

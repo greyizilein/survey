@@ -58,19 +58,19 @@ export function parseMarkdownLite(text: string): MdBlock[] {
   return blocks;
 }
 
-// Splits inline text on **bold** markers into plain/bold runs, for renderers
-// that need to apply emphasis without keeping the raw markdown characters.
-export function splitInlineRuns(text: string): { text: string; bold: boolean }[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p !== "");
-  return parts.map((part) =>
-    part.startsWith("**") && part.endsWith("**")
-      ? { text: part.slice(2, -2), bold: true }
-      : { text: part, bold: false },
-  );
+// Splits inline text on **bold** and *italic* markers into plain/bold/italic runs,
+// for renderers that need to apply emphasis without keeping the raw markdown characters.
+export function splitInlineRuns(text: string): { text: string; bold: boolean; italic: boolean }[] {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter((p) => p !== "");
+  return parts.map((part) => {
+    if (part.startsWith("**") && part.endsWith("**")) return { text: part.slice(2, -2), bold: true, italic: false };
+    if (part.startsWith("*") && part.endsWith("*")) return { text: part.slice(1, -1), bold: false, italic: true };
+    return { text: part, bold: false, italic: false };
+  });
 }
 
 export function stripInlineMarkdown(text: string): string {
-  return text.replace(/\*\*([^*]+)\*\*/g, "$1");
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1");
 }
 
 function escapeHtml(s: string): string {
@@ -79,7 +79,12 @@ function escapeHtml(s: string): string {
 
 function inlineToHtml(text: string): string {
   return splitInlineRuns(text)
-    .map((run) => (run.bold ? `<strong>${escapeHtml(run.text)}</strong>` : escapeHtml(run.text)))
+    .map((run) => {
+      const escaped = escapeHtml(run.text);
+      if (run.bold) return `<strong>${escaped}</strong>`;
+      if (run.italic) return `<em>${escaped}</em>`;
+      return escaped;
+    })
     .join("");
 }
 

@@ -22,7 +22,7 @@ export async function exportToDocx(text: string, title: string): Promise<Blob> {
   const HEADING_LEVELS = [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3, HeadingLevel.HEADING_4];
 
   function runsFor(t: string) {
-    return splitInlineRuns(t).map((r) => new TextRun({ text: r.text, bold: r.bold }));
+    return splitInlineRuns(t).map((r) => new TextRun({ text: r.text, bold: r.bold, italics: r.italic }));
   }
 
   const children: any[] = [new Paragraph({ text: title, heading: HeadingLevel.TITLE }), new Paragraph({ text: "" })];
