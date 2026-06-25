@@ -18,13 +18,13 @@ export const AnalyzeChatInput = z.object({
     }),
     z.object({ type: z.literal("none") }),
   ]),
-  background: z.string().max(8000).optional(),
+  background: z.string().max(24000).optional(),
   instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing", "basic-academia", "dissertations"]).default("none"),
   instructions: z.string().max(4000).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), data: z.string() });
-const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(8) });
+const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
 
 export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -38,10 +38,10 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
       texts.push(`===== FILE: ${f.name} =====\n${t}`);
     }
     let combined = texts.join("\n\n");
-    const MAX = 50_000;
+    const MAX = 300_000;
     if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";
 
-    const RAW_PASSTHROUGH_LIMIT = 7800;
+    const RAW_PASSTHROUGH_LIMIT = 23_000;
     if (combined.length <= RAW_PASSTHROUGH_LIMIT) {
       return { summary: combined.trim() };
     }
@@ -50,7 +50,7 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    const prompt = `Condense the following written material (chapters, reports, briefs, assignments, methodology, notes) into background context for later use. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
+    const prompt = `Condense the following written material (chapters, reports, briefs, assignments, methodology, notes) into background context for later use, in no more than 22,000 characters. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
 
 Source content:
 """
@@ -59,7 +59,7 @@ ${combined}
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
-    return { summary: text.trim() };
+    return { summary: text.trim().slice(0, 24000) };
   });
 
 interface ColumnSummary {

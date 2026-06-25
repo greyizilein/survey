@@ -52,6 +52,24 @@ export async function extractText(base64: string, filename: string): Promise<str
     const { text } = await extractPdf(pdf, { mergePages: true });
     return Array.isArray(text) ? text.join("\n") : text;
   }
+  if (ext === "pptx") {
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(bytes);
+    const slideFiles = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => {
+        const na = Number(a.match(/slide(\d+)\.xml$/)?.[1] ?? 0);
+        const nb = Number(b.match(/slide(\d+)\.xml$/)?.[1] ?? 0);
+        return na - nb;
+      });
+    const slides: string[] = [];
+    for (const [i, name] of slideFiles.entries()) {
+      const xml = await zip.files[name].async("text");
+      const text = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1]).join(" ");
+      slides.push(`Slide ${i + 1}: ${text}`);
+    }
+    return slides.join("\n\n");
+  }
   if (ext === "doc") {
     throw new Error("Legacy .doc files aren't supported. Please re-save as .docx or PDF and upload again.");
   }
@@ -76,10 +94,10 @@ const AnalyzeInput = z.object({
   guide_files: z
     .array(z.object({ name: z.string(), data: z.string() }))
     .min(1)
-    .max(8),
+    .max(20),
   context_files: z
     .array(z.object({ name: z.string(), data: z.string() }))
-    .max(8)
+    .max(20)
     .optional(),
   notes: z.string().max(2000).optional(),
 });

@@ -45,13 +45,13 @@ export const DeckSchema = z.object({
 
 export const PresentationChatInput = z.object({
   messages: z.array(ChatMessage).min(1).max(40),
-  background: z.string().max(8000).optional(),
+  background: z.string().max(24000).optional(),
   instructions: z.string().max(4000).optional(),
   currentDeck: DeckSchema.optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), data: z.string() });
-const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(8) });
+const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
 
 export const summarizePresentationDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -65,10 +65,10 @@ export const summarizePresentationDocuments = createServerFn({ method: "POST" })
       texts.push(`===== FILE: ${f.name} =====\n${t}`);
     }
     let combined = texts.join("\n\n");
-    const MAX = 50_000;
+    const MAX = 300_000;
     if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";
 
-    const RAW_PASSTHROUGH_LIMIT = 7800;
+    const RAW_PASSTHROUGH_LIMIT = 23_000;
     if (combined.length <= RAW_PASSTHROUGH_LIMIT) {
       return { summary: combined.trim() };
     }
@@ -77,7 +77,7 @@ export const summarizePresentationDocuments = createServerFn({ method: "POST" })
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    const prompt = `Condense the following material (a brief, rubric, brand guide, report, or reference document) into background context for building a presentation deck from it. Preserve every distinct requirement, fact, theme, deadline, audience note, and structural constraint — if the source describes a rubric or marking criteria, preserve every criterion exactly; if it describes several distinct briefs or decks, enumerate all of them separately rather than merging them.
+    const prompt = `Condense the following material (a brief, rubric, brand guide, report, or reference document) into background context for building a presentation deck from it, in no more than 22,000 characters. Preserve every distinct requirement, fact, theme, deadline, audience note, and structural constraint — if the source describes a rubric or marking criteria, preserve every criterion exactly; if it describes several distinct briefs or decks, enumerate all of them separately rather than merging them.
 
 Source content:
 """
@@ -86,7 +86,7 @@ ${combined}
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
     const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
-    return { summary: text.trim() };
+    return { summary: text.trim().slice(0, 24000) };
   });
 
 export async function buildPresentationPrompt(
