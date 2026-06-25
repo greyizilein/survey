@@ -135,13 +135,27 @@ function renderInline(text: string) {
   );
 }
 
+/**
+ * Some models occasionally narrate a fake tool-call transcript as plain text instead of
+ * actually invoking the real tool (e.g. `<tool_call>{...}</tool_call>` / `<tool_response>...`).
+ * Strip any such pseudo-XML before it ever reaches the renderer.
+ */
+function stripFakeToolSyntax(text: string): string {
+  return text
+    .replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, "")
+    .replace(/<tool_response>[\s\S]*?<\/tool_response>/gi, "")
+    .replace(/<\/?tool_call>/gi, "")
+    .replace(/<\/?tool_response>/gi, "");
+}
+
 function splitMarkers(raw: string): { display: string; chart: ChartSpec | null; table: TableSpec | null; sources: SourceRef[] | null; chartImage: string | null; figureRequests: FigureRequest[] } {
   let chart: ChartSpec | null = null;
   let table: TableSpec | null = null;
   let sources: SourceRef[] | null = null;
   let chartImage: string | null = null;
   const figureRequests: FigureRequest[] = [];
-  const lines = raw.split("\n");
+  const cleaned = stripFakeToolSyntax(raw);
+  const lines = cleaned.split("\n");
   const kept: string[] = [];
   for (const line of lines) {
     const chartMatch = /^@@CHART@@(.*)$/.exec(line);
