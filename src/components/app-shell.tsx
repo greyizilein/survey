@@ -19,7 +19,7 @@ const nav = [
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 
-export function AppShell({ children, fullScreenMobile }: { children: ReactNode; fullScreenMobile?: boolean }) {
+export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -161,35 +161,23 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
         {MobileSidebarBody}
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        {!fullScreenMobile && (
-          <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
-            <button
-              onClick={() => setOpen(true)}
-              className="p-2 -ml-2 hover:bg-accent"
-              aria-label="Open menu"
-            >
-              <Menu className="size-5" />
-            </button>
-            <Link to="/" className="flex items-center gap-2">
-              <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">O</div>
-              <span className="font-bold tracking-tight text-sm">Office</span>
-            </Link>
-          </header>
-        )}
-
-        {fullScreenMobile && (
+        <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
           <button
             onClick={() => setOpen(true)}
-            className="md:hidden fixed top-3 left-3 z-30 rounded-full bg-background/90 backdrop-blur border border-border p-2 shadow-md shadow-black/10"
+            className="p-2 -ml-2 hover:bg-accent"
             aria-label="Open menu"
           >
             <Menu className="size-5" />
           </button>
-        )}
+          <Link to="/" className="flex items-center gap-2">
+            <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">O</div>
+            <span className="font-bold tracking-tight text-sm">Office</span>
+          </Link>
+        </header>
 
-        <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto")}>{children}</main>
+        <main className="flex-1 overflow-y-auto animate-in fade-in duration-300">{children}</main>
       </div>
     </div>
   );
