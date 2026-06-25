@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import {
   Presentation, Send, Upload, FileText, Loader2, Trash2, FileStack, ListChecks, Check,
-  FileDown, MoreHorizontal, Plus, ChevronUp, ChevronDown, Copy as CopyIcon, X,
+  FileDown, MoreHorizontal, Plus, ChevronUp, ChevronDown, Copy as CopyIcon, X, Square,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -434,6 +434,11 @@ function PresentationsPage() {
   const [exporting, setExporting] = useState(false);
   const slidePreviewRefs = useRef<(HTMLDivElement | null)[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -560,6 +565,9 @@ function PresentationsPage() {
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
     setInput("");
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let raw = "";
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -574,6 +582,7 @@ function PresentationsPage() {
           instructions: instructions.trim() || undefined,
           currentDeck: deck ?? undefined,
         }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => "");
@@ -582,7 +591,6 @@ function PresentationsPage() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let raw = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -609,14 +617,24 @@ function PresentationsPage() {
         resolveFigures(newDeck);
       } else if (!newDeck) toast.error("Didn't get a deck back — try rephrasing your request.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't build that — please try again." };
-        return copy;
-      });
+      if (e instanceof DOMException && e.name === "AbortError") {
+        const { display } = splitDeckMarker(splitStreamError(raw).text);
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: display.trim() || "(stopped)" };
+          return copy;
+        });
+      } else {
+        toast.error(e instanceof Error ? e.message : "Generation failed");
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't build that — please try again." };
+          return copy;
+        });
+      }
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
   }
 
@@ -832,9 +850,15 @@ function PresentationsPage() {
                 </Popover>
 
                 <div className="ml-auto">
-                  <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="size-9">
-                    <Send className="size-4" />
-                  </Button>
+                  {sending ? (
+                    <Button onClick={stopGenerating} variant="secondary" size="icon" className="size-9" title="Stop">
+                      <Square className="size-4" />
+                    </Button>
+                  ) : (
+                    <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
+                      <Send className="size-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

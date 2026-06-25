@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck, Square } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
@@ -260,6 +260,11 @@ function AnalyzePage() {
   const [exporting, setExporting] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
 
   function documentTitle() {
     return PRESET_FULL_LABELS[instructionsPreset] !== "None" ? PRESET_FULL_LABELS[instructionsPreset] : "Written Document";
@@ -473,6 +478,9 @@ function AnalyzePage() {
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
     setInput("");
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let raw = "";
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -488,6 +496,7 @@ function AnalyzePage() {
           instructionsPreset,
           instructions: instructions.trim() || undefined,
         }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => "");
@@ -496,7 +505,6 @@ function AnalyzePage() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let raw = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -549,14 +557,24 @@ function AnalyzePage() {
         });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Analysis failed");
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't process that — please try again." };
-        return copy;
-      });
+      if (e instanceof DOMException && e.name === "AbortError") {
+        const { display } = splitMarkers(splitStreamError(raw).text);
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: display.trim() || "(stopped)" };
+          return copy;
+        });
+      } else {
+        toast.error(e instanceof Error ? e.message : "Analysis failed");
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't process that — please try again." };
+          return copy;
+        });
+      }
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
   }
 
@@ -871,9 +889,15 @@ function AnalyzePage() {
               </Popover>
 
               <div className="ml-auto">
-                <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="size-9">
-                  <Send className="size-4" />
-                </Button>
+                {sending ? (
+                  <Button onClick={stopGenerating} variant="secondary" size="icon" className="size-9" title="Stop">
+                    <Square className="size-4" />
+                  </Button>
+                ) : (
+                  <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
+                    <Send className="size-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>

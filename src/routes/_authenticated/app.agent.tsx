@@ -1,19 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Loader2, FileDown } from "lucide-react";
+import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { parseMarkdownLite, blocksToHtml } from "@/lib/markdown-lite";
 import { createAgentSessionFn, downloadAgentFileFn } from "@/lib/agent-chat.functions";
+import { extractDocumentText } from "@/lib/document-extract.functions";
 import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
+
+function readAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export const Route = createFileRoute("/_authenticated/app/agent")({
   head: () => ({ meta: [{ title: "Agent · Paperstudio" }] }),
@@ -49,6 +60,7 @@ function AgentPage() {
   const getConversationFn = useServerFn(getChatConversation);
   const listConversationsFn = useServerFn(listChatConversations);
   const downloadFileFn = useServerFn(downloadAgentFileFn);
+  const extractDocTextFn = useServerFn(extractDocumentText);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -56,7 +68,41 @@ function AgentPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+  const [docFiles, setDocFiles] = useState<File[]>([]);
+  const [docTexts, setDocTexts] = useState<{ name: string; text: string }[]>([]);
+  const [readingDocs, setReadingDocs] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  async function addDocFiles(newFiles: File[]) {
+    const merged = [...docFiles, ...newFiles];
+    setDocFiles(merged);
+    setReadingDocs(true);
+    try {
+      const extracted: { name: string; text: string }[] = [];
+      for (const f of newFiles) {
+        const data = await readAsBase64(f);
+        const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+        extracted.push({ name: f.name, text });
+      }
+      setDocTexts((prev) => [...prev, ...extracted]);
+      toast.success(`Read ${newFiles.length} document${newFiles.length > 1 ? "s" : ""} for context`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not read those documents");
+      setDocFiles((prev) => prev.filter((f) => !newFiles.includes(f)));
+    } finally {
+      setReadingDocs(false);
+    }
+  }
+
+  function removeDocFile(index: number) {
+    setDocFiles((prev) => prev.filter((_, i) => i !== index));
+    setDocTexts((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+  }
 
   async function handleDownloadFile(fileId: string) {
     setDownloadingFile(fileId);
@@ -152,16 +198,23 @@ function AgentPage() {
     setMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: "" }]);
     setInput("");
     setSending(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const id = await ensureSession();
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Not authenticated");
 
+      const docContext = docTexts.length
+        ? `Uploaded document context:\n${docTexts.map((d) => `===== FILE: ${d.name} =====\n${d.text}`).join("\n\n").slice(0, 60000)}\n\nUSER REQUEST:\n${text}`
+        : text;
+
       const res = await fetch("/api/agent-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ sessionId: id, message: text }),
+        body: JSON.stringify({ sessionId: id, message: docContext }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const errText = await res.text().catch(() => "");
@@ -184,14 +237,24 @@ function AgentPage() {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Something went wrong");
-      setMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: "Sorry, I hit an error — please try again." };
-        return copy;
-      });
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setMessages((prev) => {
+          const copy = [...prev];
+          const last = copy[copy.length - 1];
+          if (last) copy[copy.length - 1] = { ...last, content: last.content || "(stopped)" };
+          return copy;
+        });
+      } else {
+        toast.error(e instanceof Error ? e.message : "Something went wrong");
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: "Sorry, I hit an error — please try again." };
+          return copy;
+        });
+      }
     } finally {
       setSending(false);
+      abortRef.current = null;
     }
   }
 
@@ -257,6 +320,48 @@ function AgentPage() {
           <div ref={bottomRef} />
         </Card>
 
+        <div className="flex items-center gap-2 px-3 sm:px-0 shrink-0">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={docFiles.length > 0 ? "default" : "ghost"}
+                size="sm"
+                className="h-8 gap-1.5 px-2"
+                title="Background docs"
+              >
+                <FileStack className="size-4 shrink-0" />
+                <span className="text-xs hidden sm:inline">{docFiles.length > 0 ? `${docFiles.length}` : "Docs"}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="start" side="top">
+              <h3 className="font-semibold text-sm mb-1">Background documents</h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Upload files so the agent has context for what you're asking it to do.
+              </p>
+              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                <Upload className="size-5 text-muted-foreground" />
+                <span className="text-sm font-medium">Choose documents</span>
+                <span className="text-xs text-muted-foreground">PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md</span>
+                <input type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
+                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
+              </label>
+              {docFiles.length > 0 && (
+                <div className="mt-3 space-y-1.5">
+                  {docFiles.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
+                      <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {readingDocs && (
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
         <div className="flex gap-2 px-3 pb-3 sm:px-0 sm:pb-0 shrink-0">
           <Textarea
             value={input}
@@ -271,9 +376,15 @@ function AgentPage() {
             className="min-h-[60px]"
             disabled={sending}
           />
-          <Button onClick={send} disabled={sending || !input.trim()} size="icon" className="h-auto">
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          {sending ? (
+            <Button onClick={stopGenerating} variant="secondary" size="icon" className="h-auto" title="Stop">
+              <Square className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={send} disabled={!input.trim()} size="icon" className="h-auto">
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </AppShell>
