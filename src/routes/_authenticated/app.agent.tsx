@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square } from "lucide-react";
+import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square, Copy, CopyCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { parseMarkdownLite, blocksToHtml } from "@/lib/markdown-lite";
+import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdown-lite";
+import { exportToDocx, downloadBlob } from "@/lib/writing-export";
 import { createAgentSessionFn, downloadAgentFileFn } from "@/lib/agent-chat.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
@@ -71,8 +72,44 @@ function AgentPage() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docTexts, setDocTexts] = useState<{ name: string; text: string }[]>([]);
   const [readingDocs, setReadingDocs] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  async function copyMessage(index: number, content: string) {
+    const blocks = parseMarkdownLite(content);
+    const html = blocksToHtml(blocks);
+    const plain = blocksToPlainText(blocks);
+    try {
+      if (typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([plain], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(plain);
+      }
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex((cur) => (cur === index ? null : cur)), 1500);
+    } catch {
+      toast.error("Couldn't copy to clipboard");
+    }
+  }
+
+  async function downloadMessage(index: number, content: string) {
+    setDownloadingIndex(index);
+    try {
+      const blob = await exportToDocx(content, "Agent Response");
+      downloadBlob(blob, "agent-response.docx");
+    } catch {
+      toast.error("Couldn't download that message");
+    } finally {
+      setDownloadingIndex(null);
+    }
+  }
 
   async function addDocFiles(newFiles: File[]) {
     const merged = [...docFiles, ...newFiles];
@@ -312,6 +349,23 @@ function AgentPage() {
                         {f.filename || "Download file"}
                       </Button>
                     ))}
+                  </div>
+                )}
+                {m.role === "assistant" && m.content.trim() !== "" && !(sending && i === messages.length - 1) && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      onClick={() => copyMessage(i, m.content)}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copiedIndex === i ? <><CopyCheck className="size-3.5" /> Copied</> : <><Copy className="size-3.5" /> Copy</>}
+                    </button>
+                    <button
+                      onClick={() => downloadMessage(i, m.content)}
+                      disabled={downloadingIndex === i}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                      {downloadingIndex === i ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} Download
+                    </button>
                   </div>
                 )}
               </div>

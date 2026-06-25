@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { History, Plus, Trash2, Loader2 } from "lucide-react";
+import { History, Plus, Trash2, Loader2, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { listChatConversations, deleteChatConversation } from "@/lib/chat-history.functions";
+import { listChatConversations, deleteChatConversation, renameChatConversation } from "@/lib/chat-history.functions";
 
 type ConversationSummary = { id: string; title: string; created_at: string; updated_at: string };
 
@@ -33,9 +33,13 @@ export function ChatHistoryMenu({
 }) {
   const listFn = useServerFn(listChatConversations);
   const deleteFn = useServerFn(deleteChatConversation);
+  const renameFn = useServerFn(renameChatConversation);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
     setLoading(true);
@@ -56,6 +60,21 @@ export function ChatHistoryMenu({
     setConversations((prev) => prev.filter((c) => c.id !== id));
     await deleteFn({ data: { id } });
     if (id === activeId) onNew();
+  }
+
+  function startRename(c: ConversationSummary, e: React.MouseEvent) {
+    e.stopPropagation();
+    setRenamingId(c.id);
+    setRenameValue(c.title);
+    setTimeout(() => renameInputRef.current?.select(), 0);
+  }
+
+  async function commitRename(id: string) {
+    const title = renameValue.trim();
+    setRenamingId(null);
+    if (!title) return;
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)));
+    await renameFn({ data: { id, title } });
   }
 
   return (
@@ -86,31 +105,63 @@ export function ChatHistoryMenu({
             <p className="px-2 py-4 text-xs text-muted-foreground">No past chats yet.</p>
           )}
           {!loading &&
-            conversations.map((c) => (
-              <div
-                key={c.id}
-                onClick={() => {
-                  onSelect(c.id);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "group flex items-center justify-between gap-2 rounded px-2 py-2 text-sm cursor-pointer",
-                  c.id === activeId ? "bg-primary/10 font-medium" : "hover:bg-muted/60",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate">{c.title}</p>
-                  <p className="text-[11px] text-muted-foreground">{relativeTime(c.updated_at)}</p>
+            conversations.map((c) =>
+              renamingId === c.id ? (
+                <div key={c.id} className="flex items-center gap-1 rounded px-2 py-1.5">
+                  <input
+                    ref={renameInputRef}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename(c.id);
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm"
+                    autoFocus
+                  />
+                  <button onClick={() => commitRename(c.id)} className="shrink-0 text-muted-foreground hover:text-foreground" title="Save">
+                    <Check className="size-3.5" />
+                  </button>
+                  <button onClick={() => setRenamingId(null)} className="shrink-0 text-muted-foreground hover:text-destructive" title="Cancel">
+                    <X className="size-3.5" />
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => handleDelete(c.id, e)}
-                  className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive"
-                  title="Delete chat"
+              ) : (
+                <div
+                  key={c.id}
+                  onClick={() => {
+                    onSelect(c.id);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "group flex items-center justify-between gap-2 rounded px-2 py-2 text-sm cursor-pointer",
+                    c.id === activeId ? "bg-primary/10 font-medium" : "hover:bg-muted/60",
+                  )}
                 >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">{c.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{relativeTime(c.updated_at)}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
+                    <button
+                      onClick={(e) => startRename(c, e)}
+                      className="text-muted-foreground hover:text-foreground"
+                      title="Rename chat"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(c.id, e)}
+                      className="text-muted-foreground hover:text-destructive"
+                      title="Delete chat"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ),
+            )}
         </div>
       </PopoverContent>
     </Popover>

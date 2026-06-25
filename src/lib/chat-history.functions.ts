@@ -15,6 +15,7 @@ const SaveInput = z.object({
   agentSessionId: z.string().max(200).optional(),
 });
 const DeleteInput = z.object({ id: z.string().uuid() });
+const RenameInput = z.object({ id: z.string().uuid(), title: z.string().min(1).max(200) });
 
 export const listChatConversations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -68,6 +69,18 @@ export const saveChatConversation = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     return { id: row.id };
+  });
+
+export const renameChatConversation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RenameInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("chat_conversations")
+      .update({ title: data.title.trim(), updated_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const deleteChatConversation = createServerFn({ method: "POST" })

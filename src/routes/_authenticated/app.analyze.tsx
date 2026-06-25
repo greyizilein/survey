@@ -257,6 +257,7 @@ function AnalyzePage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -309,6 +310,19 @@ function AnalyzePage() {
       } catch {
         toast.error("Couldn't copy to clipboard");
       }
+    }
+  }
+
+  async function downloadMessage(index: number, content: string) {
+    setDownloadingIndex(index);
+    try {
+      const title = PRESET_FULL_LABELS[instructionsPreset] !== "None" ? PRESET_FULL_LABELS[instructionsPreset] : "Written Document";
+      const blob = await exportToDocx(content, title);
+      downloadBlob(blob, `${title.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.docx`);
+    } catch {
+      toast.error("Couldn't download that message");
+    } finally {
+      setDownloadingIndex(null);
     }
   }
 
@@ -708,12 +722,21 @@ function AnalyzePage() {
                     </details>
                   )}
                   {m.role === "assistant" && m.content.trim() !== "" && !(sending && i === messages.length - 1) && (
-                    <button
-                      onClick={() => copyMessage(i, m.content)}
-                      className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copiedIndex === i ? <><CopyCheck className="size-3.5" /> Copied</> : <><Copy className="size-3.5" /> Copy</>}
-                    </button>
+                    <div className="mt-2 flex items-center gap-3">
+                      <button
+                        onClick={() => copyMessage(i, m.content)}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {copiedIndex === i ? <><CopyCheck className="size-3.5" /> Copied</> : <><Copy className="size-3.5" /> Copy</>}
+                      </button>
+                      <button
+                        onClick={() => downloadMessage(i, m.content)}
+                        disabled={downloadingIndex === i}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                      >
+                        {downloadingIndex === i ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} Download
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
