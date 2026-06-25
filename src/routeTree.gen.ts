@@ -17,7 +17,6 @@ import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.appl
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
-import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenticated/app.projects'
 import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_authenticated/app.presentations'
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
@@ -68,11 +67,6 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   id: '/app',
   path: '/app',
   getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedAppRoute,
 } as any)
 const AuthenticatedAppProjectsRoute =
   AuthenticatedAppProjectsRouteImport.update({
@@ -148,13 +142,13 @@ export interface FileRoutesByFullPath {
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
-  '/app/': typeof AuthenticatedAppIndexRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/app': typeof AuthenticatedAppRouteWithChildren
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
@@ -166,7 +160,6 @@ export interface FileRoutesByTo {
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
-  '/app': typeof AuthenticatedAppIndexRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/projects': typeof AuthenticatedAppProjectsIndexRoute
 }
@@ -188,7 +181,6 @@ export interface FileRoutesById {
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
   '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/_authenticated/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
-  '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/_authenticated/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
 }
@@ -210,13 +202,13 @@ export interface FileRouteTypes {
     | '/app/personas'
     | '/app/presentations'
     | '/app/projects'
-    | '/app/'
     | '/app/projects/$id'
     | '/app/projects/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/app'
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
@@ -228,7 +220,6 @@ export interface FileRouteTypes {
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
-    | '/app'
     | '/app/projects/$id'
     | '/app/projects'
   id:
@@ -249,7 +240,6 @@ export interface FileRouteTypes {
     | '/_authenticated/app/personas'
     | '/_authenticated/app/presentations'
     | '/_authenticated/app/projects'
-    | '/_authenticated/app/'
     | '/_authenticated/app/projects/$id'
     | '/_authenticated/app/projects/'
   fileRoutesById: FileRoutesById
@@ -321,13 +311,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/app'
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/app/': {
-      id: '/_authenticated/app/'
-      path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/projects': {
       id: '/_authenticated/app/projects'
@@ -427,7 +410,6 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
   AuthenticatedAppPresentationsRoute: typeof AuthenticatedAppPresentationsRoute
   AuthenticatedAppProjectsRoute: typeof AuthenticatedAppProjectsRouteWithChildren
-  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
@@ -439,7 +421,6 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
   AuthenticatedAppPresentationsRoute: AuthenticatedAppPresentationsRoute,
   AuthenticatedAppProjectsRoute: AuthenticatedAppProjectsRouteWithChildren,
-  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
 const AuthenticatedAppRouteWithChildren =
