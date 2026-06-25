@@ -112,7 +112,7 @@ async function parseBriefConstraints(brief: string): Promise<BriefConstraints> {
     notes: brief,
   };
   try {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
     const prompt = `You are extracting hard sampling constraints from a researcher's population brief. The location and occupation/role described in the brief are FIXED — they must apply to every persona generated. Only voice, personality, age, gender, education, income, values, language style, and exact neighborhood may vary.
@@ -129,7 +129,7 @@ Return ONLY valid JSON (no markdown) with this exact shape:
   "age_range": [min_age, max_age] reasonable for the described population,
   "notes": "Anything else hard-constrained by the brief (income band, language, religion, employer type, etc). Free text."
 }`;
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt });
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) return empty;
     const parsed = JSON.parse(match[0]);
@@ -181,7 +181,7 @@ async function generateBatch(
   seedIndex: number,
 ): Promise<Array<Record<string, unknown>>> {
   try {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
     const prompt = `Generate ${size} synthetic survey personas for this research brief.
@@ -213,7 +213,7 @@ Output ONLY a valid JSON array (no markdown, no commentary) with exactly ${size}
   "tags": ["3-5 short demographic/psychographic tags"]
 }]
 Batch seed: ${seedIndex} (use it to ensure names and bios are distinct from prior batches).`;
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt });
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) return [];
     const parsed = JSON.parse(jsonMatch[0]);

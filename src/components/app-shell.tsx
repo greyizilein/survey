@@ -1,15 +1,41 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard } from "lucide-react";
+import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard, Zap, Gem, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useModelTier } from "@/lib/use-model-tier";
+import { MODEL_TIER_LABELS, MODEL_TIER_DESCRIPTIONS, type ModelTier } from "@/lib/model-tier";
 
-const AppShellMenuContext = createContext<() => void>(() => {});
+const TIER_ICON: Record<ModelTier, typeof Zap> = { fast: Zap, pro: Gem, max: Crown };
 
-/** Lets a full-screen-mobile page open the nav drawer from its own inline header. */
-export function useOpenMobileMenu() {
-  return useContext(AppShellMenuContext);
+function TierPicker({ tier, setTier }: { tier: ModelTier; setTier: (t: ModelTier) => void }) {
+  return (
+    <div className="px-3 py-2.5 border-b-2 border-sidebar-border">
+      <div className="grid grid-cols-3 gap-1">
+        {(["fast", "pro", "max"] as const).map((t) => {
+          const Icon = TIER_ICON[t];
+          const active = tier === t;
+          return (
+            <button
+              key={t}
+              onClick={() => setTier(t)}
+              title={MODEL_TIER_DESCRIPTIONS[t]}
+              className={cn(
+                "flex flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold uppercase tracking-wide border-2 transition-all",
+                active
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground"
+                  : "border-transparent text-sidebar-foreground/60 hover:border-sidebar-border hover:text-sidebar-foreground"
+              )}
+            >
+              <Icon className="size-3.5" />
+              {MODEL_TIER_LABELS[t]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const nav = [
@@ -26,11 +52,18 @@ const nav = [
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 
-export function AppShell({ children, fullScreenMobile }: { children: ReactNode; fullScreenMobile?: boolean }) {
+export function AppShell({
+  children,
+  fullScreenMobile,
+}: {
+  children: ReactNode | ((openMobileMenu: () => void) => ReactNode);
+  fullScreenMobile?: boolean;
+}) {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [tier, setTier] = useModelTier();
 
   useEffect(() => { setOpen(false); }, [pathname]);
 
@@ -95,6 +128,7 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
           <X className="size-4" />
         </button>
       </div>
+      <TierPicker tier={tier} setTier={setTier} />
       {renderNav(true)}
       <button onClick={signOut} className="m-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all">
         <LogOut className="size-4" /> Sign out
@@ -130,6 +164,7 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
           <Menu className="size-4" />
         </button>
       )}
+      {!collapsed && <TierPicker tier={tier} setTier={setTier} />}
       {renderNav(!collapsed)}
       <button
         onClick={signOut}
@@ -186,11 +221,9 @@ export function AppShell({ children, fullScreenMobile }: { children: ReactNode; 
           </header>
         )}
 
-        <AppShellMenuContext.Provider value={() => setOpen(true)}>
-          <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
-            {children}
-          </main>
-        </AppShellMenuContext.Provider>
+        <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
+          {typeof children === "function" ? children(() => setOpen(true)) : children}
+        </main>
       </div>
     </div>
   );

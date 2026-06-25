@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { splitStreamError } from "@/lib/stream-error-marker";
 
-import { AppShell, useOpenMobileMenu } from "@/components/app-shell";
+import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -226,7 +226,6 @@ function MarkdownLite({ text }: { text: string }) {
 }
 
 function AnalyzePage() {
-  const openMobileMenu = useOpenMobileMenu();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
@@ -605,6 +604,8 @@ function AnalyzePage() {
 
   return (
     <AppShell fullScreenMobile>
+      {(openMobileMenu) => (
+      <>
       <div className="mx-auto max-w-[1400px] p-0 sm:p-6 flex flex-col h-dvh">
         <div className="flex items-center justify-between gap-2 mb-2 shrink-0 px-3 pt-3 sm:px-0 sm:pt-0">
           <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate min-w-0">
@@ -948,6 +949,8 @@ function AnalyzePage() {
         documentTitle={documentTitle()}
         onApplied={handleCorrectionsApplied}
       />
+      </>
+      )}
     </AppShell>
   );
 }

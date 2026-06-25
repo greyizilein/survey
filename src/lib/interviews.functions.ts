@@ -118,7 +118,7 @@ export const analyzeInterviewDoc = createServerFn({ method: "POST" })
     if (guideText.length > GUIDE_MAX) guideText = guideText.slice(0, GUIDE_MAX) + "\n…[truncated]";
     if (contextText.length > CONTEXT_MAX) contextText = contextText.slice(0, CONTEXT_MAX) + "\n…[truncated]";
 
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -149,7 +149,7 @@ Rules:
 - Copy each guide question verbatim and keep the original order. Capture prompts/probes ("Tell me about…", "Describe…") exactly as written. Do NOT invent or drop questions. Only if the guide is genuinely empty of questions, infer the 6-12 most likely ones from the topic.
 - If the materials name a sample size (e.g. "18 semi-structured interviews"), use that exact number and quote it in count_evidence; otherwise estimate and say so.`;
 
-    const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0 });
+    const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0 });
     const parsed = safeJson<{
       title?: string;
       context_summary?: string;
@@ -202,7 +202,7 @@ async function planParticipants(
   context: string,
   namingContext: string,
 ): Promise<ParticipantPersona[]> {
-  const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+  const { createAi, textModelForTier } = await import("./ai-gateway.server");
   const { generateText } = await import("ai");
   const ai = createAi();
 
@@ -232,7 +232,7 @@ Return ONLY a JSON array of exactly ${count} objects:
   "stance": "their genuine attitude toward the study topic — make these differ across the group, including skeptics and enthusiasts"
 }]`;
 
-  const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.9 });
+  const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0.9 });
   const arr = safeJson<any[]>(text, []);
 
   const seen = new Set<string>();
@@ -372,7 +372,7 @@ export const generateTranscript = createServerFn({ method: "POST" })
     const respondentName = study.anonymize ? participant.participant_label : persona.name;
     const interviewerName = study.interviewer_name;
 
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -410,7 +410,7 @@ Return ONLY a JSON array of turns:
 
     let turns: InterviewTurn[] = [];
     try {
-      const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt, temperature: 0.85 });
+      const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0.85 });
       const arr = safeJson<any[]>(text, []);
       turns = (Array.isArray(arr) ? arr : [])
         .filter((t) => t && typeof t.text === "string" && t.text.trim())

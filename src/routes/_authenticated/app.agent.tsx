@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square, Copy, CopyCheck, Menu } from "lucide-react";
 import { toast } from "sonner";
 
-import { AppShell, useOpenMobileMenu } from "@/components/app-shell";
+import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,7 +57,6 @@ function splitFileMarkers(raw: string): { display: string; files: AgentFile[] } 
 }
 
 function AgentPage() {
-  const openMobileMenu = useOpenMobileMenu();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const createSession = useServerFn(createAgentSessionFn);
   const saveConversationFn = useServerFn(saveChatConversation);
@@ -302,6 +301,7 @@ function AgentPage() {
 
   return (
     <AppShell fullScreenMobile>
+      {(openMobileMenu) => (
       <div className="flex h-dvh flex-col gap-4 p-0 sm:p-6">
         <div className="flex items-center justify-between gap-2 px-3 pt-3 sm:px-0 sm:pt-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -461,6 +461,7 @@ function AgentPage() {
           </div>
         </div>
       </div>
+      )}
     </AppShell>
   );
 }

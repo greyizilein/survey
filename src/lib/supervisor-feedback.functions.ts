@@ -29,7 +29,7 @@ export const parseSupervisorFeedback = createServerFn({ method: "POST" })
     text = text.trim();
     if (!text) throw new Error("No feedback text found");
 
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateObject } = await import("ai");
     const ai = createAi();
 
@@ -51,7 +51,7 @@ ${text}
 Extract every distinct actionable item — do not merge unrelated instructions, and do not invent items the text doesn't support.`;
 
     const { object } = await generateObject({
-      model: ai(DEFAULT_MODEL),
+      model: ai(textModelForTier()),
       schema: z.object({ items: z.array(FeedbackItemSchema) }),
       prompt,
       temperature: 0,

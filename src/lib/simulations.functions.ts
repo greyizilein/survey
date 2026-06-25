@@ -39,7 +39,7 @@ export const runSimulation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => RunInput.parse(d))
   .handler(async ({ data, context }) => {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -78,7 +78,7 @@ export const runSimulation = createServerFn({ method: "POST" })
       const results = await Promise.all(batch.map(async (p) => {
         const prompt = `${personaPrompt(p)}${backgroundBlock}\n\nAnswer these ${questions.length} survey questions:\n${questionList}\n\nOutput ONLY a valid JSON array, one element per question in order:\n[{"question_id":"q1","answer":"your answer here"}]\nFor choice questions answer with one option text. For open-ended give a 1-3 sentence authentic response. For likert/rating give a number 1-5.`;
         try {
-          const { text } = await generateText({ model: ai(DEFAULT_MODEL), prompt });
+          const { text } = await generateText({ model: ai(textModelForTier()), prompt });
           const m = text.match(/\[[\s\S]*\]/);
           const answers = m ? JSON.parse(m[0]) : fallbackAnswers(questions, p);
           return { persona_id: p.id, answers: normalizeAnswers(answers, questions, p) };
@@ -148,7 +148,7 @@ export const generateVtt = createServerFn({ method: "POST" })
     persona_id: z.string().uuid(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { createAi, DEFAULT_MODEL } = await import("./ai-gateway.server");
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
@@ -190,7 +190,7 @@ Structure the interview like a real ethics-compliant research session:
 Write in the participant's natural voice and dialect where appropriate. Return ONLY the JSON array, no markdown fences, no commentary.`;
 
     const { text } = await generateText({
-      model: ai(DEFAULT_MODEL),
+      model: ai(textModelForTier()),
       prompt,
       temperature: 0.7,
       maxOutputTokens: 12000,

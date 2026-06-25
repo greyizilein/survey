@@ -1,6 +1,8 @@
 import { createGateway } from "@ai-sdk/gateway";
 import { createAnthropic, anthropic } from "@ai-sdk/anthropic";
+import { getCookie } from "@tanstack/react-start/server";
 import { STREAM_ERROR_MARKER } from "./stream-error-marker";
+import { MODEL_TIER_COOKIE, TEXT_MODEL_BY_TIER, IMAGE_MODEL_BY_TIER, type ModelTier } from "./model-tier";
 
 export function createAi() {
   const key = process.env.AI_GATEWAY_API_KEY;
@@ -8,6 +10,23 @@ export function createAi() {
   return createGateway({ apiKey: key });
 }
 
+/** Reads the user's Fast/Pro/Max choice from the cookie the client sets; defaults to Max. */
+export function getModelTier(): ModelTier {
+  const raw = getCookie(MODEL_TIER_COOKIE);
+  return raw === "fast" || raw === "pro" || raw === "max" ? raw : "max";
+}
+
+/** Text model for the current tier — use this instead of DEFAULT_MODEL in new call sites. */
+export function textModelForTier(tier: ModelTier = getModelTier()): string {
+  return TEXT_MODEL_BY_TIER[tier];
+}
+
+/** Image model for the current tier — use this instead of FIGURE_IMAGE_MODEL in new call sites. */
+export function imageModelForTier(tier: ModelTier = getModelTier()): string {
+  return IMAGE_MODEL_BY_TIER[tier];
+}
+
+/** @deprecated kept for any straggler import; resolves the Max-tier model. Prefer textModelForTier(). */
 export const DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 /**
@@ -59,8 +78,8 @@ export async function createRawAnthropic() {
  */
 export const FIGURE_IMAGE_MODEL = "openai/gpt-image-1";
 
-export function figureImageModel() {
-  return createAi().image(FIGURE_IMAGE_MODEL);
+export function figureImageModel(tier: ModelTier = getModelTier()) {
+  return createAi().image(imageModelForTier(tier));
 }
 
 /**
