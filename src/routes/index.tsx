@@ -123,7 +123,7 @@ function Landing() {
           </h1>
 
           <p
-            className="mx-auto mt-6 max-w-xl text-base sm:text-lg"
+            className="mx-auto mt-6 max-w-2xl text-base sm:text-xl"
             style={{ color: "rgba(244,244,239,0.78)" }}
           >
             Chapters, decks, interview transcripts, and survey responses — written in voice by AI, and ready to export or submit, all in one workspace.
@@ -185,29 +185,29 @@ function Landing() {
 
       {/* Light panel below */}
       <section className="bg-background text-foreground">
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl">
+        <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32 lg:px-8">
+          <h2 className="max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
             One workspace for everything you write.
           </h2>
-          <p className="mt-4 max-w-2xl text-base text-muted-foreground">
+          <p className="mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
             Paperstudio writes chapters, decks, interview transcripts, and survey responses in voice — then exports or submits them for you.
           </p>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <Feature icon={BarChart3} title="AI-assisted writing" desc="Chapters, reports, and analysis — with your data, sources, and instructions baked in." />
             <Feature icon={Presentation} title="Presentations" desc="Describe the deck you need and get live, editable slides exported to .pptx." />
             <Feature icon={MessageSquareText} title="Interview Studio" desc="Upload a guide and get a full interview transcript per AI respondent." />
             <Feature icon={ClipboardPenLine} title="Survey autofill" desc="Paste a Google Forms link — Paperstudio answers in character and submits." />
           </div>
 
-          <div className="mt-16 rounded-2xl bg-accent p-8 text-center shadow-md shadow-black/5 sm:p-12">
-            <h3 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Stop starting from a blank page.</h3>
-            <p className="mx-auto mt-2 max-w-md text-sm text-accent-foreground/80">
+          <div className="mt-20 rounded-2xl bg-accent p-10 text-center shadow-md shadow-black/5 sm:p-16">
+            <h3 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Stop starting from a blank page.</h3>
+            <p className="mx-auto mt-3 max-w-md text-sm text-accent-foreground/80 sm:text-base">
               One workspace, every format. Paperstudio does the writing.
             </p>
             <Link
               to={ctaHref}
-              className="mt-6 inline-flex items-center gap-2 border-2 border-foreground bg-foreground px-6 py-3 text-sm font-bold text-background hard-shadow-sm hard-shadow-hover"
+              className="mt-8 inline-flex items-center gap-2 border-2 border-foreground bg-foreground px-7 py-3.5 text-sm font-bold text-background hard-shadow-sm hard-shadow-hover"
             >
               {authed ? "Office" : "Get started"} <ArrowRight className="size-4" />
             </Link>
