@@ -3,7 +3,14 @@ import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, X, MessageSquareTe
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
-import { useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+
+const AppShellMenuContext = createContext<() => void>(() => {});
+
+/** Lets a full-screen-mobile page open the nav drawer from its own inline header. */
+export function useOpenMobileMenu() {
+  return useContext(AppShellMenuContext);
+}
 
 const nav = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -19,7 +26,7 @@ const nav = [
 
 const COLLAPSE_KEY = "sidebar-collapsed";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, fullScreenMobile }: { children: ReactNode; fullScreenMobile?: boolean }) {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -163,21 +170,27 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
-          <button
-            onClick={() => setOpen(true)}
-            className="p-2 -ml-2 hover:bg-accent"
-            aria-label="Open menu"
-          >
-            <Menu className="size-5" />
-          </button>
-          <Link to="/" className="flex items-center gap-2">
-            <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">O</div>
-            <span className="font-bold tracking-tight text-sm">Office</span>
-          </Link>
-        </header>
+        {!fullScreenMobile && (
+          <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
+            <button
+              onClick={() => setOpen(true)}
+              className="p-2 -ml-2 hover:bg-accent"
+              aria-label="Open menu"
+            >
+              <Menu className="size-5" />
+            </button>
+            <Link to="/" className="flex items-center gap-2">
+              <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">O</div>
+              <span className="font-bold tracking-tight text-sm">Office</span>
+            </Link>
+          </header>
+        )}
 
-        <main className="flex-1 overflow-y-auto animate-in fade-in duration-300">{children}</main>
+        <AppShellMenuContext.Provider value={() => setOpen(true)}>
+          <main className={cn("flex-1 overflow-y-auto animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
+            {children}
+          </main>
+        </AppShellMenuContext.Provider>
       </div>
     </div>
   );

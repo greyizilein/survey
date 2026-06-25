@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck, Square } from "lucide-react";
+import { BarChart3, Send, Upload, FileText, Loader2, Trash2, Database, FileStack, ListChecks, Check, Copy, CopyCheck, FileDown, MoreHorizontal, ClipboardCheck, Square, Menu } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   Bar, BarChart, Line, LineChart, Pie, PieChart, Cell,
@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { splitStreamError } from "@/lib/stream-error-marker";
 
-import { AppShell } from "@/components/app-shell";
+import { AppShell, useOpenMobileMenu } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { parseMarkdownLite, blocksToHtml, blocksToPlainText, splitInlineRuns } from "@/lib/markdown-lite";
 import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
+import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
@@ -225,6 +226,8 @@ function MarkdownLite({ text }: { text: string }) {
 }
 
 function AnalyzePage() {
+  const openMobileMenu = useOpenMobileMenu();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
   const extractDocTextFn = useServerFn(extractDocumentText);
@@ -262,6 +265,8 @@ function AnalyzePage() {
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useAutosizeTextarea(textareaRef, input);
 
   function stopGenerating() {
     abortRef.current?.abort();
@@ -599,11 +604,14 @@ function AnalyzePage() {
   const sourceActive = sourceTab === "project" ? !!projectId : !!fileName;
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-[1400px] p-0 sm:p-6 flex flex-col h-[calc(100dvh-3.5rem)] md:h-dvh">
+    <AppShell fullScreenMobile>
+      <div className="mx-auto max-w-[1400px] p-0 sm:p-6 flex flex-col h-dvh">
         <div className="flex items-center justify-between gap-2 mb-2 shrink-0 px-3 pt-3 sm:px-0 sm:pt-0">
-          <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate">
-            <BarChart3 className="size-5 shrink-0" /> Writing
+          <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate min-w-0">
+            <button onClick={openMobileMenu} className="md:hidden -ml-1.5 p-1.5 shrink-0 text-muted-foreground" aria-label="Open menu">
+              <Menu className="size-5" />
+            </button>
+            <BarChart3 className="size-5 shrink-0 hidden sm:block" /> Writing
           </h1>
           {messages.length > 0 && (
             <DropdownMenu>
@@ -630,7 +638,7 @@ function AnalyzePage() {
           )}
         </div>
 
-        <Card className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden rounded-none border-x-0 sm:rounded-lg sm:border-x-2">
+        <Card className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow">
           <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
             {messages.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
@@ -751,15 +759,16 @@ function AnalyzePage() {
             <div ref={bottomRef} />
           </div>
 
-          {/* Composer — Lovable-style: textarea on top, tool icons + send in a single bar */}
-          <div className="border-t-2 p-2 sm:p-3 shrink-0 bg-background">
+          {/* Composer — textarea on top, tool icons + send in a single bar */}
+          <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-none sm:border-0 sm:border-t-2 sm:bg-background sm:shadow-none sm:p-3 shrink-0">
             <Textarea
+              ref={textareaRef}
               rows={1}
               placeholder="Ask about your data..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              className="resize-none min-h-0 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base"
+              className="resize-none min-h-0 max-h-40 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base overflow-y-auto"
             />
             <div className="flex items-center gap-1 mt-1">
               <ChatHistoryMenu
