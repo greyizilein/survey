@@ -42,33 +42,34 @@ export const Route = createFileRoute("/api/presentations-stream")({
           return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
         }
 
-        const { createAi, createCodeExecutionAi, codeExecutionTool, toTextStreamResponseWithErrors } = await import("@/lib/ai-gateway.server");
+        const { createAi, createCodeExecutionAi, codeExecutionTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         try {
           const { model, prompt, useCodeExecution } = await buildPresentationPrompt(parsed.data);
 
-          const result = useCodeExecution
-            ? streamText({
-                model: createCodeExecutionAi()(model),
-                prompt,
-                temperature: 0.3,
-                maxOutputTokens: 8000,
-                tools: { code_execution: codeExecutionTool() },
-                onError: ({ error }) => {
-                  console.error("[presentations-stream] generation error:", error);
-                },
-              })
-            : streamText({
-                model: createAi()(model),
-                prompt,
-                temperature: 0.3,
-                maxOutputTokens: 8000,
-                onError: ({ error }) => {
-                  console.error("[presentations-stream] generation error:", error);
-                },
-              });
-          return toTextStreamResponseWithErrors(result);
+          const makeResult = (withTools: boolean) =>
+            useCodeExecution
+              ? streamText({
+                  model: createCodeExecutionAi()(model),
+                  prompt,
+                  temperature: 0.3,
+                  maxOutputTokens: 8000,
+                  ...(withTools ? { tools: { code_execution: codeExecutionTool() } } : {}),
+                  onError: ({ error }) => {
+                    console.error("[presentations-stream] generation error:", error);
+                  },
+                })
+              : streamText({
+                  model: createAi()(model),
+                  prompt,
+                  temperature: 0.3,
+                  maxOutputTokens: 8000,
+                  onError: ({ error }) => {
+                    console.error("[presentations-stream] generation error:", error);
+                  },
+                });
+          return toTextStreamResponseWithToolFallback(makeResult(true), () => makeResult(false));
         } catch (e) {
           console.error("[presentations-stream] setup error:", e);
           return new Response(e instanceof Error ? e.message : "Failed to start generation", { status: 500 });
