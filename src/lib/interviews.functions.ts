@@ -92,11 +92,11 @@ function safeJson<T>(text: string, fallback: T): T {
 // ---------------------------------------------------------------------------
 const AnalyzeInput = z.object({
   guide_files: z
-    .array(z.object({ name: z.string(), data: z.string() }))
+    .array(z.object({ name: z.string(), text: z.string() }))
     .min(1)
     .max(20),
   context_files: z
-    .array(z.object({ name: z.string(), data: z.string() }))
+    .array(z.object({ name: z.string(), text: z.string() }))
     .max(20)
     .optional(),
   notes: z.string().max(2000).optional(),
@@ -106,13 +106,8 @@ export const analyzeInterviewDoc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AnalyzeInput.parse(d))
   .handler(async ({ data }) => {
-    async function gather(files: { name: string; data: string }[]) {
-      const out: string[] = [];
-      for (const f of files) {
-        const t = await extractText(f.data, f.name);
-        out.push(`===== FILE: ${f.name} =====\n${t}`);
-      }
-      return out.join("\n\n");
+    function gather(files: { name: string; text: string }[]) {
+      return files.map((f) => `===== FILE: ${f.name} =====\n${f.text}`).join("\n\n");
     }
 
     let guideText = await gather(data.guide_files);

@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizePresentationDocuments } from "@/lib/presentations.functions";
+import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
 import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
@@ -410,6 +411,7 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
 
 function PresentationsPage() {
   const summarizeDocsFn = useServerFn(summarizePresentationDocuments);
+  const extractDocTextFn = useServerFn(extractDocumentText);
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
@@ -502,7 +504,12 @@ function PresentationsPage() {
     if (!files.length) { setDocSummary(""); return; }
     setSummarizingDocs(true);
     try {
-      const payload = await Promise.all(files.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      const payload: { name: string; text: string }[] = [];
+      for (const f of files) {
+        const data = await readAsBase64(f);
+        const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+        payload.push({ name: f.name, text });
+      }
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
       toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);

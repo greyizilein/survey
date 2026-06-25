@@ -23,20 +23,14 @@ export const AnalyzeChatInput = z.object({
   instructions: z.string().max(4000).optional(),
 });
 
-const DocFile = z.object({ name: z.string().max(200), data: z.string() });
+const DocFile = z.object({ name: z.string().max(200), text: z.string() });
 const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
 
 export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SummarizeDocsInput.parse(d))
   .handler(async ({ data }) => {
-    const { extractText } = await import("./interviews.functions");
-    const { extractWithSandbox } = await import("./sandbox-extract.server");
-    const texts: string[] = [];
-    for (const f of data.files) {
-      const t = (await extractWithSandbox(f.data, f.name)) ?? (await extractText(f.data, f.name));
-      texts.push(`===== FILE: ${f.name} =====\n${t}`);
-    }
+    const texts = data.files.map((f) => `===== FILE: ${f.name} =====\n${f.text}`);
     let combined = texts.join("\n\n");
     const MAX = 300_000;
     if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";

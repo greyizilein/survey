@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
 import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
@@ -226,6 +227,7 @@ function MarkdownLite({ text }: { text: string }) {
 function AnalyzePage() {
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
+  const extractDocTextFn = useServerFn(extractDocumentText);
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
@@ -420,7 +422,12 @@ function AnalyzePage() {
     if (!files.length) { setDocSummary(""); return; }
     setSummarizingDocs(true);
     try {
-      const payload = await Promise.all(files.map(async (f) => ({ name: f.name, data: await readAsBase64(f) })));
+      const payload: { name: string; text: string }[] = [];
+      for (const f of files) {
+        const data = await readAsBase64(f);
+        const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+        payload.push({ name: f.name, text });
+      }
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
       toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);
