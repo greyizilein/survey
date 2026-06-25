@@ -13,7 +13,9 @@ const AGENT_SYSTEM_PROMPT = `You are the Survey App Assistant, a general-purpose
 
 You explicitly do NOT handle survey design/distribution or interview transcription/analysis — if asked for those, tell the user to use the app's dedicated Surveys or Interviews tools instead.
 
-Be direct and concrete. Prefer actually running code/searches over guessing. When you produce a file, say so clearly and name it.`;
+Be direct and concrete. Prefer actually running code/searches over guessing.
+
+DELIVERABLE FILES: any file you want the user to be able to download (charts, .pptx/.xlsx/.docx/.pdf, images, anything produced via bash or a skill) MUST be written to (or copied to) the \`/mnt/session/outputs/\` directory — that is the ONLY location the app can retrieve files from. A file saved anywhere else (e.g. just \`/workspace/\`) is invisible to the user no matter what you say about it. When you produce such a file, say so clearly and name it, and confirm it's in \`/mnt/session/outputs/\`.`;
 
 const WRITING_SKILLS: Array<{ id: string; title: string; description: string; template: () => Promise<string> }> = [
   {
@@ -247,20 +249,38 @@ export async function* streamAgentTurn(sessionId: string, message: string): Asyn
       }
     } else if (event.type === "agent.tool_use") {
       yield { type: "status", text: `\n_using ${event.name}…_\n` };
-    } else if (event.type === "agent.tool_result") {
-      for (const block of event.content ?? []) {
-        const source = (block as { source?: { type?: string; file_id?: string } }).source;
-        if (source?.type === "file" && source.file_id) {
-          yield { type: "file", fileId: source.file_id };
-        }
-      }
     } else if (event.type === "session.error") {
       yield { type: "error", text: event.error.message ?? "The agent hit an error." };
     } else if (event.type === "session.status_idle" || event.type === "session.status_terminated") {
+      for (const f of await listNewOutputFiles(client, sessionId)) {
+        yield { type: "file", fileId: f.id, filename: f.filename, mediaType: f.mime_type };
+      }
       yield { type: "done" };
       break;
     }
   }
+}
+
+const MANAGED_AGENTS_BETA = "managed-agents-2026-04-01" as const;
+const knownSessionOutputFiles = new Map<string, Set<string>>();
+
+async function listNewOutputFiles(
+  client: Awaited<ReturnType<typeof createRawAnthropic>>,
+  sessionId: string,
+): Promise<Array<{ id: string; filename: string; mime_type: string }>> {
+  const seen = knownSessionOutputFiles.get(sessionId) ?? new Set<string>();
+  let fresh: Array<{ id: string; filename: string; mime_type: string }> = [];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    fresh = [];
+    for await (const f of client.beta.files.list({ scope_id: sessionId, betas: [MANAGED_AGENTS_BETA] })) {
+      if (!seen.has(f.id)) fresh.push(f);
+    }
+    if (fresh.length > 0) break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+  }
+  for (const f of fresh) seen.add(f.id);
+  knownSessionOutputFiles.set(sessionId, seen);
+  return fresh;
 }
 
 export async function downloadAgentFile(fileId: string): Promise<{ base64: string; mediaType: string; filename: string }> {
