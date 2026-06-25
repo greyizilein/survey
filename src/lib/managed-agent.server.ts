@@ -118,7 +118,7 @@ async function getOrCreateWritingSkillId(
   const markdown = buildSkillMarkdown(spec.id, spec.description, body);
   const skill = await client.beta.skills.create({
     display_title: spec.title,
-    files: [await toFile(Buffer.from(markdown, "utf-8"), "SKILL.md", { type: "text/markdown" })],
+    files: [await toFile(Buffer.from(markdown, "utf-8"), `${spec.id}/SKILL.md`, { type: "text/markdown" })],
   });
   return skill.id;
 }

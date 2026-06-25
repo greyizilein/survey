@@ -99,12 +99,38 @@ function StepBar({ step }: { step: Step }) {
   );
 }
 
+function BookLoader({ progress, label }: { progress: number; label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-8">
+      <div className="relative w-14 h-14">
+        <div className="absolute inset-0 rounded-full border-2 border-border" />
+        <div
+          className="absolute inset-0 rounded-full border-2 border-primary border-r-transparent animate-spin"
+          style={{ animationDuration: "1.4s" }}
+        />
+        <Loader2 size={18} className="absolute inset-0 m-auto text-primary" />
+      </div>
+      <p className="text-[13px] font-bold text-foreground">{label}</p>
+      <div className="w-full max-w-[200px]">
+        <div className="h-1.5 bg-border rounded-full overflow-hidden">
+          <div className="h-full bg-primary rounded-full transition-all duration-300 ease-out" style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const structTypes = new Set(["comment", "insertion", "deletion"]);
+
 export function SupervisorFeedbackModal({ open, onClose, documentText, documentTitle, onApplied }: Props) {
   const parseFn = useServerFn(parseSupervisorFeedback);
   const [step, setStep] = useState<Step>("upload");
   const [parsing, setParsing] = useState(false);
+  const [parseProgress, setParseProgress] = useState(0);
+  const [isDocx, setIsDocx] = useState(false);
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [pasted, setPasted] = useState("");
+  const [applying, setApplying] = useState(false);
   const [applyProgress, setApplyProgress] = useState(0);
   const [applyStatus, setApplyStatus] = useState("Thinking through each correction…");
   const [appliedCount, setAppliedCount] = useState(0);
@@ -119,11 +145,12 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
     setApplyProgress(0);
     setAppliedCount(0);
     setAppliedResult(null);
+    setIsDocx(false);
+    setParseProgress(0);
   };
   const handleClose = () => { reset(); onClose(); };
 
-  const parseAndAdvance = async (input: { plainText?: string; docxBase64?: string; filename?: string }) => {
-    setParsing(true);
+  const parseAndAdvance = async (input: { plainText?: string; docxBase64?: string; filename?: string }, ramp?: ReturnType<typeof setInterval>) => {
     try {
       const { items: parsed } = await parseFn({ data: input });
       if (!parsed.length) {
@@ -135,32 +162,50 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to parse feedback");
     } finally {
+      if (ramp) clearInterval(ramp);
       setParsing(false);
+      setParseProgress(0);
     }
   };
 
   const handleFile = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
-    if (ext === "docx") {
-      const buf = await file.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let bin = "";
-      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      await parseAndAdvance({ docxBase64: btoa(bin), filename: file.name });
-    } else {
-      await parseAndAdvance({ plainText: await file.text() });
+    setIsDocx(ext === "docx");
+    setParsing(true);
+    setParseProgress(10);
+    const ramp = setInterval(() => setParseProgress((p) => Math.min(p + 5, 85)), 250);
+    try {
+      if (ext === "docx") {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let bin = "";
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        await parseAndAdvance({ docxBase64: btoa(bin), filename: file.name }, ramp);
+      } else {
+        await parseAndAdvance({ plainText: await file.text() }, ramp);
+      }
+    } catch (e) {
+      clearInterval(ramp);
+      setParsing(false);
+      setParseProgress(0);
+      toast.error(e instanceof Error ? e.message : "Failed to read file");
     }
   };
 
   const handlePaste = async () => {
     if (!pasted.trim()) return toast.error("Paste some feedback first");
-    await parseAndAdvance({ plainText: pasted });
+    setIsDocx(false);
+    setParsing(true);
+    setParseProgress(20);
+    const ramp = setInterval(() => setParseProgress((p) => Math.min(p + 5, 85)), 250);
+    await parseAndAdvance({ plainText: pasted }, ramp);
   };
 
   const handleApply = async () => {
     const selected = items.filter((i) => i.selected);
     if (!selected.length) return toast.error("Select at least one item");
 
+    setApplying(true);
     setApplyProgress(5);
     setApplyStatus("Thinking through each correction…");
     setStep("applying");
@@ -241,6 +286,8 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
       clearInterval(statusInterval);
       toast.error(e instanceof Error ? e.message : "Revision failed");
       setStep("confirm");
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -291,14 +338,21 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
                   onChange={(e) => setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, override: e.target.value } : p)))}
                   className="w-full px-2.5 py-1.5 border border-border rounded-lg text-[12px] outline-none focus:border-primary bg-background text-foreground placeholder:text-muted-foreground/50"
                 />
-                <select
-                  value={item.scope}
-                  onChange={(e) => setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, scope: e.target.value as "local" | "document" } : p)))}
-                  className="px-2.5 py-1.5 border border-border rounded-lg text-[12px] outline-none focus:border-primary bg-background text-foreground cursor-pointer"
-                >
-                  <option value="local">Fix locally</option>
-                  <option value="document">Apply document-wide</option>
-                </select>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <select
+                      value={item.scope}
+                      onChange={(e) => setItems((prev) => prev.map((p) => (p.id === item.id ? { ...p, scope: e.target.value as "local" | "document" } : p)))}
+                      className="px-2.5 py-1.5 border border-border rounded-lg text-[12px] outline-none focus:border-primary bg-background text-foreground cursor-pointer"
+                    >
+                      <option value="local">Fix locally</option>
+                      <option value="document">Apply document-wide</option>
+                    </select>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-[220px] text-[11px] leading-snug">
+                    "Fix locally" edits only the targeted passage. "Apply document-wide" treats this as a standing instruction applied consistently across the whole document.
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </div>
@@ -306,6 +360,9 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
       </div>
     );
   };
+
+  const fromDoc = items.filter((i) => structTypes.has(i.type));
+  const fromAI = items.filter((i) => !structTypes.has(i.type));
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -330,10 +387,7 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
           <div className="flex-1 overflow-y-auto p-5">
             {step === "upload" && (
               parsing ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Loader2 className="size-6 animate-spin text-primary" />
-                  <p className="text-[12px] text-muted-foreground">Extracting comments and instructions…</p>
-                </div>
+                <BookLoader progress={parseProgress} label="Extracting comments and instructions…" />
               ) : (
                 <>
                   <input
@@ -347,7 +401,7 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
                     <Upload size={28} className="text-muted-foreground group-hover:text-primary mx-auto mb-3 transition-colors" />
                     <div className="text-[14px] font-bold text-foreground">Drop feedback file here</div>
                     <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">
-                      <strong>.docx</strong>, .txt, .md, or .csv
+                      <strong>.docx</strong> with tracked changes recommended, or .txt, .md, .csv
                     </p>
                     <div className="flex items-center gap-1.5 justify-center mt-3 text-[11px] text-muted-foreground">
                       <Info size={11} />
@@ -383,6 +437,18 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
 
             {step === "confirm" && (
               <>
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  {isDocx && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-secondary text-muted-foreground">
+                      From document: {fromDoc.filter((i) => i.type === "comment").length} comment(s) · {fromDoc.filter((i) => i.type === "insertion").length} insertion(s) · {fromDoc.filter((i) => i.type === "deletion").length} deletion(s)
+                    </span>
+                  )}
+                  {fromAI.length > 0 && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-secondary text-muted-foreground">
+                      AI inferred: {fromAI.length} note(s)
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className="text-[13px] font-bold text-foreground">{selectedCount} of {items.length} corrections selected</p>
@@ -394,7 +460,17 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
                     <button onClick={() => setItems((p) => p.map((i) => ({ ...i, selected: false })))} className="text-[11px] font-bold text-muted-foreground hover:underline">None</button>
                   </div>
                 </div>
-                <div className="space-y-2.5">{items.map(renderFeedbackItem)}</div>
+                {isDocx && fromAI.length > 0 ? (
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">From your document</p>
+                    {fromDoc.map(renderFeedbackItem)}
+                    <div className="h-px bg-border my-3" />
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">AI inferred</p>
+                    {fromAI.map(renderFeedbackItem)}
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">{items.map(renderFeedbackItem)}</div>
+                )}
                 <div className="mt-4 flex items-start gap-2 p-3 rounded-xl bg-secondary/50 border border-border">
                   <Sparkles size={13} className="text-primary mt-0.5 flex-shrink-0" />
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -423,6 +499,25 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
                   </div>
                   <p className="text-[10px] text-muted-foreground text-center mt-1.5">{Math.round(applyProgress)}% — this may take a minute for longer documents</p>
                 </div>
+                <div className="w-full max-w-xs space-y-1.5 mt-2">
+                  {items.filter((i) => i.selected).map((item, idx, arr) => {
+                    const threshold = ((idx + 1) / arr.length) * 100;
+                    const done = applyProgress >= threshold;
+                    const active = !done && applyProgress >= threshold - 100 / arr.length;
+                    return (
+                      <div key={item.id} className="flex items-center gap-2 text-[11px]">
+                        {done ? (
+                          <CheckCircle2 size={12} className="text-emerald-500 flex-shrink-0" />
+                        ) : active ? (
+                          <Loader2 size={12} className="animate-spin text-primary flex-shrink-0" />
+                        ) : (
+                          <div className="w-3 h-3 rounded-full border border-border flex-shrink-0" />
+                        )}
+                        <span className={cn("truncate", done ? "text-muted-foreground" : "text-foreground")}>{item.comment}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -433,7 +528,7 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
                 </div>
                 <p className="text-[15px] font-black text-foreground">Corrections applied!</p>
                 <p className="text-[12px] text-muted-foreground max-w-xs leading-relaxed">
-                  {appliedCount} correction{appliedCount === 1 ? "" : "s"} applied. The revised document has been added to your chat — review it, then export when ready.
+                  {appliedCount} correction{appliedCount === 1 ? "" : "s"} applied to your document. It's been added to the chat as a new message — review it, then continue.
                 </p>
               </div>
             )}
@@ -455,12 +550,12 @@ export function SupervisorFeedbackModal({ open, onClose, documentText, documentT
                 }}
                 className="px-4 py-2 rounded-xl text-[12px] font-bold text-muted-foreground hover:bg-secondary transition-colors"
               >
-                {step === "done" ? "Close & review" : "Cancel"}
+                {step === "done" ? "Close" : "Cancel"}
               </button>
               {step === "confirm" && (
                 <button
                   onClick={handleApply}
-                  disabled={selectedCount === 0}
+                  disabled={selectedCount === 0 || applying}
                   className="px-5 py-2 rounded-xl text-[12px] font-bold bg-foreground text-background hover:opacity-80 disabled:opacity-40 transition-opacity inline-flex items-center gap-1.5"
                 >
                   <Sparkles size={11} />

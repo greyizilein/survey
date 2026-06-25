@@ -45,19 +45,26 @@ export const Route = createFileRoute("/api/analyze-stream")({
         const { createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
-        const { model, prompt, useWebSearch } = await buildAnalyzePrompt(parsed.data, supabase);
-
-        const result = streamText({
-          model: createCodeExecutionAi()(model),
-          prompt,
-          temperature: 0.2,
-          maxOutputTokens: 8000,
-          tools: {
-            code_execution: codeExecutionTool(),
-            ...(useWebSearch ? { web_search: webSearchTool(), web_fetch: webFetchTool() } : {}),
-          },
-        });
-        return result.toTextStreamResponse();
+        try {
+          const { model, prompt, useWebSearch } = await buildAnalyzePrompt(parsed.data, supabase);
+          const result = streamText({
+            model: createCodeExecutionAi()(model),
+            prompt,
+            temperature: 0.2,
+            maxOutputTokens: 8000,
+            tools: {
+              code_execution: codeExecutionTool(),
+              ...(useWebSearch ? { web_search: webSearchTool(), web_fetch: webFetchTool() } : {}),
+            },
+            onError: ({ error }) => {
+              console.error("[analyze-stream] generation error:", error);
+            },
+          });
+          return result.toTextStreamResponse();
+        } catch (e) {
+          console.error("[analyze-stream] setup error:", e);
+          return new Response(e instanceof Error ? e.message : "Failed to start generation", { status: 500 });
+        }
       },
     },
   },
