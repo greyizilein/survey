@@ -17,6 +17,7 @@ import {
   Bot,
   PenLine,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -89,7 +90,10 @@ function FolderDetail() {
   const [instructionsDirty, setInstructionsDirty] = useState(false);
   const [savingInstructions, setSavingInstructions] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [pending, setPending] = useState<{ name: string; status: IngestStatus }[]>([]);
+  const [pending, setPending] = useState<
+    { id: number; name: string; status: IngestStatus; file: File }[]
+  >([]);
+  const pendingIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -130,35 +134,54 @@ function FolderDetail() {
     }
   }
 
+  // Reads + stores one pending entry; flips it to "failed" (kept, retryable) or removes it on success.
+  async function uploadPending(entryId: number) {
+    let entry: { id: number; name: string; file: File } | undefined;
+    setPending((prev) => {
+      entry = prev.find((p) => p.id === entryId);
+      return prev.map((p) => (p.id === entryId ? { ...p, status: "reading" } : p));
+    });
+    if (!entry) return false;
+    try {
+      const data = await readAsBase64(entry.file);
+      await addFileFn({ data: { folder_id: id, name: entry.name, data } });
+      setPending((prev) => prev.filter((p) => p.id !== entryId));
+      qc.invalidateQueries({ queryKey: ["folder", id] });
+      qc.invalidateQueries({ queryKey: ["folders"] });
+      return true;
+    } catch (e) {
+      console.error(`[folders] could not add "${entry.name}":`, e);
+      setPending((prev) => prev.map((p) => (p.id === entryId ? { ...p, status: "failed" } : p)));
+      return false;
+    }
+  }
+
   async function onFilesPicked(files: FileList | null) {
     if (!files?.length) return;
-    const arr = Array.from(files);
-    setUploading(true);
-    // Show every picked file immediately as "Reading…", then flip per file.
-    setPending(arr.map((f) => ({ name: f.name, status: "reading" as IngestStatus })));
+    const entries = Array.from(files).map((f) => ({
+      id: ++pendingIdRef.current,
+      name: f.name,
+      status: "reading" as IngestStatus,
+      file: f,
+    }));
     if (fileInputRef.current) fileInputRef.current.value = "";
-    const failed: string[] = [];
-    for (const f of arr) {
-      try {
-        const data = await readAsBase64(f);
-        await addFileFn({ data: { folder_id: id, name: f.name, data } });
-        // Stored now — drop it from pending and let the refetch surface it in the list.
-        setPending((prev) => prev.filter((p) => p.name !== f.name));
-        qc.invalidateQueries({ queryKey: ["folder", id] });
-      } catch (e) {
-        console.error(`[folders] could not add "${f.name}":`, e);
-        failed.push(f.name);
-        setPending((prev) => prev.map((p) => (p.name === f.name ? { ...p, status: "failed" } : p)));
-      }
+    setPending((prev) => [...prev, ...entries]);
+    setUploading(true);
+    let failedCount = 0;
+    for (const entry of entries) {
+      const ok = await uploadPending(entry.id);
+      if (!ok) failedCount++;
     }
     setUploading(false);
-    qc.invalidateQueries({ queryKey: ["folders"] });
-    if (failed.length) toast.warning(`Couldn't read: ${failed.join(", ")}`);
+    if (failedCount)
+      toast.warning(
+        `Couldn't read ${failedCount} file${failedCount > 1 ? "s" : ""} — retry from the list`,
+      );
     else toast.success("Files added to folder");
   }
 
-  function dismissPending(fileName: string) {
-    setPending((prev) => prev.filter((p) => p.name !== fileName));
+  function dismissPending(entryId: number) {
+    setPending((prev) => prev.filter((p) => p.id !== entryId));
   }
 
   async function removeFile(fileId: string) {
@@ -356,20 +379,29 @@ function FolderDetail() {
             <ul className="space-y-1.5">
               {pending.map((p) => (
                 <li
-                  key={`pending-${p.name}`}
+                  key={`pending-${p.id}`}
                   className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-sm"
                 >
                   <FileText className={cn("size-4 shrink-0", ingestIconClass(p.status))} />
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
                   <IngestBadge status={p.status} />
                   {p.status === "failed" && (
-                    <button
-                      onClick={() => dismissPending(p.name)}
-                      className="shrink-0 text-muted-foreground hover:text-destructive"
-                      title="Dismiss"
-                    >
-                      <X className="size-4" />
-                    </button>
+                    <>
+                      <button
+                        onClick={() => uploadPending(p.id)}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Try again"
+                      >
+                        <RefreshCw className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => dismissPending(p.id)}
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        title="Dismiss"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </>
                   )}
                 </li>
               ))}

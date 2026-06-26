@@ -10,6 +10,7 @@ import {
   Upload,
   FileText,
   Trash2,
+  RefreshCw,
   Square,
   Copy,
   CopyCheck,
@@ -102,6 +103,7 @@ function AgentPage() {
   const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docTexts, setDocTexts] = useState<{ name: string; text: string }[]>([]);
+  const [failedDocs, setFailedDocs] = useState<string[]>([]);
   const [readingDocs, setReadingDocs] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
@@ -144,32 +146,53 @@ function AgentPage() {
     }
   }
 
-  async function addDocFiles(newFiles: File[]) {
-    const merged = [...docFiles, ...newFiles];
-    setDocFiles(merged);
-    setReadingDocs(true);
+  // Read one file into context; keeps it as "failed" (retryable) rather than aborting the batch.
+  async function readOneDoc(f: File): Promise<boolean> {
+    setFailedDocs((prev) => prev.filter((n) => n !== f.name));
     try {
-      const extracted: { name: string; text: string }[] = [];
-      for (const f of newFiles) {
-        const data = await readAsBase64(f);
-        const { text } = await extractDocTextFn({ data: { name: f.name, data } });
-        extracted.push({ name: f.name, text });
-      }
-      setDocTexts((prev) => [...prev, ...extracted]);
-      toast.success(
-        `Read ${newFiles.length} document${newFiles.length > 1 ? "s" : ""} for context`,
-      );
+      const data = await readAsBase64(f);
+      const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+      setDocTexts((prev) => [...prev.filter((t) => t.name !== f.name), { name: f.name, text }]);
+      return true;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not read those documents");
-      setDocFiles((prev) => prev.filter((f) => !newFiles.includes(f)));
-    } finally {
-      setReadingDocs(false);
+      console.error(`[agent] could not read "${f.name}":`, e);
+      setFailedDocs((prev) => [...new Set([...prev, f.name])]);
+      return false;
     }
   }
 
+  async function addDocFiles(newFiles: File[]) {
+    setDocFiles((prev) => [...prev, ...newFiles]);
+    setReadingDocs(true);
+    let ok = 0;
+    const failed: string[] = [];
+    for (const f of newFiles) {
+      if (await readOneDoc(f)) ok++;
+      else failed.push(f.name);
+    }
+    setReadingDocs(false);
+    if (failed.length && ok)
+      toast.warning(`Read ${ok} of ${newFiles.length} — couldn't read: ${failed.join(", ")}`);
+    else if (failed.length) toast.error(`Couldn't read: ${failed.join(", ")}`);
+    else
+      toast.success(
+        `Read ${newFiles.length} document${newFiles.length > 1 ? "s" : ""} for context`,
+      );
+  }
+
+  async function retryDocFile(f: File) {
+    setReadingDocs(true);
+    await readOneDoc(f);
+    setReadingDocs(false);
+  }
+
   function removeDocFile(index: number) {
+    const f = docFiles[index];
     setDocFiles((prev) => prev.filter((_, i) => i !== index));
-    setDocTexts((prev) => prev.filter((_, i) => i !== index));
+    if (f) {
+      setDocTexts((prev) => prev.filter((t) => t.name !== f.name));
+      setFailedDocs((prev) => prev.filter((n) => n !== f.name));
+    }
   }
 
   function stopGenerating() {
@@ -530,8 +553,14 @@ function AgentPage() {
                     Upload files so the agent has context for what you're asking it to do.
                   </p>
                   <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                    <Upload className="size-5 text-muted-foreground" />
-                    <span className="text-sm font-medium">Choose documents</span>
+                    {readingDocs ? (
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Upload className="size-5 text-muted-foreground" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {readingDocs ? "Reading documents…" : "Choose documents"}
+                    </span>
                     <span className="text-xs text-muted-foreground">
                       PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md
                     </span>
@@ -549,9 +578,11 @@ function AgentPage() {
                   {docFiles.length > 0 && (
                     <div className="mt-3 space-y-1.5">
                       {docFiles.map((f, i) => {
-                        // Files are read in order and appended to docTexts; one is ready once its text lands.
-                        const status: IngestStatus =
-                          readingDocs && i >= docTexts.length ? "reading" : "ready";
+                        const status: IngestStatus = failedDocs.includes(f.name)
+                          ? "failed"
+                          : docTexts.some((t) => t.name === f.name)
+                            ? "ready"
+                            : "reading";
                         return (
                           <div
                             key={i}
@@ -565,9 +596,19 @@ function AgentPage() {
                             </span>
                             <span className="flex shrink-0 items-center gap-2">
                               <IngestBadge status={status} />
+                              {status === "failed" && (
+                                <button
+                                  onClick={() => retryDocFile(f)}
+                                  className="text-muted-foreground hover:text-foreground"
+                                  title="Try again"
+                                >
+                                  <RefreshCw className="size-4" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => removeDocFile(i)}
                                 className="text-muted-foreground hover:text-destructive"
+                                title="Remove"
                               >
                                 <Trash2 className="size-4" />
                               </button>

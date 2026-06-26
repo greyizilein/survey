@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   Trash2,
+  RefreshCw,
   FileStack,
   ListChecks,
   Check,
@@ -1218,9 +1219,19 @@ function PresentationsPage() {
                               </span>
                               <span className="flex shrink-0 items-center gap-2">
                                 <IngestBadge status={status} />
+                                {status === "failed" && (
+                                  <button
+                                    onClick={() => summarizeDocFiles(docFiles)}
+                                    className="text-muted-foreground hover:text-foreground"
+                                    title="Try again"
+                                  >
+                                    <RefreshCw className="size-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => removeDocFile(i)}
                                   className="text-muted-foreground hover:text-destructive"
+                                  title="Remove"
                                 >
                                   <Trash2 className="size-4" />
                                 </button>
