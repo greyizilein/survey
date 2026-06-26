@@ -46,6 +46,8 @@ import {
   removeFolderFile,
   assignChatToFolder,
 } from "@/lib/folders.functions";
+import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/folders/$id")({
   head: () => ({ meta: [{ title: "Folder · Paperstudio" }] }),
@@ -87,6 +89,7 @@ function FolderDetail() {
   const [instructionsDirty, setInstructionsDirty] = useState(false);
   const [savingInstructions, setSavingInstructions] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pending, setPending] = useState<{ name: string; status: IngestStatus }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -129,23 +132,33 @@ function FolderDetail() {
 
   async function onFilesPicked(files: FileList | null) {
     if (!files?.length) return;
+    const arr = Array.from(files);
     setUploading(true);
+    // Show every picked file immediately as "Reading…", then flip per file.
+    setPending(arr.map((f) => ({ name: f.name, status: "reading" as IngestStatus })));
+    if (fileInputRef.current) fileInputRef.current.value = "";
     const failed: string[] = [];
-    for (const f of Array.from(files)) {
+    for (const f of arr) {
       try {
         const data = await readAsBase64(f);
         await addFileFn({ data: { folder_id: id, name: f.name, data } });
+        // Stored now — drop it from pending and let the refetch surface it in the list.
+        setPending((prev) => prev.filter((p) => p.name !== f.name));
+        qc.invalidateQueries({ queryKey: ["folder", id] });
       } catch (e) {
         console.error(`[folders] could not add "${f.name}":`, e);
         failed.push(f.name);
+        setPending((prev) => prev.map((p) => (p.name === f.name ? { ...p, status: "failed" } : p)));
       }
     }
     setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    qc.invalidateQueries({ queryKey: ["folder", id] });
     qc.invalidateQueries({ queryKey: ["folders"] });
     if (failed.length) toast.warning(`Couldn't read: ${failed.join(", ")}`);
     else toast.success("Files added to folder");
+  }
+
+  function dismissPending(fileName: string) {
+    setPending((prev) => prev.filter((p) => p.name !== fileName));
   }
 
   async function removeFile(fileId: string) {
@@ -335,12 +348,31 @@ function FolderDetail() {
               onChange={(e) => onFilesPicked(e.target.files)}
             />
           </div>
-          {files.length === 0 ? (
+          {files.length === 0 && pending.length === 0 ? (
             <p className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
               No files yet. PDFs, Word, Excel, PowerPoint, and text all work.
             </p>
           ) : (
             <ul className="space-y-1.5">
+              {pending.map((p) => (
+                <li
+                  key={`pending-${p.name}`}
+                  className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <FileText className={cn("size-4 shrink-0", ingestIconClass(p.status))} />
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  <IngestBadge status={p.status} />
+                  {p.status === "failed" && (
+                    <button
+                      onClick={() => dismissPending(p.name)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      title="Dismiss"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </li>
+              ))}
               {files.map((f) => (
                 <li
                   key={f.id}
