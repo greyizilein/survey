@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
 import { Logo } from "@/components/logo";
 import { NotificationsMenu } from "@/components/notifications-menu";
+import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
 import { useEffect, useState, type ReactNode } from "react";
 import { useModelTier } from "@/lib/use-model-tier";
 import { MODEL_TIER_LABELS, MODEL_TIER_DESCRIPTIONS, type ModelTier } from "@/lib/model-tier";
@@ -66,7 +67,7 @@ const nav = [
   { to: "/app/personas", label: "Persona Studio", icon: Users },
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/analyze", label: "Writing", icon: BarChart3 },
-  { to: "/app/analyze", search: { corrections: "1" }, label: "Corrections", icon: ClipboardCheck },
+  { action: "corrections" as const, label: "Corrections", icon: ClipboardCheck },
   { to: "/app/formatting", label: "Formatting", icon: FileCheck2 },
   { to: "/app/presentations", label: "Presentations", icon: Presentation },
   { to: "/app/agent", label: "Agent", icon: Bot },
@@ -86,6 +87,7 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [tier, setTier] = useModelTier();
+  const [correctionsOpen, setCorrectionsOpen] = useState(false);
 
   useEffect(() => {
     setOpen(false);
@@ -110,22 +112,38 @@ export function AppShell({
   }
 
   function renderNav(showLabels: boolean) {
+    const inactive =
+      "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground";
+    const base =
+      "flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all border-2";
     return (
       <nav className="flex-1 p-3 space-y-1.5">
         {nav.map((n) => {
-          const active = pathname.startsWith(n.to) && !("search" in n);
+          if ("action" in n) {
+            return (
+              <button
+                key={n.label}
+                onClick={() => setCorrectionsOpen(true)}
+                title={showLabels ? undefined : n.label}
+                className={cn(base, "w-full", !showLabels && "justify-center", inactive)}
+              >
+                <n.icon className="size-4 shrink-0" />
+                {showLabels && n.label}
+              </button>
+            );
+          }
+          const active = pathname.startsWith(n.to);
           return (
             <Link
               key={n.label}
               to={n.to}
-              search={"search" in n ? n.search : undefined}
               title={showLabels ? undefined : n.label}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium transition-all border-2",
+                base,
                 !showLabels && "justify-center",
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
-                  : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground",
+                  : inactive,
               )}
             >
               <n.icon className="size-4 shrink-0" />
@@ -138,21 +156,30 @@ export function AppShell({
   }
 
   function renderFloatingNav() {
+    const base =
+      "flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-colors";
+    const inactive = "text-white/70 hover:bg-white/5 hover:text-white";
     return (
       <nav className="p-2">
         {nav.map((n) => {
-          const active = pathname.startsWith(n.to) && !("search" in n);
+          if ("action" in n) {
+            return (
+              <button
+                key={n.label}
+                onClick={() => setCorrectionsOpen(true)}
+                className={cn(base, inactive)}
+              >
+                <n.icon className="size-4 shrink-0" />
+                {n.label}
+              </button>
+            );
+          }
+          const active = pathname.startsWith(n.to);
           return (
             <Link
               key={n.label}
               to={n.to}
-              search={"search" in n ? n.search : undefined}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-colors",
-                active
-                  ? "bg-white/10 text-white"
-                  : "text-white/70 hover:bg-white/5 hover:text-white",
-              )}
+              className={cn(base, active ? "bg-white/10 text-white" : inactive)}
             >
               <n.icon className="size-4 shrink-0" />
               {n.label}
@@ -332,6 +359,15 @@ export function AppShell({
           {typeof children === "function" ? children(() => setOpen(true)) : children}
         </main>
       </div>
+
+      {/* Standalone corrections — works on any document, including work from off-platform */}
+      <SupervisorFeedbackModal
+        standalone
+        open={correctionsOpen}
+        onClose={() => setCorrectionsOpen(false)}
+        documentText=""
+        onApplied={() => {}}
+      />
     </div>
   );
 }
