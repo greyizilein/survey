@@ -15,6 +15,14 @@ export const extractDocumentText = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { extractText } = await import("./interviews.functions");
     const { extractWithSandbox } = await import("./sandbox-extract.server");
-    const text = (await extractWithSandbox(data.data, data.name)) ?? (await extractText(data.data, data.name));
+
+    let sandboxText: string | null = null;
+    try {
+      sandboxText = await extractWithSandbox(data.data, data.name);
+    } catch (e) {
+      console.error(`[document-extract] sandbox extraction failed for "${data.name}", falling back to plain-text extractor:`, e);
+    }
+
+    const text = sandboxText ?? (await extractText(data.data, data.name));
     return { text };
   });

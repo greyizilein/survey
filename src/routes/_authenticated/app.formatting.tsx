@@ -94,11 +94,19 @@ function FormattingPage() {
 
   async function readFiles(files: File[]): Promise<string> {
     const parts: string[] = [];
+    const failed: string[] = [];
     for (const f of files) {
-      const data = await readAsBase64(f);
-      const { text } = await extractTextFn({ data: { name: f.name, data } });
-      parts.push(`### ${f.name}\n${text}`);
+      try {
+        const data = await readAsBase64(f);
+        const { text } = await extractTextFn({ data: { name: f.name, data } });
+        parts.push(`### ${f.name}\n${text}`);
+      } catch (e) {
+        console.error(`[formatting] could not read "${f.name}":`, e);
+        failed.push(f.name);
+      }
     }
+    if (failed.length) toast.warning(`Couldn't read: ${failed.join(", ")}`);
+    if (!parts.length) throw new Error("Could not read any of those documents — try them one at a time to find the bad one.");
     return parts.join("\n\n");
   }
 
