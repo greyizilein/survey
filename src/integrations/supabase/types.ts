@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           agent_session_id: string | null
           created_at: string
+          folder_id: string | null
           id: string
           state: Json
           title: string
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           agent_session_id?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           state?: Json
           title?: string
@@ -38,10 +40,81 @@ export type Database = {
         Update: {
           agent_session_id?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           state?: Json
           title?: string
           tool?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_conversations_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folder_files: {
+        Row: {
+          created_at: string
+          extracted_text: string
+          folder_id: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_text?: string
+          folder_id: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_text?: string
+          folder_id?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folder_files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name?: string
           updated_at?: string
           user_id?: string
         }
