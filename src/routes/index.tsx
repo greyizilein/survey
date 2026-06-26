@@ -212,7 +212,7 @@ function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-background text-foreground">
+      <footer className="bg-background text-foreground">
         <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
@@ -252,7 +252,7 @@ function Landing() {
             </div>
           </div>
 
-          <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row">
+          <div className="mt-12 flex flex-col items-center justify-between gap-3 pt-6 text-xs text-muted-foreground sm:flex-row">
             <span>© {new Date().getFullYear()} Paperstudio. All rights reserved.</span>
             <span>A slice of grey.</span>
           </div>
