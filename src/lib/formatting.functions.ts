@@ -64,6 +64,129 @@ Return ONLY the structured data, nothing else.`;
     return object;
   });
 
+const GradeInput = z.object({
+  documentText: z.string().max(120000),
+  briefText: z.string().max(60000).optional(),
+  documentType: z.string().max(200).optional(),
+  currentWordCount: z.number().int().nonnegative(),
+});
+
+const GradeCriterion = z.object({
+  name: z.string(),
+  score: z.number(),
+  max: z.number(),
+  comment: z.string(),
+});
+
+/**
+ * Grader role. Always runs on the strongest model (same direct-Anthropic connection as
+ * the publisher pass) — grading needs real judgment, not mechanical extraction.
+ */
+export const gradeWork = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => GradeInput.parse(d))
+  .handler(async ({ data }) => {
+    const { createCodeExecutionAi, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
+    const { generateObject } = await import("ai");
+    const ai = createCodeExecutionAi();
+
+    const prompt = `You are a strict, fair academic grader. Read the WORK below and weigh it against the BRIEF (assignment instructions / rubric), then grade it honestly — this score is a prediction to help the author improve before they submit, so be accurate, not generous.
+
+${data.documentType ? `DOCUMENT TYPE: ${data.documentType}\n` : ""}
+BRIEF / REQUIREMENTS:
+"""
+${data.briefText?.trim() || "No brief was provided — grade against general academic quality standards for this kind of document: clarity, structure, evidence, argument quality, and correctness."}
+"""
+
+WORK:
+"""
+${data.documentText.slice(0, 100000)}
+"""
+
+The work's current word count (computed exactly, trust this number, do not recount): ${data.currentWordCount} words.
+
+Determine:
+1. targetWordCountMin / targetWordCountMax — if the brief states a word count or page limit, convert/state it as a word range (null/null if not stated; if only a single number or "approximately N" is stated, use a sensible +/-10% range).
+2. A score out of 100 (or your own maxScore if the brief states a different total — then scale "score" to that same max), plus a breakdown into 3-6 named criteria (e.g. "Argument & analysis", "Evidence & citation", "Structure & clarity", "Adherence to brief") each with its own score/max and a one-sentence comment.
+3. strengths — 2-4 concrete things the work does well.
+4. weaknesses — 2-5 concrete, fixable issues (only real ones — do not pad).
+5. missingRequirements — anything the brief explicitly asks for that this work doesn't deliver (empty array if none).
+6. verdict — one or two sentences: is this submission-ready as-is, or would it benefit from edits before submission?
+
+Return ONLY the structured data.`;
+
+    const { object } = await generateObject({
+      model: ai(CODE_EXECUTION_MODEL),
+      schema: z.object({
+        score: z.number(),
+        maxScore: z.number(),
+        criteria: z.array(GradeCriterion),
+        targetWordCountMin: z.number().nullable(),
+        targetWordCountMax: z.number().nullable(),
+        strengths: z.array(z.string()),
+        weaknesses: z.array(z.string()),
+        missingRequirements: z.array(z.string()),
+        verdict: z.string(),
+      }),
+      prompt,
+      temperature: 0.2,
+    });
+
+    return object;
+  });
+
+export const FormattingEnhanceInput = z.object({
+  documentText: z.string().max(120000),
+  briefText: z.string().max(60000).optional(),
+  currentWordCount: z.number().int().nonnegative(),
+  targetWordCountMin: z.number().int().nonnegative().nullable().optional(),
+  targetWordCountMax: z.number().int().nonnegative().nullable().optional(),
+  weaknesses: z.array(z.string()).max(20).default([]),
+  missingRequirements: z.array(z.string()).max(20).default([]),
+});
+
+/**
+ * Editor role. Builds the trim/expand-and-improve prompt for the strong model — the
+ * model never trusts itself to count words; the caller passes in a JS-computed count.
+ */
+export function buildEnhancePrompt(data: z.infer<typeof FormattingEnhanceInput>): { prompt: string } {
+  const hasTarget = data.targetWordCountMin != null && data.targetWordCountMax != null;
+  let wordInstruction = "No explicit word count target was found — focus purely on quality, not length.";
+  if (hasTarget) {
+    const min = data.targetWordCountMin as number;
+    const max = data.targetWordCountMax as number;
+    if (data.currentWordCount > max) {
+      wordInstruction = `The work is currently ${data.currentWordCount} words but must land between ${min} and ${max} words. TRIM it down: tighten prose, cut redundancy and filler, merge repetitive points — never cut substantive content, evidence, or required sections just to hit the number. Every sentence you keep should pull its weight.`;
+    } else if (data.currentWordCount < min) {
+      wordInstruction = `The work is currently ${data.currentWordCount} words but must land between ${min} and ${max} words. EXPAND it: deepen analysis, add supporting evidence/examples, develop underdeveloped points — never pad with filler, repetition, or fluff. Every sentence you add should earn its place.`;
+    } else {
+      wordInstruction = `The work is currently ${data.currentWordCount} words, already within the required ${min}-${max} word range — keep the length roughly where it is while making the quality improvements below.`;
+    }
+  }
+
+  const weaknessLines = data.weaknesses.length ? data.weaknesses.map((w) => `- ${w}`).join("\n") : "- (none flagged)";
+  const missingLines = data.missingRequirements.length ? data.missingRequirements.map((m) => `- ${m}`).join("\n") : "- (none flagged)";
+
+  const prompt = `You are an expert editor improving a piece of academic/professional writing before submission. You may rewrite, restructure, trim, or expand as needed — but you must preserve the author's voice, argument, and factual content. Never invent facts, sources, or data that weren't already in the work.
+
+WORD COUNT INSTRUCTION: ${wordInstruction}
+
+WEAKNESSES TO ADDRESS:
+${weaknessLines}
+
+MISSING REQUIREMENTS TO ADDRESS (add real content for these, don't just gesture at them):
+${missingLines}
+${data.briefText?.trim() ? `\nBRIEF / REQUIREMENTS:\n"""\n${data.briefText.slice(0, 50000)}\n"""\n` : ""}
+WORK TO EDIT:
+"""
+${data.documentText.slice(0, 100000)}
+"""
+
+Output ONLY the full revised document text, start to finish — no preamble, no commentary, no markdown code fences, no notes about what you changed.`;
+
+  return { prompt };
+}
+
 export const FormattingRunInput = z.object({
   documentText: z.string().max(120000),
   briefText: z.string().max(60000).optional(),

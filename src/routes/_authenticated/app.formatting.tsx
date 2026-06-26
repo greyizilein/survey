@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
-import { FileCheck2, Upload, Loader2, FileDown, Menu, X, Sparkles } from "lucide-react";
+import { FileCheck2, Upload, Loader2, FileDown, Menu, X, Sparkles, ClipboardCheck, Copy, Check, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { extractDocumentText } from "@/lib/document-extract.functions";
-import { extractFormattingRequirements } from "@/lib/formatting.functions";
-import { exportFormattedDocx, splitCoverPage, downloadBlob } from "@/lib/writing-export";
+import { extractFormattingRequirements, gradeWork } from "@/lib/formatting.functions";
+import { exportFormattedDocx, exportFormattedPdf, exportFormattedPptx, splitCoverPage, downloadBlob } from "@/lib/writing-export";
 import { supabase } from "@/integrations/supabase/client";
 import { splitStreamError } from "@/lib/stream-error-marker";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,22 @@ export const Route = createFileRoute("/_authenticated/app/formatting")({
 const STYLE_GUIDES = ["APA", "MLA", "Chicago", "Harvard", "IEEE", "Unspecified"] as const;
 
 type FieldRow = { key: string; label: string; value: string };
-type Step = "upload" | "review" | "result";
+type Step = "upload" | "grade" | "review" | "result";
+type GradeResult = {
+  score: number;
+  maxScore: number;
+  criteria: { name: string; score: number; max: number; comment: string }[];
+  targetWordCountMin: number | null;
+  targetWordCountMax: number | null;
+  strengths: string[];
+  weaknesses: string[];
+  missingRequirements: string[];
+  verdict: string;
+};
+
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -40,10 +56,12 @@ function readAsBase64(file: File): Promise<string> {
 function FormattingPage() {
   const extractTextFn = useServerFn(extractDocumentText);
   const extractReqsFn = useServerFn(extractFormattingRequirements);
+  const gradeWorkFn = useServerFn(gradeWork);
 
   const [step, setStep] = useState<Step>("upload");
   const [workFiles, setWorkFiles] = useState<File[]>([]);
   const [briefFiles, setBriefFiles] = useState<File[]>([]);
+  const [hasPptxWork, setHasPptxWork] = useState(false);
   const [reading, setReading] = useState(false);
   const [documentText, setDocumentText] = useState("");
   const [briefText, setBriefText] = useState("");
@@ -54,13 +72,25 @@ function FormattingPage() {
   const [requirements, setRequirements] = useState<string[]>([]);
   const [instructions, setInstructions] = useState("");
 
+  const [grading, setGrading] = useState(false);
+  const [grade, setGrade] = useState<GradeResult | null>(null);
+  const [enhancing, setEnhancing] = useState(false);
+
   const [generating, setGenerating] = useState(false);
   const [resultBody, setResultBody] = useState("");
   const [resultCover, setResultCover] = useState<ReturnType<typeof splitCoverPage>["cover"]>(null);
   const [exporting, setExporting] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const workInputRef = useRef<HTMLInputElement>(null);
   const briefInputRef = useRef<HTMLInputElement>(null);
+
+  async function authToken(): Promise<string> {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error("Not signed in");
+    return token;
+  }
 
   async function readFiles(files: File[]): Promise<string> {
     const parts: string[] = [];
@@ -83,21 +113,69 @@ function FormattingPage() {
       const brief = briefFiles.length ? await readFiles(briefFiles) : "";
       setDocumentText(work);
       setBriefText(brief);
+      setHasPptxWork(workFiles.some((f) => f.name.toLowerCase().endsWith(".pptx")));
 
-      const res = await extractReqsFn({ data: { documentText: work, briefText: brief || undefined } });
-      setStyleGuide(res.styleGuide === "Unspecified" ? "APA" : res.styleGuide);
-      setDocumentType(res.documentType);
-      setRequirements(res.requirements);
-      setFields([
-        ...res.detectedFields.map((f) => ({ key: f.key, label: f.label, value: f.value ?? "" })),
-        ...res.missingFields.map((f) => ({ key: f.key, label: f.label, value: "" })),
+      const [reqRes, gradeRes] = await Promise.all([
+        extractReqsFn({ data: { documentText: work, briefText: brief || undefined } }),
+        gradeWorkFn({ data: { documentText: work, briefText: brief || undefined, currentWordCount: countWords(work) } }),
       ]);
-      setStep("review");
+      setStyleGuide(reqRes.styleGuide === "Unspecified" ? "APA" : reqRes.styleGuide);
+      setDocumentType(reqRes.documentType);
+      setRequirements(reqRes.requirements);
+      setFields([
+        ...reqRes.detectedFields.map((f) => ({ key: f.key, label: f.label, value: f.value ?? "" })),
+        ...reqRes.missingFields.map((f) => ({ key: f.key, label: f.label, value: "" })),
+      ]);
+      setGrade(gradeRes);
+      setStep("grade");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read those documents");
     } finally {
       setReading(false);
     }
+  }
+
+  async function enhanceWork() {
+    if (!grade) return;
+    setEnhancing(true);
+    try {
+      const token = await authToken();
+      const res = await fetch("/api/formatting-enhance-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          documentText,
+          briefText: briefText || undefined,
+          currentWordCount: countWords(documentText),
+          targetWordCountMin: grade.targetWordCountMin,
+          targetWordCountMax: grade.targetWordCountMax,
+          weaknesses: grade.weaknesses,
+          missingRequirements: grade.missingRequirements,
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "Enhancing failed"));
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+      }
+      const { text, error } = splitStreamError(full);
+      if (error) throw new Error(error);
+      setDocumentText(text.trim());
+      toast.success("Work enhanced — review and format it below");
+      setStep("review");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not enhance the work");
+    } finally {
+      setEnhancing(false);
+    }
+  }
+
+  function keepAsIs() {
+    setStep("review");
   }
 
   function updateField(i: number, value: string) {
@@ -109,9 +187,7 @@ function FormattingPage() {
     setResultBody("");
     setResultCover(null);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Not signed in");
+      const token = await authToken();
 
       const fieldsRecord = Object.fromEntries(fields.filter((f) => f.value.trim()).map((f) => [f.label, f.value.trim()]));
 
@@ -155,11 +231,18 @@ function FormattingPage() {
     }
   }
 
-  async function download() {
+  function baseFilename() {
+    return (resultCover?.title || documentType || "submission").replace(/[^\w\- ]+/g, "").trim() || "submission";
+  }
+
+  async function download(format: "docx" | "pdf" | "pptx") {
     setExporting(true);
     try {
-      const blob = await exportFormattedDocx(resultBody, resultCover);
-      downloadBlob(blob, `${(resultCover?.title || documentType || "submission").replace(/[^\w\- ]+/g, "").trim() || "submission"}.docx`);
+      const blob =
+        format === "docx" ? await exportFormattedDocx(resultBody, resultCover)
+        : format === "pdf" ? await exportFormattedPdf(resultBody, resultCover)
+        : await exportFormattedPptx(resultBody, resultCover);
+      downloadBlob(blob, `${baseFilename()}.${format}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not export document");
     } finally {
@@ -167,11 +250,22 @@ function FormattingPage() {
     }
   }
 
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(resultBody);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Could not copy to clipboard");
+    }
+  }
+
   function reset() {
     setStep("upload");
-    setWorkFiles([]); setBriefFiles([]);
+    setWorkFiles([]); setBriefFiles([]); setHasPptxWork(false);
     setDocumentText(""); setBriefText("");
     setFields([]); setRequirements([]); setDocumentType(""); setInstructions("");
+    setGrade(null);
     setResultBody(""); setResultCover(null);
   }
 
@@ -237,6 +331,69 @@ function FormattingPage() {
                 {reading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                 {reading ? "Reading your documents…" : "Check what's needed"}
               </Button>
+            </Card>
+          )}
+
+          {step === "grade" && grade && (
+            <Card className="p-4 sm:p-5 space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold">
+                  <ClipboardCheck className="size-4" /> Grade
+                </div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {Math.round(grade.score)}<span className="text-sm text-muted-foreground font-normal">/{Math.round(grade.maxScore)}</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">{grade.verdict}</p>
+
+              {grade.targetWordCountMin != null && grade.targetWordCountMax != null && (
+                <div className="text-sm rounded border bg-muted/50 p-2.5">
+                  Word count: <span className="font-medium">{countWords(documentText)}</span> (target {grade.targetWordCountMin}–{grade.targetWordCountMax})
+                  {countWords(documentText) < grade.targetWordCountMin && <span className="text-amber-600 dark:text-amber-400"> — under target</span>}
+                  {countWords(documentText) > grade.targetWordCountMax && <span className="text-amber-600 dark:text-amber-400"> — over target</span>}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {grade.criteria.map((c, i) => (
+                  <div key={i} className="text-sm">
+                    <div className="flex justify-between">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="tabular-nums text-muted-foreground">{Math.round(c.score)}/{Math.round(c.max)}</span>
+                    </div>
+                    <p className="text-muted-foreground text-xs">{c.comment}</p>
+                  </div>
+                ))}
+              </div>
+
+              {grade.strengths.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Strengths</Label>
+                  <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-0.5">
+                    {grade.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+              )}
+              {(grade.weaknesses.length > 0 || grade.missingRequirements.length > 0) && (
+                <div className="space-y-1">
+                  <Label className="text-xs">To improve</Label>
+                  <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-0.5">
+                    {grade.weaknesses.map((s, i) => <li key={`w${i}`}>{s}</li>)}
+                    {grade.missingRequirements.map((s, i) => <li key={`m${i}`}>Missing: {s}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={keepAsIs} disabled={enhancing} className="flex-1">
+                  Leave as-is, just format
+                </Button>
+                <Button onClick={enhanceWork} disabled={enhancing} className="flex-1 gap-2">
+                  {enhancing ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                  {enhancing ? "Enhancing…" : "Enhance first"}
+                </Button>
+              </div>
             </Card>
           )}
 
@@ -310,12 +467,25 @@ function FormattingPage() {
                 {resultBody || (generating ? "Working…" : "")}
               </div>
               {!generating && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button variant="outline" onClick={reset}>Start another</Button>
-                  <Button onClick={download} disabled={exporting} className="flex-1 gap-2">
-                    {exporting ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
-                    Download submission-ready .docx
+                  <Button variant="outline" onClick={copyResult} className="gap-2">
+                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    {copied ? "Copied" : "Copy"}
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button disabled={exporting} className="flex-1 gap-2">
+                        {exporting ? <Loader2 className="size-4 animate-spin" /> : <FileDown className="size-4" />}
+                        Download
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => download("docx")}>Word (.docx)</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => download("pdf")}>PDF (.pdf)</DropdownMenuItem>
+                      {hasPptxWork && <DropdownMenuItem onClick={() => download("pptx")}>PowerPoint (.pptx)</DropdownMenuItem>}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </Card>

@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
 import { Route as ApiFormattingStreamRouteImport } from './routes/api.formatting-stream'
+import { Route as ApiFormattingEnhanceStreamRouteImport } from './routes/api.formatting-enhance-stream'
 import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.apply-corrections-stream'
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
@@ -54,6 +55,12 @@ const ApiFormattingStreamRoute = ApiFormattingStreamRouteImport.update({
   path: '/api/formatting-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFormattingEnhanceStreamRoute =
+  ApiFormattingEnhanceStreamRouteImport.update({
+    id: '/api/formatting-enhance-stream',
+    path: '/api/formatting-enhance-stream',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiApplyCorrectionsStreamRoute =
   ApiApplyCorrectionsStreamRouteImport.update({
     id: '/api/apply-corrections-stream',
@@ -146,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
+  '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
@@ -167,6 +175,7 @@ export interface FileRoutesByTo {
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
+  '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
@@ -189,6 +198,7 @@ export interface FileRoutesById {
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
+  '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
@@ -212,6 +222,7 @@ export interface FileRouteTypes {
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
+    | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
     | '/api/presentations-stream'
     | '/app/agent'
@@ -233,6 +244,7 @@ export interface FileRouteTypes {
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
+    | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
     | '/api/presentations-stream'
     | '/app/agent'
@@ -254,6 +266,7 @@ export interface FileRouteTypes {
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
+    | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
     | '/api/presentations-stream'
     | '/_authenticated/app/agent'
@@ -276,6 +289,7 @@ export interface RootRouteChildren {
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAnalyzeStreamRoute: typeof ApiAnalyzeStreamRoute
   ApiApplyCorrectionsStreamRoute: typeof ApiApplyCorrectionsStreamRoute
+  ApiFormattingEnhanceStreamRoute: typeof ApiFormattingEnhanceStreamRoute
   ApiFormattingStreamRoute: typeof ApiFormattingStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
 }
@@ -315,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/api/formatting-stream'
       fullPath: '/api/formatting-stream'
       preLoaderRoute: typeof ApiFormattingStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/formatting-enhance-stream': {
+      id: '/api/formatting-enhance-stream'
+      path: '/api/formatting-enhance-stream'
+      fullPath: '/api/formatting-enhance-stream'
+      preLoaderRoute: typeof ApiFormattingEnhanceStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/apply-corrections-stream': {
@@ -486,6 +507,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAnalyzeStreamRoute: ApiAnalyzeStreamRoute,
   ApiApplyCorrectionsStreamRoute: ApiApplyCorrectionsStreamRoute,
+  ApiFormattingEnhanceStreamRoute: ApiFormattingEnhanceStreamRoute,
   ApiFormattingStreamRoute: ApiFormattingStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
 }
