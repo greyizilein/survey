@@ -252,7 +252,7 @@ function Landing() {
             </div>
           </div>
 
-          <div className="mt-12 flex flex-col items-center justify-between gap-3 pt-6 text-xs text-muted-foreground sm:flex-row">
+          <div className="mt-12 flex flex-row items-center justify-between gap-3 pt-6 text-xs text-muted-foreground">
             <span>© {new Date().getFullYear()} Paperstudio. All rights reserved.</span>
             <span>A slice of grey.</span>
           </div>

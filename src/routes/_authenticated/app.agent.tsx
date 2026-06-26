@@ -137,7 +137,7 @@ function AgentPage() {
   async function downloadMessage(index: number, content: string) {
     setDownloadingIndex(index);
     try {
-      const blob = await exportToDocx(content, "Agent Response");
+      const blob = await exportToDocx(content);
       downloadBlob(blob, "agent-response.docx");
     } catch {
       toast.error("Couldn't download that message");
