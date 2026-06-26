@@ -164,6 +164,13 @@ export function AppShell({
   const MobileFloatingMenu = (
     <div className="md:hidden fixed inset-0 z-50 flex items-center justify-center px-6 pointer-events-none">
       <div className="w-full max-w-xs rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl text-white overflow-hidden pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 px-3 py-3 border-b border-white/10 hover:bg-white/5 transition-colors"
+        >
+          <Logo className="size-7 shrink-0 rotate-[-3deg]" />
+          <span className="font-bold tracking-tight">Office</span>
+        </Link>
         <div className="px-3 py-2.5 border-b border-white/10">
           <div className="grid grid-cols-3 gap-1">
             {(["fast", "pro", "max"] as const).map((t) => {
