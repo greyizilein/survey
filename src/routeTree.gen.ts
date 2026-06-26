@@ -13,6 +13,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
+import { Route as ApiFormattingStreamRouteImport } from './routes/api.formatting-stream'
+import { Route as ApiFormattingEnhanceStreamRouteImport } from './routes/api.formatting-enhance-stream'
 import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.apply-corrections-stream'
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
@@ -21,6 +23,7 @@ import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_authenticated/app.presentations'
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
+import { Route as AuthenticatedAppFormattingRouteImport } from './routes/_authenticated/app.formatting'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
 import { Route as AuthenticatedAppDashboardRouteImport } from './routes/_authenticated/app.dashboard'
 import { Route as AuthenticatedAppAnalyzeRouteImport } from './routes/_authenticated/app.analyze'
@@ -47,6 +50,17 @@ const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
   path: '/api/presentations-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFormattingStreamRoute = ApiFormattingStreamRouteImport.update({
+  id: '/api/formatting-stream',
+  path: '/api/formatting-stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFormattingEnhanceStreamRoute =
+  ApiFormattingEnhanceStreamRouteImport.update({
+    id: '/api/formatting-enhance-stream',
+    path: '/api/formatting-enhance-stream',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiApplyCorrectionsStreamRoute =
   ApiApplyCorrectionsStreamRouteImport.update({
     id: '/api/apply-corrections-stream',
@@ -92,6 +106,12 @@ const AuthenticatedAppInterviewsRoute =
     path: '/interviews',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppFormattingRoute =
+  AuthenticatedAppFormattingRouteImport.update({
+    id: '/formatting',
+    path: '/formatting',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppFillRoute = AuthenticatedAppFillRouteImport.update({
   id: '/fill',
   path: '/fill',
@@ -133,11 +153,14 @@ export interface FileRoutesByFullPath {
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
+  '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
+  '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
+  '/app/formatting': typeof AuthenticatedAppFormattingRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
@@ -152,11 +175,14 @@ export interface FileRoutesByTo {
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
+  '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
+  '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
+  '/app/formatting': typeof AuthenticatedAppFormattingRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
@@ -172,11 +198,14 @@ export interface FileRoutesById {
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
+  '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
+  '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/_authenticated/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
+  '/_authenticated/app/formatting': typeof AuthenticatedAppFormattingRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
   '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
@@ -193,11 +222,14 @@ export interface FileRouteTypes {
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
+    | '/api/formatting-enhance-stream'
+    | '/api/formatting-stream'
     | '/api/presentations-stream'
     | '/app/agent'
     | '/app/analyze'
     | '/app/dashboard'
     | '/app/fill'
+    | '/app/formatting'
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
@@ -212,11 +244,14 @@ export interface FileRouteTypes {
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
+    | '/api/formatting-enhance-stream'
+    | '/api/formatting-stream'
     | '/api/presentations-stream'
     | '/app/agent'
     | '/app/analyze'
     | '/app/dashboard'
     | '/app/fill'
+    | '/app/formatting'
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
@@ -231,11 +266,14 @@ export interface FileRouteTypes {
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
+    | '/api/formatting-enhance-stream'
+    | '/api/formatting-stream'
     | '/api/presentations-stream'
     | '/_authenticated/app/agent'
     | '/_authenticated/app/analyze'
     | '/_authenticated/app/dashboard'
     | '/_authenticated/app/fill'
+    | '/_authenticated/app/formatting'
     | '/_authenticated/app/interviews'
     | '/_authenticated/app/personas'
     | '/_authenticated/app/presentations'
@@ -251,6 +289,8 @@ export interface RootRouteChildren {
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAnalyzeStreamRoute: typeof ApiAnalyzeStreamRoute
   ApiApplyCorrectionsStreamRoute: typeof ApiApplyCorrectionsStreamRoute
+  ApiFormattingEnhanceStreamRoute: typeof ApiFormattingEnhanceStreamRoute
+  ApiFormattingStreamRoute: typeof ApiFormattingStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
 }
 
@@ -282,6 +322,20 @@ declare module '@tanstack/react-router' {
       path: '/api/presentations-stream'
       fullPath: '/api/presentations-stream'
       preLoaderRoute: typeof ApiPresentationsStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/formatting-stream': {
+      id: '/api/formatting-stream'
+      path: '/api/formatting-stream'
+      fullPath: '/api/formatting-stream'
+      preLoaderRoute: typeof ApiFormattingStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/formatting-enhance-stream': {
+      id: '/api/formatting-enhance-stream'
+      path: '/api/formatting-enhance-stream'
+      fullPath: '/api/formatting-enhance-stream'
+      preLoaderRoute: typeof ApiFormattingEnhanceStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/apply-corrections-stream': {
@@ -338,6 +392,13 @@ declare module '@tanstack/react-router' {
       path: '/interviews'
       fullPath: '/app/interviews'
       preLoaderRoute: typeof AuthenticatedAppInterviewsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/formatting': {
+      id: '/_authenticated/app/formatting'
+      path: '/formatting'
+      fullPath: '/app/formatting'
+      preLoaderRoute: typeof AuthenticatedAppFormattingRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/fill': {
@@ -406,6 +467,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppAnalyzeRoute: typeof AuthenticatedAppAnalyzeRoute
   AuthenticatedAppDashboardRoute: typeof AuthenticatedAppDashboardRoute
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
+  AuthenticatedAppFormattingRoute: typeof AuthenticatedAppFormattingRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
   AuthenticatedAppPresentationsRoute: typeof AuthenticatedAppPresentationsRoute
@@ -417,6 +479,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppAnalyzeRoute: AuthenticatedAppAnalyzeRoute,
   AuthenticatedAppDashboardRoute: AuthenticatedAppDashboardRoute,
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
+  AuthenticatedAppFormattingRoute: AuthenticatedAppFormattingRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
   AuthenticatedAppPresentationsRoute: AuthenticatedAppPresentationsRoute,
@@ -444,6 +507,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAnalyzeStreamRoute: ApiAnalyzeStreamRoute,
   ApiApplyCorrectionsStreamRoute: ApiApplyCorrectionsStreamRoute,
+  ApiFormattingEnhanceStreamRoute: ApiFormattingEnhanceStreamRoute,
+  ApiFormattingStreamRoute: ApiFormattingStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
 }
 export const routeTree = rootRouteImport

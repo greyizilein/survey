@@ -1,5 +1,5 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, LayoutDashboard, Zap, Gem, Crown } from "lucide-react";
+import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, FileCheck2, LayoutDashboard, Zap, Gem, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
@@ -46,6 +46,7 @@ const nav = [
   { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/analyze", label: "Writing", icon: BarChart3 },
   { to: "/app/analyze", search: { corrections: "1" }, label: "Corrections", icon: ClipboardCheck },
+  { to: "/app/formatting", label: "Formatting", icon: FileCheck2 },
   { to: "/app/presentations", label: "Presentations", icon: Presentation },
   { to: "/app/agent", label: "Agent", icon: Bot },
 ] as const;
