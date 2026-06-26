@@ -37,6 +37,69 @@ export const AnalyzeChatInput = z.object({
 const DocFile = z.object({ name: z.string().max(200), text: z.string() });
 const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
 
+const PRESET_KEYS = [
+  "chapter4-quant",
+  "chapter4-qual",
+  "chapter4-mixed",
+  "other-writing",
+  "basic-academia",
+  "dissertations",
+  "none",
+] as const;
+const SuggestPresetInput = z.object({ text: z.string().max(40000) });
+
+/**
+ * Classifies the user's first request (and any uploaded brief) into the best-fitting
+ * writing template, so the UI can offer a one-tap suggestion. Returns "none" when nothing
+ * clearly fits. Uses the fast tier — this runs once per new chat and must be cheap/quick.
+ */
+export const suggestWritingPreset = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SuggestPresetInput.parse(d))
+  .handler(async ({ data }) => {
+    const text = data.text.trim();
+    if (text.length < 12) return { preset: "none" as const };
+
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const ai = createAi();
+
+    const prompt = `You route an academic writing request to the single best-fitting template, or "none".
+
+Templates:
+- chapter4-quant: a results/findings chapter (Chapter Four) for a QUANTITATIVE study — survey stats, tables, hypothesis tests.
+- chapter4-qual: a results/findings chapter for a QUALITATIVE study — interview themes, codes, quotes.
+- chapter4-mixed: a results/findings chapter for a MIXED-METHODS study.
+- dissertations: a full multi-chapter dissertation/thesis (intro → literature → methodology → results → discussion), not a single chapter.
+- basic-academia: a general academic piece — an essay, report, assignment, or article with standard structure and citations.
+- other-writing: a bespoke/complex brief or rubric that doesn't fit the above and needs a custom plan built from it.
+- none: casual, unclear, or non-academic.
+
+Request (and any attached brief):
+"""
+${text.slice(0, 12000)}
+"""
+
+Reply with ONLY one token: the exact template id, or none.`;
+
+    let raw = "";
+    try {
+      const { text: out } = await generateText({
+        model: ai(textModelForTier("fast")),
+        prompt,
+        temperature: 0,
+        maxOutputTokens: 12,
+      });
+      raw = out.trim().toLowerCase();
+    } catch (e) {
+      console.error("[analyze] preset suggestion failed:", e);
+      return { preset: "none" as const };
+    }
+
+    const match = PRESET_KEYS.find((k) => raw.includes(k)) ?? "none";
+    return { preset: match };
+  });
+
 export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SummarizeDocsInput.parse(d))

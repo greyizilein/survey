@@ -21,6 +21,8 @@ import {
   ClipboardCheck,
   Square,
   Menu,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,7 +62,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import {
+  listAnalyzeProjects,
+  summarizeAnalysisDocuments,
+  suggestWritingPreset,
+} from "@/lib/analyze.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
 import {
@@ -176,6 +182,19 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "other-writing": "Advanced Writing",
   "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
+};
+
+const PRESET_DESCRIPTIONS: Record<InstructionsPreset, string> = {
+  "chapter4-quant":
+    "A results/findings chapter for a quantitative study — stats, tables, hypothesis tests.",
+  "chapter4-qual": "A results/findings chapter for a qualitative study — themes, codes, quotes.",
+  "chapter4-mixed": "A results/findings chapter for a mixed-methods study.",
+  "other-writing":
+    "Bespoke briefs/rubrics — builds a custom executable plan from your uploaded documents.",
+  "basic-academia":
+    "General academic writing — essays, reports, assignments with standard structure & citations.",
+  dissertations:
+    "A full multi-chapter dissertation — intro, literature, methodology, results, discussion.",
 };
 
 const STORAGE_KEY = "analyze-chat-state-v1";
@@ -356,6 +375,7 @@ function AnalyzePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
+  const suggestPresetFn = useServerFn(suggestWritingPreset);
   const extractDocTextFn = useServerFn(extractDocumentText);
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
@@ -389,6 +409,10 @@ function AnalyzePage() {
       : "basic-academia",
   );
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
+  // One-tap template suggestion from a lightweight classifier. Stays out of the way once
+  // the user has picked a template themselves.
+  const [suggestedPreset, setSuggestedPreset] = useState<InstructionsPreset | null>(null);
+  const [presetTouched, setPresetTouched] = useState(false);
 
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
   const [input, setInput] = useState("");
@@ -576,6 +600,8 @@ function AnalyzePage() {
     setDocSummary("");
     setInstructionsPreset("basic-academia");
     setInstructions("");
+    setSuggestedPreset(null);
+    setPresetTouched(false);
   }
 
   async function handleSelectConversation(id: string): Promise<Msg[] | null> {
@@ -598,6 +624,9 @@ function AnalyzePage() {
       setFileRows(state.fileRows ?? []);
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
+      // An existing chat already has its template; don't nag with suggestions.
+      setSuggestedPreset(null);
+      setPresetTouched(true);
       return loadedMessages;
     } catch {
       toast.error("Couldn't load that chat");
@@ -656,6 +685,26 @@ function AnalyzePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function applyPreset(p: InstructionsPreset) {
+    setInstructionsPreset(p);
+    setPresetTouched(true);
+    setSuggestedPreset(null);
+  }
+
+  // Ask the classifier for a fitting template and surface it as a chip — unless the user
+  // has already chosen one, or it matches the current selection.
+  async function maybeSuggestPreset(text: string) {
+    if (presetTouched || !text.trim()) return;
+    try {
+      const { preset } = await suggestPresetFn({ data: { text: text.slice(0, 40000) } });
+      if (preset !== "none" && preset !== instructionsPreset && preset in PRESET_LABELS) {
+        setSuggestedPreset(preset as InstructionsPreset);
+      }
+    } catch (e) {
+      console.error("[analyze] preset suggestion failed:", e);
+    }
+  }
+
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
     if (!files.length) {
@@ -685,6 +734,7 @@ function AnalyzePage() {
 
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
+      maybeSuggestPreset(res.summary);
       if (failed.length) {
         toast.warning(
           `Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`,
@@ -737,6 +787,8 @@ function AnalyzePage() {
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
+    // On the very first message (no brief uploaded), let the classifier suggest a template.
+    if (messages.length === 0 && !docSummary.trim()) maybeSuggestPreset(text);
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
     setInput("");
@@ -1114,6 +1166,32 @@ function AnalyzePage() {
                 <div ref={bottomRef} />
               </div>
 
+              {/* Template suggestion chip */}
+              {suggestedPreset && suggestedPreset !== instructionsPreset && (
+                <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
+                  <Sparkles className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    Looks like{" "}
+                    <span className="font-medium">{PRESET_FULL_LABELS[suggestedPreset]}</span> —
+                    apply that template?
+                  </span>
+                  <Button
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => applyPreset(suggestedPreset)}
+                  >
+                    Apply
+                  </Button>
+                  <button
+                    onClick={() => setSuggestedPreset(null)}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    title="Dismiss"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
+
               {/* Composer — textarea on top, tool icons + send in a single bar */}
               <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-none sm:border-0 sm:border-t-2 sm:bg-background sm:shadow-none sm:p-3 shrink-0">
                 <Textarea
@@ -1354,16 +1432,21 @@ function AnalyzePage() {
                         ).map((p) => (
                           <button
                             key={p}
-                            onClick={() => setInstructionsPreset(p)}
+                            onClick={() => applyPreset(p)}
                             className={cn(
-                              "flex items-center justify-between rounded border px-3 py-2 text-sm text-left transition-colors",
+                              "rounded border px-3 py-2 text-left transition-colors",
                               instructionsPreset === p
-                                ? "border-primary bg-primary/5 font-medium"
+                                ? "border-primary bg-primary/5"
                                 : "hover:bg-muted/40",
                             )}
                           >
-                            {PRESET_FULL_LABELS[p]}
-                            {instructionsPreset === p && <Check className="size-3.5" />}
+                            <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                              {PRESET_FULL_LABELS[p]}
+                              {instructionsPreset === p && <Check className="size-3.5 shrink-0" />}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {PRESET_DESCRIPTIONS[p]}
+                            </span>
                           </button>
                         ))}
                       </div>
