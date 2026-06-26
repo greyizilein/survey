@@ -446,14 +446,26 @@ function AnalyzePage() {
     setSummarizingDocs(true);
     try {
       const payload: { name: string; text: string }[] = [];
+      const failed: string[] = [];
       for (const f of files) {
-        const data = await readAsBase64(f);
-        const { text } = await extractDocTextFn({ data: { name: f.name, data } });
-        payload.push({ name: f.name, text });
+        try {
+          const data = await readAsBase64(f);
+          const { text } = await extractDocTextFn({ data: { name: f.name, data } });
+          payload.push({ name: f.name, text });
+        } catch (e) {
+          console.error(`[analyze] could not read "${f.name}":`, e);
+          failed.push(f.name);
+        }
       }
+      if (!payload.length) throw new Error("Could not read any of those documents — try them one at a time to find the bad one.");
+
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
-      toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);
+      if (failed.length) {
+        toast.warning(`Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`);
+      } else {
+        toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read those documents");
     } finally {
