@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   FileCheck2,
   LayoutDashboard,
+  Settings,
   Zap,
   Gem,
   Crown,
@@ -187,6 +188,12 @@ export function AppShell({
         </div>
         {renderFloatingNav()}
         <div className="border-t border-white/10 p-2">
+          <Link
+            to="/app/settings"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <Settings className="size-4" /> Settings
+          </Link>
           <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
@@ -238,11 +245,24 @@ export function AppShell({
       )}
       {!collapsed && <TierPicker tier={tier} setTier={setTier} />}
       {renderNav(!collapsed)}
+      <Link
+        to="/app/settings"
+        title={collapsed ? "Settings" : undefined}
+        className={cn(
+          "mx-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 transition-all",
+          collapsed && "justify-center",
+          pathname.startsWith("/app/settings")
+            ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
+            : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground",
+        )}
+      >
+        <Settings className="size-4 shrink-0" /> {!collapsed && "Settings"}
+      </Link>
       <button
         onClick={signOut}
         title={collapsed ? "Sign out" : undefined}
         className={cn(
-          "m-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all",
+          "mx-3 mt-1 mb-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all",
           collapsed && "justify-center",
         )}
       >
