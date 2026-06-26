@@ -1,12 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { History, Plus, Trash2, Loader2, Pencil, Check, X } from "lucide-react";
+import {
+  History,
+  Plus,
+  Trash2,
+  Loader2,
+  Pencil,
+  Check,
+  X,
+  FolderInput,
+  Folder,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { listChatConversations, deleteChatConversation, renameChatConversation } from "@/lib/chat-history.functions";
+import {
+  listChatConversations,
+  deleteChatConversation,
+  renameChatConversation,
+} from "@/lib/chat-history.functions";
+import { listFolders, assignChatToFolder } from "@/lib/folders.functions";
 
-type ConversationSummary = { id: string; title: string; created_at: string; updated_at: string };
+type ConversationSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  folder_id: string | null;
+};
+type FolderSummary = { id: string; name: string };
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -28,15 +58,19 @@ export function ChatHistoryMenu({
 }: {
   tool: "analyze" | "presentations" | "agent";
   activeId: string | null;
+  folderId?: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
 }) {
   const listFn = useServerFn(listChatConversations);
   const deleteFn = useServerFn(deleteChatConversation);
   const renameFn = useServerFn(renameChatConversation);
+  const listFoldersFn = useServerFn(listFolders);
+  const assignFn = useServerFn(assignChatToFolder);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [folders, setFolders] = useState<FolderSummary[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -44,8 +78,12 @@ export function ChatHistoryMenu({
   async function refresh() {
     setLoading(true);
     try {
-      const { conversations: rows } = await listFn({ data: { tool } });
+      const [{ conversations: rows }, { folders: folderRows }] = await Promise.all([
+        listFn({ data: { tool } }),
+        listFoldersFn(),
+      ]);
       setConversations(rows);
+      setFolders(folderRows);
     } finally {
       setLoading(false);
     }
@@ -75,6 +113,17 @@ export function ChatHistoryMenu({
     if (!title) return;
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)));
     await renameFn({ data: { id, title } });
+  }
+
+  async function moveToFolder(chatId: string, targetFolderId: string | null) {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, folder_id: targetFolderId } : c)),
+    );
+    try {
+      await assignFn({ data: { chat_id: chatId, folder_id: targetFolderId } });
+    } catch {
+      refresh();
+    }
   }
 
   return (
@@ -120,10 +169,18 @@ export function ChatHistoryMenu({
                     className="min-w-0 flex-1 rounded border bg-background px-2 py-1 text-sm"
                     autoFocus
                   />
-                  <button onClick={() => commitRename(c.id)} className="shrink-0 text-muted-foreground hover:text-foreground" title="Save">
+                  <button
+                    onClick={() => commitRename(c.id)}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    title="Save"
+                  >
                     <Check className="size-3.5" />
                   </button>
-                  <button onClick={() => setRenamingId(null)} className="shrink-0 text-muted-foreground hover:text-destructive" title="Cancel">
+                  <button
+                    onClick={() => setRenamingId(null)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    title="Cancel"
+                  >
                     <X className="size-3.5" />
                   </button>
                 </div>
@@ -141,9 +198,54 @@ export function ChatHistoryMenu({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate">{c.title}</p>
-                    <p className="text-[11px] text-muted-foreground">{relativeTime(c.updated_at)}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {relativeTime(c.updated_at)}
+                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className={cn(
+                            "hover:text-foreground",
+                            c.folder_id ? "text-primary" : "text-muted-foreground",
+                          )}
+                          title="Move to folder"
+                        >
+                          {c.folder_id ? (
+                            <Folder className="size-3.5" />
+                          ) : (
+                            <FolderInput className="size-3.5" />
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenuLabel>Move to folder</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {folders.length === 0 && (
+                          <DropdownMenuItem disabled>No folders yet</DropdownMenuItem>
+                        )}
+                        {folders.map((f) => (
+                          <DropdownMenuItem
+                            key={f.id}
+                            onClick={() => moveToFolder(c.id, f.id)}
+                            className={cn(c.folder_id === f.id && "bg-primary/10")}
+                          >
+                            <Folder className="size-4" /> {f.name}
+                            {c.folder_id === f.id && <Check className="ml-auto size-3.5" />}
+                          </DropdownMenuItem>
+                        ))}
+                        {c.folder_id && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => moveToFolder(c.id, null)}>
+                              <X className="size-4" /> Remove from folder
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <button
                       onClick={(e) => startRename(c, e)}
                       className="text-muted-foreground hover:text-foreground"

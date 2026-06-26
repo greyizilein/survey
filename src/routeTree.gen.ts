@@ -30,7 +30,9 @@ import { Route as AuthenticatedAppDashboardRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppAnalyzeRouteImport } from './routes/_authenticated/app.analyze'
 import { Route as AuthenticatedAppAgentRouteImport } from './routes/_authenticated/app.agent'
 import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app.projects.index'
+import { Route as AuthenticatedAppFoldersIndexRouteImport } from './routes/_authenticated/app.folders.index'
 import { Route as AuthenticatedAppProjectsIdRouteImport } from './routes/_authenticated/app.projects.$id'
+import { Route as AuthenticatedAppFoldersIdRouteImport } from './routes/_authenticated/app.folders.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -146,11 +148,23 @@ const AuthenticatedAppProjectsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAppProjectsRoute,
   } as any)
+const AuthenticatedAppFoldersIndexRoute =
+  AuthenticatedAppFoldersIndexRouteImport.update({
+    id: '/folders/',
+    path: '/folders/',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppProjectsIdRoute =
   AuthenticatedAppProjectsIdRouteImport.update({
     id: '/$id',
     path: '/$id',
     getParentRoute: () => AuthenticatedAppProjectsRoute,
+  } as any)
+const AuthenticatedAppFoldersIdRoute =
+  AuthenticatedAppFoldersIdRouteImport.update({
+    id: '/folders/$id',
+    path: '/folders/$id',
+    getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -173,7 +187,9 @@ export interface FileRoutesByFullPath {
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
+  '/app/folders/': typeof AuthenticatedAppFoldersIndexRoute
   '/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -195,7 +211,9 @@ export interface FileRoutesByTo {
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
+  '/app/folders': typeof AuthenticatedAppFoldersIndexRoute
   '/app/projects': typeof AuthenticatedAppProjectsIndexRoute
 }
 export interface FileRoutesById {
@@ -220,7 +238,9 @@ export interface FileRoutesById {
   '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/_authenticated/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/_authenticated/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/_authenticated/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
+  '/_authenticated/app/folders/': typeof AuthenticatedAppFoldersIndexRoute
   '/_authenticated/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
 }
 export interface FileRouteTypes {
@@ -245,7 +265,9 @@ export interface FileRouteTypes {
     | '/app/presentations'
     | '/app/projects'
     | '/app/settings'
+    | '/app/folders/$id'
     | '/app/projects/$id'
+    | '/app/folders/'
     | '/app/projects/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -267,7 +289,9 @@ export interface FileRouteTypes {
     | '/app/personas'
     | '/app/presentations'
     | '/app/settings'
+    | '/app/folders/$id'
     | '/app/projects/$id'
+    | '/app/folders'
     | '/app/projects'
   id:
     | '__root__'
@@ -291,7 +315,9 @@ export interface FileRouteTypes {
     | '/_authenticated/app/presentations'
     | '/_authenticated/app/projects'
     | '/_authenticated/app/settings'
+    | '/_authenticated/app/folders/$id'
     | '/_authenticated/app/projects/$id'
+    | '/_authenticated/app/folders/'
     | '/_authenticated/app/projects/'
   fileRoutesById: FileRoutesById
 }
@@ -456,12 +482,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppProjectsIndexRouteImport
       parentRoute: typeof AuthenticatedAppProjectsRoute
     }
+    '/_authenticated/app/folders/': {
+      id: '/_authenticated/app/folders/'
+      path: '/folders'
+      fullPath: '/app/folders/'
+      preLoaderRoute: typeof AuthenticatedAppFoldersIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/projects/$id': {
       id: '/_authenticated/app/projects/$id'
       path: '/$id'
       fullPath: '/app/projects/$id'
       preLoaderRoute: typeof AuthenticatedAppProjectsIdRouteImport
       parentRoute: typeof AuthenticatedAppProjectsRoute
+    }
+    '/_authenticated/app/folders/$id': {
+      id: '/_authenticated/app/folders/$id'
+      path: '/folders/$id'
+      fullPath: '/app/folders/$id'
+      preLoaderRoute: typeof AuthenticatedAppFoldersIdRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
     }
   }
 }
@@ -493,6 +533,8 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppPresentationsRoute: typeof AuthenticatedAppPresentationsRoute
   AuthenticatedAppProjectsRoute: typeof AuthenticatedAppProjectsRouteWithChildren
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRoute
+  AuthenticatedAppFoldersIdRoute: typeof AuthenticatedAppFoldersIdRoute
+  AuthenticatedAppFoldersIndexRoute: typeof AuthenticatedAppFoldersIndexRoute
 }
 
 const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
@@ -506,6 +548,8 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppPresentationsRoute: AuthenticatedAppPresentationsRoute,
   AuthenticatedAppProjectsRoute: AuthenticatedAppProjectsRouteWithChildren,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRoute,
+  AuthenticatedAppFoldersIdRoute: AuthenticatedAppFoldersIdRoute,
+  AuthenticatedAppFoldersIndexRoute: AuthenticatedAppFoldersIndexRoute,
 }
 
 const AuthenticatedAppRouteWithChildren =

@@ -2,10 +2,31 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import {
-  Presentation, Send, Upload, FileText, Loader2, Trash2, FileStack, ListChecks, Check,
-  FileDown, MoreHorizontal, Plus, ChevronUp, ChevronDown, Copy as CopyIcon, X, Square,
+  Presentation,
+  Send,
+  Upload,
+  FileText,
+  Loader2,
+  Trash2,
+  FileStack,
+  ListChecks,
+  Check,
+  FileDown,
+  MoreHorizontal,
+  Plus,
+  ChevronUp,
+  ChevronDown,
+  Copy as CopyIcon,
+  X,
+  Square,
 } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { splitStreamError } from "@/lib/stream-error-marker";
 
@@ -21,12 +42,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { summarizePresentationDocuments } from "@/lib/presentations.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
-import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
+import {
+  saveChatConversation,
+  getChatConversation,
+  listChatConversations,
+} from "@/lib/chat-history.functions";
+import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
-import { exportDeckToPptx, downloadBlob, deckTheme, sanitizeDeck, type Deck, type Slide } from "@/lib/presentation-export";
+import { FolderBadge } from "@/components/folder-badge";
+import {
+  exportDeckToPptx,
+  downloadBlob,
+  deckTheme,
+  sanitizeDeck,
+  type Deck,
+  type Slide,
+} from "@/lib/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/app/presentations")({
   head: () => ({ meta: [{ title: "Presentations · Paperstudio" }] }),
+  validateSearch: (s: Record<string, unknown>): { folder?: string; chat?: string } => ({
+    folder: typeof s.folder === "string" ? s.folder : undefined,
+    chat: typeof s.chat === "string" ? s.chat : undefined,
+  }),
   component: PresentationsPage,
 });
 
@@ -47,16 +85,52 @@ const LAYOUT_LABELS: Record<Slide["layout"], string> = {
 
 function blankSlide(layout: Slide["layout"]): Slide {
   switch (layout) {
-    case "title": return { layout, title: "New title slide", subtitle: "Subtitle" };
-    case "section": return { layout, title: "Section name" };
-    case "bullets": return { layout, title: "Slide title", bullets: ["First point", "Second point"] };
-    case "two-column": return { layout, title: "Slide title", columns: [{ heading: "Before", bullets: ["Point"] }, { heading: "After", bullets: ["Point"] }] };
-    case "stat": return { layout, value: "73%", label: "What this number means" };
-    case "quote": return { layout, quote: "A memorable quote.", author: "Name — Role" };
-    case "timeline": return { layout, title: "Roadmap", stages: [{ label: "Q1", title: "Stage one" }, { label: "Q2", title: "Stage two" }] };
-    case "grid": return { layout, title: "Slide title", items: [{ label: "Group A", bullets: ["Point"] }, { label: "Group B", bullets: ["Point"] }] };
-    case "table": return { layout, title: "Slide title", tableColumns: ["Column A", "Column B"], tableRows: [["", ""]] };
-    case "closing": return { layout, title: "Thank you", subtitle: "name@company.com" };
+    case "title":
+      return { layout, title: "New title slide", subtitle: "Subtitle" };
+    case "section":
+      return { layout, title: "Section name" };
+    case "bullets":
+      return { layout, title: "Slide title", bullets: ["First point", "Second point"] };
+    case "two-column":
+      return {
+        layout,
+        title: "Slide title",
+        columns: [
+          { heading: "Before", bullets: ["Point"] },
+          { heading: "After", bullets: ["Point"] },
+        ],
+      };
+    case "stat":
+      return { layout, value: "73%", label: "What this number means" };
+    case "quote":
+      return { layout, quote: "A memorable quote.", author: "Name — Role" };
+    case "timeline":
+      return {
+        layout,
+        title: "Roadmap",
+        stages: [
+          { label: "Q1", title: "Stage one" },
+          { label: "Q2", title: "Stage two" },
+        ],
+      };
+    case "grid":
+      return {
+        layout,
+        title: "Slide title",
+        items: [
+          { label: "Group A", bullets: ["Point"] },
+          { label: "Group B", bullets: ["Point"] },
+        ],
+      };
+    case "table":
+      return {
+        layout,
+        title: "Slide title",
+        tableColumns: ["Column A", "Column B"],
+        tableRows: [["", ""]],
+      };
+    case "closing":
+      return { layout, title: "Thank you", subtitle: "name@company.com" };
   }
 }
 
@@ -76,7 +150,11 @@ function splitDeckMarker(raw: string): { display: string; deck: Deck | null } {
   for (const line of lines) {
     const match = /^@@DECK@@(.*)$/.exec(line);
     if (match) {
-      try { deck = sanitizeDeck(JSON.parse(match[1])); } catch { /* still streaming */ }
+      try {
+        deck = sanitizeDeck(JSON.parse(match[1]));
+      } catch {
+        /* still streaming */
+      }
       continue;
     }
     kept.push(line);
@@ -112,155 +190,293 @@ function savePersistedState(state: PersistedState) {
 }
 
 function linesToBullets(text: string): string[] {
-  return text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 }
 
-function SlidePreview({ slide, theme, captureRef }: { slide: Slide; theme: ReturnType<typeof deckTheme>; captureRef?: (el: HTMLDivElement | null) => void }) {
-  const dark = slide.layout === "title" || slide.layout === "section" || slide.layout === "quote" || slide.layout === "closing";
+function SlidePreview({
+  slide,
+  theme,
+  captureRef,
+}: {
+  slide: Slide;
+  theme: ReturnType<typeof deckTheme>;
+  captureRef?: (el: HTMLDivElement | null) => void;
+}) {
+  const dark =
+    slide.layout === "title" ||
+    slide.layout === "section" ||
+    slide.layout === "quote" ||
+    slide.layout === "closing";
   return (
     <div
       ref={captureRef}
       className="aspect-video w-full rounded-md flex flex-col p-4 overflow-hidden text-[10px] sm:text-xs relative"
-      style={{ background: dark ? `#${theme.dark}` : `#${theme.light}`, color: dark ? `#${theme.light}` : "#33384A" }}
+      style={{
+        background: dark ? `#${theme.dark}` : `#${theme.light}`,
+        color: dark ? `#${theme.light}` : "#33384A",
+      }}
     >
       {slide.decoration && (
-        <div className="absolute inset-0 pointer-events-none" dangerouslySetInnerHTML={{ __html: slide.decoration }} />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          dangerouslySetInnerHTML={{ __html: slide.decoration }}
+        />
       )}
       <div className="relative z-10 flex-1 flex flex-col min-w-0 min-h-0">
-      {slide.layout === "title" && (
-        <div className="flex-1 flex flex-col justify-center gap-1">
-          <p className="font-bold text-base sm:text-lg leading-tight">{slide.title || "Untitled"}</p>
-          {slide.subtitle && <p className="italic opacity-80">{slide.subtitle}</p>}
-        </div>
-      )}
-      {slide.layout === "section" && (
-        <div className="flex-1 flex flex-col justify-center gap-1">
-          {slide.number && <p className="opacity-60 text-lg font-bold" style={{ color: `#${theme.secondary}` }}>{slide.number}</p>}
-          <p className="font-bold text-base">{slide.title || "Section"}</p>
-        </div>
-      )}
-      {(slide.layout === "grid" === false) && slide.layout === "bullets" && (
-        <div className="flex-1 flex flex-col gap-1">
-          <p className="font-semibold" style={{ color: `#${theme.primary}` }}>{slide.title || "Untitled"}</p>
-          <div className="flex-1 flex gap-2 mt-1 min-h-0">
-            <ul className="list-disc pl-3 space-y-0.5 flex-1">
-              {(slide.bullets ?? []).slice(0, 6).map((b, i) => <li key={i}>{b}</li>)}
-            </ul>
-            {slide.figurePrompt && (
-              <div className="w-1/3 shrink-0 flex flex-col items-center justify-center gap-1">
-                {slide.figureImage ? (
-                  <img src={slide.figureImage} alt={slide.figureCaption || "Figure"} className="max-w-full max-h-full rounded object-contain" />
-                ) : (
-                  <Loader2 className="size-4 animate-spin opacity-60" />
-                )}
-                {slide.figureCaption && <p className="opacity-70 text-center">{slide.figureCaption}</p>}
-              </div>
+        {slide.layout === "title" && (
+          <div className="flex-1 flex flex-col justify-center gap-1">
+            <p className="font-bold text-base sm:text-lg leading-tight">
+              {slide.title || "Untitled"}
+            </p>
+            {slide.subtitle && <p className="italic opacity-80">{slide.subtitle}</p>}
+          </div>
+        )}
+        {slide.layout === "section" && (
+          <div className="flex-1 flex flex-col justify-center gap-1">
+            {slide.number && (
+              <p className="opacity-60 text-lg font-bold" style={{ color: `#${theme.secondary}` }}>
+                {slide.number}
+              </p>
+            )}
+            <p className="font-bold text-base">{slide.title || "Section"}</p>
+          </div>
+        )}
+        {(slide.layout === "grid") === false && slide.layout === "bullets" && (
+          <div className="flex-1 flex flex-col gap-1">
+            <p className="font-semibold" style={{ color: `#${theme.primary}` }}>
+              {slide.title || "Untitled"}
+            </p>
+            <div className="flex-1 flex gap-2 mt-1 min-h-0">
+              <ul className="list-disc pl-3 space-y-0.5 flex-1">
+                {(slide.bullets ?? []).slice(0, 6).map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+              {slide.figurePrompt && (
+                <div className="w-1/3 shrink-0 flex flex-col items-center justify-center gap-1">
+                  {slide.figureImage ? (
+                    <img
+                      src={slide.figureImage}
+                      alt={slide.figureCaption || "Figure"}
+                      className="max-w-full max-h-full rounded object-contain"
+                    />
+                  ) : (
+                    <Loader2 className="size-4 animate-spin opacity-60" />
+                  )}
+                  {slide.figureCaption && (
+                    <p className="opacity-70 text-center">{slide.figureCaption}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {slide.layout === "two-column" && (
+          <div className="flex-1 flex flex-col gap-1">
+            <p className="font-semibold" style={{ color: `#${theme.primary}` }}>
+              {slide.title || "Untitled"}
+            </p>
+            <div className="flex gap-2 flex-1 mt-1">
+              {(slide.columns ?? []).slice(0, 2).map((c, i) => (
+                <div key={i} className="flex-1 bg-black/5 rounded p-1.5">
+                  <p className="font-medium">{c.heading}</p>
+                  <ul className="list-disc pl-3 space-y-0.5">
+                    {c.bullets.slice(0, 4).map((b, j) => (
+                      <li key={j}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {slide.layout === "stat" && (
+          <div className="flex-1 flex flex-col justify-center gap-1">
+            <p className="font-bold text-2xl sm:text-3xl" style={{ color: `#${theme.primary}` }}>
+              {slide.value || "0%"}
+            </p>
+            <p>{slide.label}</p>
+          </div>
+        )}
+        {slide.layout === "quote" && (
+          <div className="flex-1 flex flex-col justify-center gap-1.5">
+            <p className="italic">"{slide.quote}"</p>
+            {slide.author && (
+              <p className="opacity-70" style={{ color: `#${theme.secondary}` }}>
+                {slide.author}
+              </p>
             )}
           </div>
-        </div>
-      )}
-      {slide.layout === "two-column" && (
-        <div className="flex-1 flex flex-col gap-1">
-          <p className="font-semibold" style={{ color: `#${theme.primary}` }}>{slide.title || "Untitled"}</p>
-          <div className="flex gap-2 flex-1 mt-1">
-            {(slide.columns ?? []).slice(0, 2).map((c, i) => (
-              <div key={i} className="flex-1 bg-black/5 rounded p-1.5">
-                <p className="font-medium">{c.heading}</p>
-                <ul className="list-disc pl-3 space-y-0.5">{c.bullets.slice(0, 4).map((b, j) => <li key={j}>{b}</li>)}</ul>
-              </div>
-            ))}
+        )}
+        {slide.layout === "timeline" && (
+          <div className="flex-1 flex flex-col gap-1">
+            <p className="font-semibold" style={{ color: `#${theme.primary}` }}>
+              {slide.title || "Untitled"}
+            </p>
+            <div className="flex-1 flex items-center gap-1 mt-2">
+              {(slide.stages ?? []).map((st, i) => (
+                <div key={i} className="flex-1 text-center">
+                  <div
+                    className="mx-auto size-2 rounded-full mb-1"
+                    style={{
+                      background: st.done ? `#${theme.primary}` : "transparent",
+                      border: `1px solid #${theme.primary}`,
+                    }}
+                  />
+                  <p className="opacity-70">{st.label}</p>
+                  <p className="font-medium">{st.title}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-      {slide.layout === "stat" && (
-        <div className="flex-1 flex flex-col justify-center gap-1">
-          <p className="font-bold text-2xl sm:text-3xl" style={{ color: `#${theme.primary}` }}>{slide.value || "0%"}</p>
-          <p>{slide.label}</p>
-        </div>
-      )}
-      {slide.layout === "quote" && (
-        <div className="flex-1 flex flex-col justify-center gap-1.5">
-          <p className="italic">"{slide.quote}"</p>
-          {slide.author && <p className="opacity-70" style={{ color: `#${theme.secondary}` }}>{slide.author}</p>}
-        </div>
-      )}
-      {slide.layout === "timeline" && (
-        <div className="flex-1 flex flex-col gap-1">
-          <p className="font-semibold" style={{ color: `#${theme.primary}` }}>{slide.title || "Untitled"}</p>
-          <div className="flex-1 flex items-center gap-1 mt-2">
-            {(slide.stages ?? []).map((st, i) => (
-              <div key={i} className="flex-1 text-center">
-                <div className="mx-auto size-2 rounded-full mb-1" style={{ background: st.done ? `#${theme.primary}` : "transparent", border: `1px solid #${theme.primary}` }} />
-                <p className="opacity-70">{st.label}</p>
-                <p className="font-medium">{st.title}</p>
-              </div>
-            ))}
+        )}
+        {slide.layout === "grid" && (
+          <div className="flex-1 flex flex-col gap-1">
+            <p className="font-semibold" style={{ color: `#${theme.primary}` }}>
+              {slide.title || "Untitled"}
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 flex-1 mt-1">
+              {(slide.items ?? []).slice(0, 4).map((it, i) => (
+                <div key={i} className="bg-black/5 rounded p-1.5">
+                  <p
+                    className="font-medium"
+                    style={{ color: it.color ? `#${it.color}` : `#${theme.primary}` }}
+                  >
+                    {it.label}
+                  </p>
+                  <ul className="list-disc pl-3 space-y-0.5">
+                    {it.bullets.slice(0, 3).map((b, j) => (
+                      <li key={j}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-      {slide.layout === "grid" && (
-        <div className="flex-1 flex flex-col gap-1">
-          <p className="font-semibold" style={{ color: `#${theme.primary}` }}>{slide.title || "Untitled"}</p>
-          <div className="grid grid-cols-2 gap-1.5 flex-1 mt-1">
-            {(slide.items ?? []).slice(0, 4).map((it, i) => (
-              <div key={i} className="bg-black/5 rounded p-1.5">
-                <p className="font-medium" style={{ color: it.color ? `#${it.color}` : `#${theme.primary}` }}>{it.label}</p>
-                <ul className="list-disc pl-3 space-y-0.5">{it.bullets.slice(0, 3).map((b, j) => <li key={j}>{b}</li>)}</ul>
-              </div>
-            ))}
+        )}
+        {slide.layout === "table" && (
+          <div className="flex-1 flex flex-col gap-1">
+            <p className="font-semibold" style={{ color: `#${theme.primary}` }}>
+              {slide.title || "Untitled"}
+            </p>
+            <table className="w-full mt-1">
+              <thead>
+                <tr>
+                  {(slide.tableColumns ?? []).map((c, i) => (
+                    <th
+                      key={i}
+                      className="text-left font-semibold px-1 border-b"
+                      style={{ borderColor: `#${theme.primary}` }}
+                    >
+                      {c}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(slide.tableRows ?? []).slice(0, 4).map((row, ri) => (
+                  <tr key={ri}>
+                    {row.map((c, ci) => (
+                      <td key={ci} className="px-1 border-b">
+                        {c}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      )}
-      {slide.layout === "table" && (
-        <div className="flex-1 flex flex-col gap-1">
-          <p className="font-semibold" style={{ color: `#${theme.primary}` }}>{slide.title || "Untitled"}</p>
-          <table className="w-full mt-1">
-            <thead><tr>{(slide.tableColumns ?? []).map((c, i) => <th key={i} className="text-left font-semibold px-1 border-b" style={{ borderColor: `#${theme.primary}` }}>{c}</th>)}</tr></thead>
-            <tbody>{(slide.tableRows ?? []).slice(0, 4).map((row, ri) => <tr key={ri}>{row.map((c, ci) => <td key={ci} className="px-1 border-b">{c}</td>)}</tr>)}</tbody>
-          </table>
-        </div>
-      )}
-      {slide.layout === "closing" && (
-        <div className="flex-1 flex flex-col justify-center gap-1">
-          <p className="font-bold text-base sm:text-lg">{slide.title || "Thank you"}</p>
-          {slide.subtitle && <p className="opacity-80">{slide.subtitle}</p>}
-        </div>
-      )}
+        )}
+        {slide.layout === "closing" && (
+          <div className="flex-1 flex flex-col justify-center gap-1">
+            <p className="font-bold text-base sm:text-lg">{slide.title || "Thank you"}</p>
+            {slide.subtitle && <p className="opacity-80">{slide.subtitle}</p>}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Partial<Slide>) => void }) {
+function SlideEditor({
+  slide,
+  onChange,
+}: {
+  slide: Slide;
+  onChange: (patch: Partial<Slide>) => void;
+}) {
   switch (slide.layout) {
     case "title":
     case "closing":
       return (
         <div className="space-y-2">
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Title" className="font-semibold" />
-          <Input value={slide.subtitle ?? ""} onChange={(e) => onChange({ subtitle: e.target.value })} placeholder="Subtitle" />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="font-semibold"
+          />
+          <Input
+            value={slide.subtitle ?? ""}
+            onChange={(e) => onChange({ subtitle: e.target.value })}
+            placeholder="Subtitle"
+          />
         </div>
       );
     case "section":
       return (
         <div className="space-y-2">
-          <Input value={slide.number ?? ""} onChange={(e) => onChange({ number: e.target.value })} placeholder="Number (optional, e.g. 02)" />
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Section title" className="font-semibold" />
+          <Input
+            value={slide.number ?? ""}
+            onChange={(e) => onChange({ number: e.target.value })}
+            placeholder="Number (optional, e.g. 02)"
+          />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Section title"
+            className="font-semibold"
+          />
         </div>
       );
     case "bullets":
       return (
         <div className="space-y-2">
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Title" className="font-semibold" />
-          <Textarea rows={5} value={(slide.bullets ?? []).join("\n")} onChange={(e) => onChange({ bullets: linesToBullets(e.target.value) })} placeholder="One bullet per line" />
-          <Input value={slide.body ?? ""} onChange={(e) => onChange({ body: e.target.value })} placeholder="Supporting note (optional)" />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="font-semibold"
+          />
+          <Textarea
+            rows={5}
+            value={(slide.bullets ?? []).join("\n")}
+            onChange={(e) => onChange({ bullets: linesToBullets(e.target.value) })}
+            placeholder="One bullet per line"
+          />
+          <Input
+            value={slide.body ?? ""}
+            onChange={(e) => onChange({ body: e.target.value })}
+            placeholder="Supporting note (optional)"
+          />
         </div>
       );
     case "two-column": {
-      const columns = slide.columns ?? [{ heading: "", bullets: [] }, { heading: "", bullets: [] }];
+      const columns = slide.columns ?? [
+        { heading: "", bullets: [] },
+        { heading: "", bullets: [] },
+      ];
       return (
         <div className="space-y-2">
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Title" className="font-semibold" />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="font-semibold"
+          />
           <div className="grid grid-cols-2 gap-2">
             {[0, 1].map((i) => (
               <div key={i} className="space-y-1.5">
@@ -279,7 +495,10 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
                   placeholder="One point per line"
                   onChange={(e) => {
                     const next = [...columns];
-                    next[i] = { heading: columns[i]?.heading ?? "", bullets: linesToBullets(e.target.value) };
+                    next[i] = {
+                      heading: columns[i]?.heading ?? "",
+                      bullets: linesToBullets(e.target.value),
+                    };
                     onChange({ columns: next });
                   }}
                 />
@@ -292,23 +511,50 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
     case "stat":
       return (
         <div className="space-y-2">
-          <Input value={slide.value ?? ""} onChange={(e) => onChange({ value: e.target.value })} placeholder="Value, e.g. 73%" className="font-semibold" />
-          <Input value={slide.label ?? ""} onChange={(e) => onChange({ label: e.target.value })} placeholder="What this number means" />
-          <Input value={slide.body ?? ""} onChange={(e) => onChange({ body: e.target.value })} placeholder="Supporting note (optional)" />
+          <Input
+            value={slide.value ?? ""}
+            onChange={(e) => onChange({ value: e.target.value })}
+            placeholder="Value, e.g. 73%"
+            className="font-semibold"
+          />
+          <Input
+            value={slide.label ?? ""}
+            onChange={(e) => onChange({ label: e.target.value })}
+            placeholder="What this number means"
+          />
+          <Input
+            value={slide.body ?? ""}
+            onChange={(e) => onChange({ body: e.target.value })}
+            placeholder="Supporting note (optional)"
+          />
         </div>
       );
     case "quote":
       return (
         <div className="space-y-2">
-          <Textarea rows={3} value={slide.quote ?? ""} onChange={(e) => onChange({ quote: e.target.value })} placeholder="Quote text" />
-          <Input value={slide.author ?? ""} onChange={(e) => onChange({ author: e.target.value })} placeholder="Name — Role, Organization" />
+          <Textarea
+            rows={3}
+            value={slide.quote ?? ""}
+            onChange={(e) => onChange({ quote: e.target.value })}
+            placeholder="Quote text"
+          />
+          <Input
+            value={slide.author ?? ""}
+            onChange={(e) => onChange({ author: e.target.value })}
+            placeholder="Name — Role, Organization"
+          />
         </div>
       );
     case "timeline": {
       const stages = slide.stages ?? [];
       return (
         <div className="space-y-2">
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Title" className="font-semibold" />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="font-semibold"
+          />
           <div className="space-y-1.5">
             {stages.map((st, i) => (
               <div key={i} className="flex items-center gap-1.5">
@@ -331,13 +577,20 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
                     onChange({ stages: next });
                   }}
                 />
-                <button onClick={() => onChange({ stages: stages.filter((_, j) => j !== i) })} className="text-muted-foreground hover:text-destructive shrink-0">
+                <button
+                  onClick={() => onChange({ stages: stages.filter((_, j) => j !== i) })}
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                >
                   <X className="size-3.5" />
                 </button>
               </div>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={() => onChange({ stages: [...stages, { label: "", title: "" }] })}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onChange({ stages: [...stages, { label: "", title: "" }] })}
+          >
             <Plus className="size-3.5" /> Add stage
           </Button>
         </div>
@@ -347,7 +600,12 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
       const items = slide.items ?? [];
       return (
         <div className="space-y-2">
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Title" className="font-semibold" />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="font-semibold"
+          />
           <div className="grid grid-cols-2 gap-2">
             {items.map((it, i) => (
               <div key={i} className="space-y-1.5 border rounded p-2">
@@ -361,7 +619,10 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
                       onChange({ items: next });
                     }}
                   />
-                  <button onClick={() => onChange({ items: items.filter((_, j) => j !== i) })} className="text-muted-foreground hover:text-destructive shrink-0">
+                  <button
+                    onClick={() => onChange({ items: items.filter((_, j) => j !== i) })}
+                    className="text-muted-foreground hover:text-destructive shrink-0"
+                  >
                     <X className="size-3.5" />
                   </button>
                 </div>
@@ -379,7 +640,11 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
             ))}
           </div>
           {items.length < 4 && (
-            <Button variant="outline" size="sm" onClick={() => onChange({ items: [...items, { label: "", bullets: [] }] })}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onChange({ items: [...items, { label: "", bullets: [] }] })}
+            >
               <Plus className="size-3.5" /> Add group
             </Button>
           )}
@@ -391,17 +656,31 @@ function SlideEditor({ slide, onChange }: { slide: Slide; onChange: (patch: Part
       const rows = slide.tableRows ?? [];
       return (
         <div className="space-y-2">
-          <Input value={slide.title ?? ""} onChange={(e) => onChange({ title: e.target.value })} placeholder="Title" className="font-semibold" />
+          <Input
+            value={slide.title ?? ""}
+            onChange={(e) => onChange({ title: e.target.value })}
+            placeholder="Title"
+            className="font-semibold"
+          />
           <Input
             value={cols.join(" | ")}
             placeholder="Column headers, separated by |"
-            onChange={(e) => onChange({ tableColumns: e.target.value.split("|").map((c) => c.trim()) })}
+            onChange={(e) =>
+              onChange({ tableColumns: e.target.value.split("|").map((c) => c.trim()) })
+            }
           />
           <Textarea
             rows={4}
             value={rows.map((r) => r.join(" | ")).join("\n")}
             placeholder="One row per line, cells separated by |"
-            onChange={(e) => onChange({ tableRows: e.target.value.split("\n").filter((l) => l.trim()).map((l) => l.split("|").map((c) => c.trim())) })}
+            onChange={(e) =>
+              onChange({
+                tableRows: e.target.value
+                  .split("\n")
+                  .filter((l) => l.trim())
+                  .map((l) => l.split("|").map((c) => c.trim())),
+              })
+            }
           />
         </div>
       );
@@ -416,7 +695,12 @@ function PresentationsPage() {
   const saveConversationFn = useServerFn(saveChatConversation);
   const getConversationFn = useServerFn(getChatConversation);
   const listConversationsFn = useServerFn(listChatConversations);
+  const folderContextFn = useServerFn(getFolderContext);
+  const search = Route.useSearch();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(search.folder ?? null);
+  const [folderName, setFolderName] = useState<string | null>(null);
+  const [folderContext, setFolderContext] = useState<string>("");
 
   const initialRef = useRef<Partial<PersistedState> | null>(null);
   if (initialRef.current === null) initialRef.current = loadPersistedState();
@@ -459,16 +743,21 @@ function PresentationsPage() {
           tool: "presentations",
           title,
           state: { messages, instructions, docSummary, deck },
+          folderId: conversationId ? undefined : folderId,
         },
-      }).then(({ id }: { id: string }) => {
-        if (!conversationId) setConversationId(id);
-      }).catch((err) => {
-        console.error("[chat-history] save failed:", err);
-        toast.error(`Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`);
-      });
+      })
+        .then(({ id }: { id: string }) => {
+          if (!conversationId) setConversationId(id);
+        })
+        .catch((err) => {
+          console.error("[chat-history] save failed:", err);
+          toast.error(
+            `Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`,
+          );
+        });
     }, 1000);
     return () => clearTimeout(handle);
-  }, [messages, instructions, docSummary, deck, conversationId, saveConversationFn]);
+  }, [messages, instructions, docSummary, deck, conversationId, folderId, saveConversationFn]);
 
   function handleNewChat() {
     setConversationId(null);
@@ -490,12 +779,33 @@ function PresentationsPage() {
       setDocSummary(state.docSummary ?? "");
       setDeck(state.deck ?? null);
       setDocFiles([]);
+      setFolderId(conversation.folder_id ?? null);
     } catch {
       toast.error("Couldn't load that chat");
     }
   }
 
+  // Load the active folder's shared context whenever the folder changes.
   useEffect(() => {
+    if (!folderId) {
+      setFolderContext("");
+      setFolderName(null);
+      return;
+    }
+    folderContextFn({ data: { id: folderId } })
+      .then(({ context, name }: { context: string; name: string | null }) => {
+        setFolderContext(context);
+        setFolderName(name);
+      })
+      .catch((err) => console.error("[folders] context load failed:", err));
+  }, [folderId, folderContextFn]);
+
+  useEffect(() => {
+    if (search.chat) {
+      handleSelectConversation(search.chat);
+      return;
+    }
+    if (search.folder) return;
     listConversationsFn({ data: { tool: "presentations" } })
       .then(({ conversations }: { conversations: { id: string }[] }) => {
         if (conversations.length > 0) handleSelectConversation(conversations[0].id);
@@ -506,7 +816,10 @@ function PresentationsPage() {
 
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
-    if (!files.length) { setDocSummary(""); return; }
+    if (!files.length) {
+      setDocSummary("");
+      return;
+    }
     setSummarizingDocs(true);
     try {
       const payload: { name: string; text: string }[] = [];
@@ -521,12 +834,17 @@ function PresentationsPage() {
           failed.push(f.name);
         }
       }
-      if (!payload.length) throw new Error("Could not read any of those documents — try them one at a time to find the bad one.");
+      if (!payload.length)
+        throw new Error(
+          "Could not read any of those documents — try them one at a time to find the bad one.",
+        );
 
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
       if (failed.length) {
-        toast.warning(`Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`);
+        toast.warning(
+          `Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`,
+        );
       } else {
         toast.success(`Read ${files.length} document${files.length > 1 ? "s" : ""} for context`);
       }
@@ -553,7 +871,9 @@ function PresentationsPage() {
     await Promise.all(
       pending.map(async ({ s, i }) => {
         try {
-          const { base64, mediaType } = await generateFigureImageFn({ data: { prompt: s.figurePrompt! } });
+          const { base64, mediaType } = await generateFigureImageFn({
+            data: { prompt: s.figurePrompt! },
+          });
           const dataUrl = `data:${mediaType};base64,${base64}`;
           setDeck((prev) => {
             if (!prev) return prev;
@@ -563,7 +883,9 @@ function PresentationsPage() {
           });
         } catch (err) {
           console.error("[presentations] figure generation failed:", err);
-          toast.error(`Couldn't render a slide figure: ${err instanceof Error ? err.message : "image generation failed"}`);
+          toast.error(
+            `Couldn't render a slide figure: ${err instanceof Error ? err.message : "image generation failed"}`,
+          );
           // leave figureImage unset on failure — slide just renders without it
         }
       }),
@@ -593,6 +915,7 @@ function PresentationsPage() {
           background: docSummary || undefined,
           instructions: instructions.trim() || undefined,
           currentDeck: deck ?? undefined,
+          folderContext: folderContext || undefined,
         }),
         signal: controller.signal,
       });
@@ -621,7 +944,10 @@ function PresentationsPage() {
       const { display, deck: newDeck } = splitDeckMarker(rawText);
       setMessages((prev) => {
         const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", content: display.trim() || "Here's the deck." };
+        copy[copy.length - 1] = {
+          role: "assistant",
+          content: display.trim() || "Here's the deck.",
+        };
         return copy;
       });
       if (newDeck && newDeck.slides?.length) {
@@ -640,7 +966,10 @@ function PresentationsPage() {
         toast.error(e instanceof Error ? e.message : "Generation failed");
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: "Sorry, I couldn't build that — please try again." };
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Sorry, I couldn't build that — please try again.",
+          };
           return copy;
         });
       }
@@ -717,7 +1046,10 @@ function PresentationsPage() {
         }),
       );
       const blob = await exportDeckToPptx(deck, decorationImages);
-      downloadBlob(blob, `${(deck.title || "Presentation").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.pptx`);
+      downloadBlob(
+        blob,
+        `${(deck.title || "Presentation").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.pptx`,
+      );
     } catch (e) {
       toast.error("Couldn't export the presentation");
     } finally {
@@ -743,11 +1075,21 @@ function PresentationsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={exportDeck} disabled={exporting || !deck}>
-                  {exporting ? <Loader2 className="size-4 animate-spin mr-2" /> : <FileDown className="size-4 mr-2" />}
+                  {exporting ? (
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                  ) : (
+                    <FileDown className="size-4 mr-2" />
+                  )}
                   Download .pptx
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { setMessages([]); setDeck(null); }} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setMessages([]);
+                    setDeck(null);
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
                   <Trash2 className="size-4 mr-2" /> Clear conversation
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -762,13 +1104,19 @@ function PresentationsPage() {
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
                   <Presentation className="size-10 mb-3 opacity-60" />
                   <p className="text-sm max-w-sm">
-                    Describe the deck you need — "a 10-slide pitch deck for an agritech startup" — and I'll build it, with live previews you can edit on the right.
+                    Describe the deck you need — "a 10-slide pitch deck for an agritech startup" —
+                    and I'll build it, with live previews you can edit on the right.
                   </p>
                 </div>
               )}
               {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                <div
+                  key={i}
+                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[90%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                  >
                     {m.content || (sending && i === messages.length - 1 ? "" : m.content)}
                   </div>
                 </div>
@@ -789,60 +1137,113 @@ function PresentationsPage() {
                 placeholder="Describe the deck or the change you want..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
                 className="resize-none min-h-0 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base"
               />
               <div className="flex items-center gap-1 mt-1">
                 <ChatHistoryMenu
                   tool="presentations"
                   activeId={conversationId}
+                  folderId={folderId}
                   onSelect={handleSelectConversation}
                   onNew={handleNewChat}
                 />
+                {folderId && folderName && <FolderBadge id={folderId} name={folderName} />}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant={docFiles.length > 0 || docSummary.trim() !== "" ? "default" : "ghost"} size="sm" className="h-8 gap-1.5 px-2" title="Background docs">
+                    <Button
+                      variant={
+                        docFiles.length > 0 || docSummary.trim() !== "" ? "default" : "ghost"
+                      }
+                      size="sm"
+                      className="h-8 gap-1.5 px-2"
+                      title="Background docs"
+                    >
                       <FileStack className="size-4 shrink-0" />
-                      <span className="text-xs hidden sm:inline">{docFiles.length > 0 ? `${docFiles.length}` : "Brief / rubric"}</span>
+                      <span className="text-xs hidden sm:inline">
+                        {docFiles.length > 0 ? `${docFiles.length}` : "Brief / rubric"}
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-80" align="start" side="top">
                     <h3 className="font-semibold text-sm mb-1">Brief, rubric, or context</h3>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Upload a brief, marking rubric, brand guide, or report so the deck is built around it.
+                      Upload a brief, marking rubric, brand guide, or report so the deck is built
+                      around it.
                     </p>
                     <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
                       <Upload className="size-5 text-muted-foreground" />
                       <span className="text-sm font-medium">Choose documents</span>
-                      <span className="text-xs text-muted-foreground">PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md</span>
-                      <input type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
-                        onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
+                      <span className="text-xs text-muted-foreground">
+                        PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md
+                      </span>
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
+                        className="hidden"
+                        onChange={(e) => {
+                          const fs = Array.from(e.target.files ?? []);
+                          if (fs.length) addDocFiles(fs);
+                        }}
+                      />
                     </label>
                     {docFiles.length > 0 && (
                       <div className="mt-3 space-y-1.5">
                         {docFiles.map((f, i) => (
-                          <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                            <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                            <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
+                          <div
+                            key={i}
+                            className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                          >
+                            <span className="flex items-center gap-2 truncate">
+                              <FileText className="size-4 text-muted-foreground shrink-0" />{" "}
+                              {f.name}
+                            </span>
+                            <button
+                              onClick={() => removeDocFile(i)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
                           </div>
                         ))}
                       </div>
                     )}
                     {docFiles.length === 0 && docSummary.trim() !== "" && (
                       <div className="mt-3 flex items-center justify-between rounded border px-3 py-2 text-sm">
-                        <span className="flex items-center gap-2 truncate text-muted-foreground"><FileText className="size-4 shrink-0" /> Context restored from a previous session</span>
-                        <button onClick={() => setDocSummary("")} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="size-4" /></button>
+                        <span className="flex items-center gap-2 truncate text-muted-foreground">
+                          <FileText className="size-4 shrink-0" /> Context restored from a previous
+                          session
+                        </span>
+                        <button
+                          onClick={() => setDocSummary("")}
+                          className="text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       </div>
                     )}
                     {summarizingDocs && (
-                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
+                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+                        <Loader2 className="size-3 animate-spin" /> Reading documents...
+                      </p>
                     )}
                   </PopoverContent>
                 </Popover>
 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant={instructions.trim() ? "default" : "ghost"} size="sm" className="h-8 gap-1.5 px-2 max-w-[180px]" title="Instructions">
+                    <Button
+                      variant={instructions.trim() ? "default" : "ghost"}
+                      size="sm"
+                      className="h-8 gap-1.5 px-2 max-w-[180px]"
+                      title="Instructions"
+                    >
                       <ListChecks className="size-4 shrink-0" />
                       <span className="truncate text-xs hidden sm:inline">Instructions</span>
                     </Button>
@@ -863,7 +1264,13 @@ function PresentationsPage() {
 
                 <div className="ml-auto">
                   {sending ? (
-                    <Button onClick={stopGenerating} variant="secondary" size="icon" className="size-9" title="Stop">
+                    <Button
+                      onClick={stopGenerating}
+                      variant="secondary"
+                      size="icon"
+                      className="size-9"
+                      title="Stop"
+                    >
                       <Square className="size-4" />
                     </Button>
                   ) : (
@@ -880,7 +1287,9 @@ function PresentationsPage() {
             {!deck && (
               <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
                 <Presentation className="size-10 mb-3 opacity-60" />
-                <p className="text-sm max-w-sm">Your slide previews will appear here once you ask for a deck.</p>
+                <p className="text-sm max-w-sm">
+                  Your slide previews will appear here once you ask for a deck.
+                </p>
               </div>
             )}
             {deck && theme && (
@@ -894,16 +1303,46 @@ function PresentationsPage() {
                 {deck.slides.map((slide, i) => (
                   <div key={i} className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-muted-foreground">Slide {i + 1} · {LAYOUT_LABELS[slide.layout]}</span>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Slide {i + 1} · {LAYOUT_LABELS[slide.layout]}
+                      </span>
                       <div className="flex items-center gap-0.5">
-                        <button onClick={() => moveSlide(i, -1)} disabled={i === 0} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronUp className="size-3.5" /></button>
-                        <button onClick={() => moveSlide(i, 1)} disabled={i === deck.slides.length - 1} className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"><ChevronDown className="size-3.5" /></button>
-                        <button onClick={() => duplicateSlide(i)} className="p-1 text-muted-foreground hover:text-foreground"><CopyIcon className="size-3.5" /></button>
-                        <button onClick={() => removeSlide(i)} className="p-1 text-muted-foreground hover:text-destructive"><Trash2 className="size-3.5" /></button>
+                        <button
+                          onClick={() => moveSlide(i, -1)}
+                          disabled={i === 0}
+                          className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        >
+                          <ChevronUp className="size-3.5" />
+                        </button>
+                        <button
+                          onClick={() => moveSlide(i, 1)}
+                          disabled={i === deck.slides.length - 1}
+                          className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        >
+                          <ChevronDown className="size-3.5" />
+                        </button>
+                        <button
+                          onClick={() => duplicateSlide(i)}
+                          className="p-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <CopyIcon className="size-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeSlide(i)}
+                          className="p-1 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <SlidePreview slide={slide} theme={theme} captureRef={(el) => { slidePreviewRefs.current[i] = el; }} />
+                      <SlidePreview
+                        slide={slide}
+                        theme={theme}
+                        captureRef={(el) => {
+                          slidePreviewRefs.current[i] = el;
+                        }}
+                      />
                       <SlideEditor slide={slide} onChange={(patch) => updateSlide(i, patch)} />
                     </div>
                   </div>

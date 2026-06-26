@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   FileCheck2,
   LayoutDashboard,
+  Folder,
   Settings,
   Zap,
   Gem,
@@ -59,6 +60,7 @@ function TierPicker({ tier, setTier }: { tier: ModelTier; setTier: (t: ModelTier
 
 const nav = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/app/folders", label: "Folders", icon: Folder },
   { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
   { to: "/app/personas", label: "Persona Studio", icon: Users },

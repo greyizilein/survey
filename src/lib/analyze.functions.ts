@@ -19,8 +19,19 @@ export const AnalyzeChatInput = z.object({
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(24000).optional(),
-  instructionsPreset: z.enum(["none", "chapter4-quant", "chapter4-qual", "chapter4-mixed", "other-writing", "basic-academia", "dissertations"]).default("none"),
+  instructionsPreset: z
+    .enum([
+      "none",
+      "chapter4-quant",
+      "chapter4-qual",
+      "chapter4-mixed",
+      "other-writing",
+      "basic-academia",
+      "dissertations",
+    ])
+    .default("none"),
   instructions: z.string().max(4000).optional(),
+  folderContext: z.string().max(200000).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), text: z.string() });
@@ -64,7 +75,10 @@ interface ColumnSummary {
   samples?: string[];
 }
 
-function summarizeRows(rows: Record<string, unknown>[]): { rowCount: number; columns: ColumnSummary[] } {
+function summarizeRows(rows: Record<string, unknown>[]): {
+  rowCount: number;
+  columns: ColumnSummary[];
+} {
   if (!rows.length) return { rowCount: 0, columns: [] };
   const keys = Array.from(new Set(rows.flatMap((r) => Object.keys(r))));
   const columns: ColumnSummary[] = keys.map((key) => {
@@ -122,12 +136,16 @@ export async function buildProjectDataset(supabase: any, projectId: string) {
 
   const surveySummaries = (surveys ?? []).map((survey: any) => {
     const questions: Question[] = (survey.parsed_questions ?? []) as Question[];
-    const surveySimIds = new Set((simulations ?? []).filter((s: any) => s.survey_id === survey.id).map((s: any) => s.id));
+    const surveySimIds = new Set(
+      (simulations ?? []).filter((s: any) => s.survey_id === survey.id).map((s: any) => s.id),
+    );
     const surveyResponses = (responses ?? []).filter((r: any) => surveySimIds.has(r.simulation_id));
 
     const questionSummaries = questions.map((q) => {
       const answers = surveyResponses
-        .map((r: any) => (r.answers as any[] | null)?.find((a: any) => a.question_id === q.id)?.answer)
+        .map(
+          (r: any) => (r.answers as any[] | null)?.find((a: any) => a.question_id === q.id)?.answer,
+        )
         .filter((a: unknown) => a !== undefined && a !== null && a !== "");
       const distinct = new Set(answers.map(String));
       if (q.options?.length || (distinct.size > 0 && distinct.size <= 15)) {
@@ -135,7 +153,12 @@ export async function buildProjectDataset(supabase: any, projectId: string) {
         for (const a of answers) counts[String(a)] = (counts[String(a)] ?? 0) + 1;
         return { question: q.text, type: q.type, response_count: answers.length, counts };
       }
-      return { question: q.text, type: q.type, response_count: answers.length, sample_answers: answers.slice(0, 15).map(String) };
+      return {
+        question: q.text,
+        type: q.type,
+        response_count: answers.length,
+        sample_answers: answers.slice(0, 15).map(String),
+      };
     });
 
     return {
@@ -175,12 +198,15 @@ export async function buildAnalyzePrompt(
   data: z.infer<typeof AnalyzeChatInput>,
   supabase: any,
 ): Promise<{ model: string; prompt: string; useCodeExecution: boolean; useWebSearch: boolean }> {
-  let datasetBlock = "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
+  let datasetBlock =
+    "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
   let hasRealDataset = false;
   if (data.source.type === "project") {
     const dataset = await buildProjectDataset(supabase, data.source.project_id);
     datasetBlock = `Dataset (survey responses from project "${dataset.project_name}"):\n${JSON.stringify(dataset, null, 2)}`;
-    hasRealDataset = dataset.surveys.some((s: { respondent_count: number }) => s.respondent_count > 0);
+    hasRealDataset = dataset.surveys.some(
+      (s: { respondent_count: number }) => s.respondent_count > 0,
+    );
   } else if (data.source.type === "file") {
     const summary = summarizeRows(data.source.rows);
     datasetBlock = `Dataset (uploaded file "${data.source.filename}", ${summary.rowCount} rows):\n${JSON.stringify(summary, null, 2)}\n\nRAW ROWS (for code execution — use this, not the precomputed summary above, when you compute statistics):\n${JSON.stringify(data.source.rows)}`;
@@ -221,9 +247,16 @@ export async function buildAnalyzePrompt(
     ? `\n\nADDITIONAL RESEARCHER INSTRUCTIONS (follow these when shaping your analysis and tone):\n${data.instructions.trim()}`
     : "";
 
+  const folderBlock = data.folderContext?.trim()
+    ? `\n\nFOLDER CONTEXT (shared across this folder's chats — treat its instructions as standing requirements and its reference files as authoritative background):\n${data.folderContext.trim()}`
+    : "";
+
   let prompt: string;
 
-  const assistantTextAll = data.messages.filter((m) => m.role === "assistant").map((m) => m.content).join("\n");
+  const assistantTextAll = data.messages
+    .filter((m) => m.role === "assistant")
+    .map((m) => m.content)
+    .join("\n");
   const promptAlreadyCreated = /\|\s*:?-{2,}:?\s*\|/.test(assistantTextAll);
   const needsCitations =
     data.instructionsPreset === "chapter4-quant" ||
@@ -233,10 +266,11 @@ export async function buildAnalyzePrompt(
     data.instructionsPreset === "dissertations" ||
     (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
 
-  const { CODE_EXECUTION_MODEL, textModelForTier, getModelTier } = await import("./ai-gateway.server");
+  const { CODE_EXECUTION_MODEL, textModelForTier, getModelTier } =
+    await import("./ai-gateway.server");
   const tier = getModelTier();
   const useCodeExecution = tier === "max";
-  let model = useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(tier);
+  const model = useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(tier);
 
   let sourcesBlock = "";
   const useWebSearch = needsCitations;
@@ -259,13 +293,12 @@ export async function buildAnalyzePrompt(
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
 
   if (data.instructionsPreset === "other-writing") {
-
     if (promptAlreadyCreated) {
       prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, summarise, preview, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
 
 ABSOLUTE OUTPUT RULE FOR THIS TURN: This response must contain ONLY the requested academic content — the actual section/chapter prose (with its own heading, tables of data/results if the section itself requires one as content, and figures), and nothing else. Specifically forbidden anywhere in this response: any markdown table that restates section breakdowns, word counts, learning outcomes, formatting standards, constraints, or marking criteria; any restatement or paraphrase of the specification; any preamble such as "Here is...", "Based on the prompt...", "I will now write...", or a summary of what you are about to do; any meta-commentary about the table, the task, or your process. Your very first character must be the start of the section's actual heading or opening sentence — go straight into the academic writing itself, exactly as if you were a writer who already has the brief memorised and is simply continuing the document.
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -277,7 +310,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${multiWorkBlock}${instructionsBlock}${writingCodeExecutionBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${multiWorkBlock}${instructionsBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -290,7 +323,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
     const codeExecutionBlock = `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy). Use it: write and run actual code against the RAW ROWS / dataset above to compute every statistic you report — counts, percentages, means, correlations, significance tests, etc. Never state a number you have not derived by running code. Show your work only as the final reported figures and any chart/table markers below; do not paste raw code or sandbox output into the chat answer itself.`;
     prompt = `You are a skilled writer embedded in a chat interface, capable of any kind of writing the user needs — academic chapters, reports, analysis, narrative, or anything else. When a dataset is provided below, ground any numbers or claims about it strictly in the facts and counts it actually contains — never invent numbers that aren't derivable from it. When no dataset is relevant, just write.
 
-${datasetBlock}${backgroundBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}${codeExecutionBlock}
+${datasetBlock}${backgroundBlock}${folderBlock}${multiWorkBlock}${presetBlock}${instructionsBlock}${sourcesBlock}${codeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -304,10 +337,14 @@ If a chart would help, end your response with a line containing ONLY:
 
 If a table would help, end your response with a line containing ONLY (after any chart line):
 @@TABLE@@{"columns":["Column A","Column B"],"rows":[["value","value"]]}
-${useCodeExecution ? `
+${
+  useCodeExecution
+    ? `
 If the data calls for a chart type the simple bar/line/pie format above can't express well (scatter plots, histograms/distributions, box plots, multi-series comparisons, regression lines, anything with more than one series or axis), generate it properly instead: use matplotlib/seaborn in the sandbox, save the figure, base64-encode the PNG bytes in your code, print ONLY that base64 string, then copy it verbatim into a final line containing ONLY:
 @@CHARTIMAGE@@<the exact base64 PNG string you printed, no surrounding quotes or whitespace>
-Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.` : ""}
+Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.`
+    : ""
+}
 Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
   }
 

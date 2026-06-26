@@ -5,7 +5,7 @@ import type { Json } from "@/integrations/supabase/types";
 
 const ChatTool = z.enum(["analyze", "presentations", "agent"]);
 
-const ListInput = z.object({ tool: ChatTool });
+const ListInput = z.object({ tool: ChatTool, folderId: z.string().uuid().optional() });
 const GetInput = z.object({ id: z.string().uuid() });
 const SaveInput = z.object({
   id: z.string().uuid().optional(),
@@ -13,6 +13,7 @@ const SaveInput = z.object({
   title: z.string().max(200).optional(),
   state: z.record(z.string(), z.unknown()),
   agentSessionId: z.string().max(200).optional(),
+  folderId: z.string().uuid().nullable().optional(),
 });
 const DeleteInput = z.object({ id: z.string().uuid() });
 const RenameInput = z.object({ id: z.string().uuid(), title: z.string().min(1).max(200) });
@@ -21,12 +22,12 @@ export const listChatConversations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ListInput.parse(d))
   .handler(async ({ context, data }) => {
-    const { data: rows, error } = await context.supabase
+    let query = context.supabase
       .from("chat_conversations")
-      .select("id, title, created_at, updated_at")
-      .eq("tool", data.tool)
-      .order("updated_at", { ascending: false })
-      .limit(100);
+      .select("id, title, created_at, updated_at, folder_id")
+      .eq("tool", data.tool);
+    if (data.folderId) query = query.eq("folder_id", data.folderId);
+    const { data: rows, error } = await query.order("updated_at", { ascending: false }).limit(100);
     if (error) throw new Error(error.message);
     return { conversations: rows ?? [] };
   });
@@ -37,7 +38,7 @@ export const getChatConversation = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { data: row, error } = await context.supabase
       .from("chat_conversations")
-      .select("id, tool, title, state, agent_session_id, created_at, updated_at")
+      .select("id, tool, title, state, agent_session_id, folder_id, created_at, updated_at")
       .eq("id", data.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -51,9 +52,18 @@ export const saveChatConversation = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const title = data.title?.trim() || "New chat";
     if (data.id) {
+      const patch = {
+        title,
+        state: data.state as Json,
+        agent_session_id: data.agentSessionId,
+        updated_at: new Date().toISOString(),
+        // Only touch folder_id when the caller explicitly sends it, so a normal
+        // autosave never clobbers an assignment made elsewhere.
+        ...(data.folderId !== undefined ? { folder_id: data.folderId } : {}),
+      };
       const { data: row, error } = await context.supabase
         .from("chat_conversations")
-        .update({ title, state: data.state as Json, agent_session_id: data.agentSessionId, updated_at: new Date().toISOString() })
+        .update(patch)
         .eq("id", data.id)
         .select("id")
         .maybeSingle();
@@ -64,7 +74,14 @@ export const saveChatConversation = createServerFn({ method: "POST" })
 
     const { data: row, error } = await context.supabase
       .from("chat_conversations")
-      .insert({ user_id: context.userId, tool: data.tool, title, state: data.state as Json, agent_session_id: data.agentSessionId })
+      .insert({
+        user_id: context.userId,
+        tool: data.tool,
+        title,
+        state: data.state as Json,
+        agent_session_id: data.agentSessionId,
+        folder_id: data.folderId ?? null,
+      })
       .select("id")
       .single();
     if (error) throw new Error(error.message);

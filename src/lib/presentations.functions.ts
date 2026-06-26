@@ -8,7 +8,18 @@ const ChatMessage = z.object({
 });
 
 const SlideSchema = z.object({
-  layout: z.enum(["title", "section", "bullets", "two-column", "stat", "quote", "timeline", "grid", "table", "closing"]),
+  layout: z.enum([
+    "title",
+    "section",
+    "bullets",
+    "two-column",
+    "stat",
+    "quote",
+    "timeline",
+    "grid",
+    "table",
+    "closing",
+  ]),
   title: z.string().optional(),
   subtitle: z.string().optional(),
   number: z.string().optional(),
@@ -19,8 +30,14 @@ const SlideSchema = z.object({
   label: z.string().optional(),
   quote: z.string().optional(),
   author: z.string().optional(),
-  stages: z.array(z.object({ label: z.string(), title: z.string(), done: z.boolean().optional() })).optional(),
-  items: z.array(z.object({ label: z.string(), color: z.string().optional(), bullets: z.array(z.string()) })).optional(),
+  stages: z
+    .array(z.object({ label: z.string(), title: z.string(), done: z.boolean().optional() }))
+    .optional(),
+  items: z
+    .array(
+      z.object({ label: z.string(), color: z.string().optional(), bullets: z.array(z.string()) }),
+    )
+    .optional(),
   tableColumns: z.array(z.string()).optional(),
   tableRows: z.array(z.array(z.string())).optional(),
   notes: z.string().optional(),
@@ -47,6 +64,7 @@ export const PresentationChatInput = z.object({
   messages: z.array(ChatMessage).min(1).max(40),
   background: z.string().max(24000).optional(),
   instructions: z.string().max(4000).optional(),
+  folderContext: z.string().max(200000).optional(),
   currentDeck: DeckSchema.optional(),
 });
 
@@ -86,7 +104,8 @@ Output ONLY the condensed summary as plain text, no markdown headers, no comment
 export async function buildPresentationPrompt(
   data: z.infer<typeof PresentationChatInput>,
 ): Promise<{ model: string; prompt: string; useCodeExecution: boolean }> {
-  const { textModelForTier, codeExecutionAvailable, getModelTier, CODE_EXECUTION_MODEL } = await import("./ai-gateway.server");
+  const { textModelForTier, codeExecutionAvailable, getModelTier, CODE_EXECUTION_MODEL } =
+    await import("./ai-gateway.server");
   const { PRESENTATION_STUDIO_TEMPLATE } = await import("./presentation-templates.server");
   const useCodeExecution = getModelTier() === "max" && codeExecutionAvailable();
   const codeExecutionBlock = useCodeExecution
@@ -101,6 +120,10 @@ export async function buildPresentationPrompt(
     ? `\n\nUPLOADED BRIEF / RUBRIC / CONTEXT (use this to understand the audience, requirements, and subject matter):\n${data.background.trim()}`
     : "\n\nNo brief, rubric, or context document has been uploaded.";
 
+  const folderBlock = data.folderContext?.trim()
+    ? `\n\nFOLDER CONTEXT (shared across this folder's chats — treat its instructions as standing requirements and its reference files as authoritative background):\n${data.folderContext.trim()}`
+    : "";
+
   const instructionsBlock = data.instructions?.trim()
     ? `\n\nADDITIONAL INSTRUCTIONS (follow these when shaping tone, scope, and length):\n${data.instructions.trim()}`
     : "";
@@ -113,12 +136,16 @@ export async function buildPresentationPrompt(
 
   const prompt = `${PRESENTATION_STUDIO_TEMPLATE}
 
-${backgroundBlock}${instructionsBlock}${currentDeckBlock}${codeExecutionBlock}${figureCapabilityBlock}
+${backgroundBlock}${folderBlock}${instructionsBlock}${currentDeckBlock}${codeExecutionBlock}${figureCapabilityBlock}
 
 CONVERSATION SO FAR
 ${history}
 
 Respond to the latest USER message per the workflow and JSON deck schema above.`;
 
-  return { model: useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(), prompt, useCodeExecution };
+  return {
+    model: useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(),
+    prompt,
+    useCodeExecution,
+  };
 }
