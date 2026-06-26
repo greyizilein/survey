@@ -36,6 +36,7 @@ import {
 import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { FolderBadge } from "@/components/folder-badge";
+import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
 import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 
 function readAsBase64(file: File): Promise<string> {
@@ -547,28 +548,34 @@ function AgentPage() {
                   </label>
                   {docFiles.length > 0 && (
                     <div className="mt-3 space-y-1.5">
-                      {docFiles.map((f, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between rounded border px-3 py-2 text-sm"
-                        >
-                          <span className="flex items-center gap-2 truncate">
-                            <FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}
-                          </span>
-                          <button
-                            onClick={() => removeDocFile(i)}
-                            className="text-muted-foreground hover:text-destructive"
+                      {docFiles.map((f, i) => {
+                        // Files are read in order and appended to docTexts; one is ready once its text lands.
+                        const status: IngestStatus =
+                          readingDocs && i >= docTexts.length ? "reading" : "ready";
+                        return (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm"
                           >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </div>
-                      ))}
+                            <span className="flex min-w-0 items-center gap-2 truncate">
+                              <FileText
+                                className={cn("size-4 shrink-0", ingestIconClass(status))}
+                              />{" "}
+                              {f.name}
+                            </span>
+                            <span className="flex shrink-0 items-center gap-2">
+                              <IngestBadge status={status} />
+                              <button
+                                onClick={() => removeDocFile(i)}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
-                  {readingDocs && (
-                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
-                      <Loader2 className="size-3 animate-spin" /> Reading documents...
-                    </p>
                   )}
                 </PopoverContent>
               </Popover>

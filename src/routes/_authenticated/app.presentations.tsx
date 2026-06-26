@@ -50,6 +50,7 @@ import {
 import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { FolderBadge } from "@/components/folder-badge";
+import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
 import {
   exportDeckToPptx,
   downloadBlob,
@@ -709,6 +710,7 @@ function PresentationsPage() {
   const [docFiles, setDocFiles] = useState<File[]>([]);
   const [docSummary, setDocSummary] = useState<string>(initial.docSummary ?? "");
   const [summarizingDocs, setSummarizingDocs] = useState(false);
+  const [failedDocs, setFailedDocs] = useState<string[]>([]);
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
 
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
@@ -821,6 +823,7 @@ function PresentationsPage() {
       return;
     }
     setSummarizingDocs(true);
+    setFailedDocs([]);
     try {
       const payload: { name: string; text: string }[] = [];
       const failed: string[] = [];
@@ -834,6 +837,7 @@ function PresentationsPage() {
           failed.push(f.name);
         }
       }
+      setFailedDocs(failed);
       if (!payload.length)
         throw new Error(
           "Could not read any of those documents — try them one at a time to find the bad one.",
@@ -1195,23 +1199,35 @@ function PresentationsPage() {
                     </label>
                     {docFiles.length > 0 && (
                       <div className="mt-3 space-y-1.5">
-                        {docFiles.map((f, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between rounded border px-3 py-2 text-sm"
-                          >
-                            <span className="flex items-center gap-2 truncate">
-                              <FileText className="size-4 text-muted-foreground shrink-0" />{" "}
-                              {f.name}
-                            </span>
-                            <button
-                              onClick={() => removeDocFile(i)}
-                              className="text-muted-foreground hover:text-destructive"
+                        {docFiles.map((f, i) => {
+                          const status: IngestStatus = summarizingDocs
+                            ? "reading"
+                            : failedDocs.includes(f.name)
+                              ? "failed"
+                              : "ready";
+                          return (
+                            <div
+                              key={i}
+                              className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm"
                             >
-                              <Trash2 className="size-4" />
-                            </button>
-                          </div>
-                        ))}
+                              <span className="flex min-w-0 items-center gap-2 truncate">
+                                <FileText
+                                  className={cn("size-4 shrink-0", ingestIconClass(status))}
+                                />{" "}
+                                {f.name}
+                              </span>
+                              <span className="flex shrink-0 items-center gap-2">
+                                <IngestBadge status={status} />
+                                <button
+                                  onClick={() => removeDocFile(i)}
+                                  className="text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="size-4" />
+                                </button>
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     {docFiles.length === 0 && docSummary.trim() !== "" && (
@@ -1227,11 +1243,6 @@ function PresentationsPage() {
                           <Trash2 className="size-4" />
                         </button>
                       </div>
-                    )}
-                    {summarizingDocs && (
-                      <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
-                        <Loader2 className="size-3 animate-spin" /> Reading documents...
-                      </p>
                     )}
                   </PopoverContent>
                 </Popover>
