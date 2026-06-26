@@ -21,6 +21,8 @@ import {
   ClipboardCheck,
   Square,
   Menu,
+  Sparkles,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,7 +62,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
+import {
+  listAnalyzeProjects,
+  summarizeAnalysisDocuments,
+  suggestWritingPreset,
+} from "@/lib/analyze.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
 import {
@@ -126,6 +132,7 @@ type Msg = {
   chartImage?: string | null;
   figures?: FigureImage[] | null;
   generatingFigures?: boolean;
+  options?: string[] | null;
 };
 type InstructionsPreset =
   | "chapter4-quant"
@@ -176,6 +183,19 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "other-writing": "Advanced Writing",
   "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
+};
+
+const PRESET_DESCRIPTIONS: Record<InstructionsPreset, string> = {
+  "chapter4-quant":
+    "A results/findings chapter for a quantitative study — stats, tables, hypothesis tests.",
+  "chapter4-qual": "A results/findings chapter for a qualitative study — themes, codes, quotes.",
+  "chapter4-mixed": "A results/findings chapter for a mixed-methods study.",
+  "other-writing":
+    "Bespoke briefs/rubrics — builds a custom executable plan from your uploaded documents.",
+  "basic-academia":
+    "General academic writing — essays, reports, assignments with standard structure & citations.",
+  dissertations:
+    "A full multi-chapter dissertation — intro, literature, methodology, results, discussion.",
 };
 
 const STORAGE_KEY = "analyze-chat-state-v1";
@@ -241,11 +261,13 @@ function splitMarkers(raw: string): {
   sources: SourceRef[] | null;
   chartImage: string | null;
   figureRequests: FigureRequest[];
+  options: string[] | null;
 } {
   let chart: ChartSpec | null = null;
   let table: TableSpec | null = null;
   let sources: SourceRef[] | null = null;
   let chartImage: string | null = null;
+  let options: string[] | null = null;
   const figureRequests: FigureRequest[] = [];
   const cleaned = stripFakeToolSyntax(raw);
   const lines = cleaned.split("\n");
@@ -293,9 +315,20 @@ function splitMarkers(raw: string): {
       }
       continue;
     }
+    const optionsMatch = /^@@OPTIONS@@(.*)$/.exec(line);
+    if (optionsMatch) {
+      try {
+        const parsed = JSON.parse(optionsMatch[1]);
+        if (Array.isArray(parsed?.options))
+          options = parsed.options.map((o: unknown) => String(o)).slice(0, 8);
+      } catch {
+        /* still streaming */
+      }
+      continue;
+    }
     kept.push(line);
   }
-  return { display: kept.join("\n"), chart, table, sources, chartImage, figureRequests };
+  return { display: kept.join("\n"), chart, table, sources, chartImage, figureRequests, options };
 }
 
 function MarkdownLite({ text }: { text: string }) {
@@ -356,6 +389,7 @@ function AnalyzePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
+  const suggestPresetFn = useServerFn(suggestWritingPreset);
   const extractDocTextFn = useServerFn(extractDocumentText);
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
@@ -389,6 +423,12 @@ function AnalyzePage() {
       : "basic-academia",
   );
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
+  // "Build a tailored prompt first?" offer — driven by a lightweight classifier on the
+  // user's first message / brief. Stays out of the way once the user has acted on it.
+  const [offerPrompt, setOfferPrompt] = useState(false);
+  const [promptMode, setPromptMode] = useState(false);
+  const [promptExecuted, setPromptExecuted] = useState(false);
+  const [presetTouched, setPresetTouched] = useState(false);
 
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
   const [input, setInput] = useState("");
@@ -576,6 +616,10 @@ function AnalyzePage() {
     setDocSummary("");
     setInstructionsPreset("basic-academia");
     setInstructions("");
+    setOfferPrompt(false);
+    setPromptMode(false);
+    setPromptExecuted(false);
+    setPresetTouched(false);
   }
 
   async function handleSelectConversation(id: string): Promise<Msg[] | null> {
@@ -598,6 +642,11 @@ function AnalyzePage() {
       setFileRows(state.fileRows ?? []);
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
+      // An existing chat already has its setup; don't nag with the offer.
+      setOfferPrompt(false);
+      setPromptMode(false);
+      setPromptExecuted(false);
+      setPresetTouched(true);
       return loadedMessages;
     } catch {
       toast.error("Couldn't load that chat");
@@ -656,6 +705,47 @@ function AnalyzePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function applyPreset(p: InstructionsPreset) {
+    setInstructionsPreset(p);
+    setPresetTouched(true);
+    setOfferPrompt(false);
+  }
+
+  // Decide whether to offer building a tailored prompt — only when the classifier judges
+  // this to be real, substantial work (anything but "none"), and the user hasn't acted yet.
+  async function maybeOfferPrompt(text: string) {
+    if (presetTouched || promptMode || !text.trim()) return;
+    try {
+      const { preset } = await suggestPresetFn({ data: { text: text.slice(0, 40000) } });
+      if (preset !== "none") setOfferPrompt(true);
+    } catch (e) {
+      console.error("[analyze] prompt-offer check failed:", e);
+    }
+  }
+
+  // User accepted the offer: kick off the plan-first conversation under their CURRENT
+  // template — the AI adapts that template's standards into a tailored prompt for this work.
+  function acceptPromptBuild() {
+    setOfferPrompt(false);
+    setPresetTouched(true);
+    setPromptMode(true);
+    setPromptExecuted(false);
+    send(
+      "Yes — before writing anything, build a tailored prompt for this work. Ask me any clarifying questions you need first, then show me the finished prompt and wait for my go-ahead.",
+      "build",
+    );
+  }
+
+  function declinePromptBuild() {
+    setOfferPrompt(false);
+    setPresetTouched(true);
+  }
+
+  function executePrompt() {
+    setPromptExecuted(true);
+    send("The prompt looks right — execute it now and write the full work, in full.", "execute");
+  }
+
   async function summarizeDocFiles(files: File[]) {
     setDocFiles(files);
     if (!files.length) {
@@ -685,6 +775,7 @@ function AnalyzePage() {
 
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
+      maybeOfferPrompt(res.summary);
       if (failed.length) {
         toast.warning(
           `Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`,
@@ -734,12 +825,21 @@ function AnalyzePage() {
     return { type: "none" as const };
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string, promptModeArg?: "build" | "execute") {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
+    // On the very first message (no brief uploaded), consider offering a tailored prompt.
+    if (!overrideText && messages.length === 0 && !docSummary.trim()) maybeOfferPrompt(text);
+    // While the prompt is still being built (no prompt table yet), keep typed turns in
+    // build mode so the AI keeps clarifying instead of reverting to "just write it".
+    const tableReadyNow = /\|\s*:?-{2,}:?\s*\|/.test(
+      [...messages].reverse().find((m) => m.role === "assistant")?.content ?? "",
+    );
+    const effectiveMode =
+      promptModeArg ?? (promptMode && !promptExecuted && !tableReadyNow ? "build" : undefined);
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
-    setInput("");
+    if (!overrideText) setInput("");
     setSending(true);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -759,6 +859,7 @@ function AnalyzePage() {
           instructionsPreset,
           instructions: instructions.trim() || undefined,
           folderContext: folderContext || undefined,
+          promptMode: effectiveMode,
         }),
         signal: controller.signal,
       });
@@ -774,17 +875,18 @@ function AnalyzePage() {
         if (done) break;
         raw += decoder.decode(value, { stream: true });
         const { text: withoutError } = splitStreamError(raw);
-        const { display } = splitMarkers(withoutError);
+        const { display, options } = splitMarkers(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: display };
+          copy[copy.length - 1] = { role: "assistant", content: display, options };
           return copy;
         });
       }
 
       const { text: rawText, error: streamError } = splitStreamError(raw);
       if (streamError) throw new Error(streamError);
-      const { display, chart, table, sources, chartImage, figureRequests } = splitMarkers(rawText);
+      const { display, chart, table, sources, chartImage, figureRequests, options } =
+        splitMarkers(rawText);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = {
@@ -792,6 +894,7 @@ function AnalyzePage() {
           content: display.trim() || "I couldn't generate an answer for that.",
           chart,
           table,
+          options,
           sources,
           chartImage,
           generatingFigures: figureRequests.length > 0,
@@ -860,6 +963,10 @@ function AnalyzePage() {
       : fileName;
 
   const sourceActive = sourceTab === "project" ? !!projectId : !!fileName;
+
+  // The prompt builder signals it's done by emitting a markdown table (the prompt spec).
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const promptTableReady = /\|\s*:?-{2,}:?\s*\|/.test(lastAssistant?.content ?? "");
 
   return (
     <AppShell fullScreenMobile>
@@ -1070,6 +1177,25 @@ function AnalyzePage() {
                         </details>
                       )}
                       {m.role === "assistant" &&
+                        m.options &&
+                        m.options.length > 0 &&
+                        i === messages.length - 1 &&
+                        !sending && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {m.options.map((opt, oi) => (
+                              <Button
+                                key={oi}
+                                size="sm"
+                                variant="outline"
+                                className="h-auto whitespace-normal py-1.5 text-left text-xs"
+                                onClick={() => send(opt, "build")}
+                              >
+                                {opt}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      {m.role === "assistant" &&
                         m.content.trim() !== "" &&
                         !(sending && i === messages.length - 1) && (
                           <div className="mt-2 flex items-center gap-3">
@@ -1113,6 +1239,48 @@ function AnalyzePage() {
                 )}
                 <div ref={bottomRef} />
               </div>
+
+              {/* "Build a tailored prompt first?" offer */}
+              {offerPrompt && !promptMode && (
+                <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
+                  <Sparkles className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    Want me to build a tailored prompt for this first? It plans the work before
+                    writing — higher chance of a great result and less back-and-forth.
+                  </span>
+                  <Button size="sm" className="h-6 px-2 text-xs" onClick={acceptPromptBuild}>
+                    Yes
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs"
+                    onClick={declinePromptBuild}
+                  >
+                    No
+                  </Button>
+                </div>
+              )}
+
+              {/* "Execute the prompt?" — shown once the builder has drafted a prompt table */}
+              {promptMode && !promptExecuted && !sending && promptTableReady && (
+                <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
+                  <Sparkles className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    Prompt ready. Execute it now and write the full work?
+                  </span>
+                  <Button size="sm" className="h-6 px-2 text-xs" onClick={executePrompt}>
+                    Execute
+                  </Button>
+                  <button
+                    onClick={() => setPromptExecuted(true)}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    title="Not yet"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
 
               {/* Composer — textarea on top, tool icons + send in a single bar */}
               <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-none sm:border-0 sm:border-t-2 sm:bg-background sm:shadow-none sm:p-3 shrink-0">
@@ -1354,16 +1522,21 @@ function AnalyzePage() {
                         ).map((p) => (
                           <button
                             key={p}
-                            onClick={() => setInstructionsPreset(p)}
+                            onClick={() => applyPreset(p)}
                             className={cn(
-                              "flex items-center justify-between rounded border px-3 py-2 text-sm text-left transition-colors",
+                              "rounded border px-3 py-2 text-left transition-colors",
                               instructionsPreset === p
-                                ? "border-primary bg-primary/5 font-medium"
+                                ? "border-primary bg-primary/5"
                                 : "hover:bg-muted/40",
                             )}
                           >
-                            {PRESET_FULL_LABELS[p]}
-                            {instructionsPreset === p && <Check className="size-3.5" />}
+                            <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                              {PRESET_FULL_LABELS[p]}
+                              {instructionsPreset === p && <Check className="size-3.5 shrink-0" />}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              {PRESET_DESCRIPTIONS[p]}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -1397,7 +1570,7 @@ function AnalyzePage() {
                       </Button>
                     ) : (
                       <Button
-                        onClick={send}
+                        onClick={() => send()}
                         disabled={!input.trim()}
                         size="icon"
                         className="size-9"

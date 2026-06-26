@@ -32,10 +32,76 @@ export const AnalyzeChatInput = z.object({
     .default("none"),
   instructions: z.string().max(4000).optional(),
   folderContext: z.string().max(200000).optional(),
+  // Plan-first prompt workflow, layered on top of whichever template is selected:
+  // "build" = ask questions + draft a tailored prompt (don't write yet); "execute" = write it.
+  promptMode: z.enum(["build", "execute"]).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), text: z.string() });
 const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
+
+const PRESET_KEYS = [
+  "chapter4-quant",
+  "chapter4-qual",
+  "chapter4-mixed",
+  "other-writing",
+  "basic-academia",
+  "dissertations",
+  "none",
+] as const;
+const SuggestPresetInput = z.object({ text: z.string().max(40000) });
+
+/**
+ * Classifies the user's first request (and any uploaded brief) into the best-fitting
+ * writing template, so the UI can offer a one-tap suggestion. Returns "none" when nothing
+ * clearly fits. Uses the fast tier — this runs once per new chat and must be cheap/quick.
+ */
+export const suggestWritingPreset = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SuggestPresetInput.parse(d))
+  .handler(async ({ data }) => {
+    const text = data.text.trim();
+    if (text.length < 12) return { preset: "none" as const };
+
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const ai = createAi();
+
+    const prompt = `You route an academic writing request to the single best-fitting template, or "none".
+
+Templates:
+- chapter4-quant: a results/findings chapter (Chapter Four) for a QUANTITATIVE study — survey stats, tables, hypothesis tests.
+- chapter4-qual: a results/findings chapter for a QUALITATIVE study — interview themes, codes, quotes.
+- chapter4-mixed: a results/findings chapter for a MIXED-METHODS study.
+- dissertations: a full multi-chapter dissertation/thesis (intro → literature → methodology → results → discussion), not a single chapter.
+- basic-academia: a general academic piece — an essay, report, assignment, or article with standard structure and citations.
+- other-writing: a bespoke/complex brief or rubric that doesn't fit the above and needs a custom plan built from it.
+- none: casual, unclear, or non-academic.
+
+Request (and any attached brief):
+"""
+${text.slice(0, 12000)}
+"""
+
+Reply with ONLY one token: the exact template id, or none.`;
+
+    let raw = "";
+    try {
+      const { text: out } = await generateText({
+        model: ai(textModelForTier("fast")),
+        prompt,
+        temperature: 0,
+        maxOutputTokens: 12,
+      });
+      raw = out.trim().toLowerCase();
+    } catch (e) {
+      console.error("[analyze] preset suggestion failed:", e);
+      return { preset: "none" as const };
+    }
+
+    const match = PRESET_KEYS.find((k) => raw.includes(k)) ?? "none";
+    return { preset: match };
+  });
 
 export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -291,6 +357,39 @@ export async function buildAnalyzePrompt(
     : `\n\nYou do NOT have a code execution tool in this mode. Never fabricate computed figures (statistics, calculations, derived numbers) — work them out carefully by hand and show your reasoning, or flag clearly that exact computation requires the Max tier.`;
 
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
+
+  // Plan-first prompt workflow — available under ANY selected template, using the same
+  // superior "Exe.Prompt" builder that Advanced Writing uses, adapted to the user's preset.
+  if (data.promptMode === "build") {
+    const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
+    prompt = `${OTHER_WRITING_TEMPLATE}
+
+You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+@@OPTIONS@@{"options":["First option","Second option","Third option"]}
+so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.
+
+SELECTED WRITING TEMPLATE TO ADAPT THE PROMPT TO:${presetBlock || "\nGeneral academic standards."}
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}
+
+CONVERSATION SO FAR
+${history}
+
+Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON.`;
+    return { model, prompt, useCodeExecution, useWebSearch };
+  }
+
+  if (data.promptMode === "execute") {
+    prompt = `You earlier created a detailed executable prompt table in this conversation — that table is now the fixed specification for this work. EXECUTE it now: write the full, A+-grade work to that specification${presetBlock ? " and the selected template standards below" : ""}, in full and to the required depth, beginning immediately with the content itself. No preamble, and never restate or summarise the specification table.${presetBlock}
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
+
+CONVERSATION SO FAR
+${history}
+
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
+    return { model, prompt, useCodeExecution, useWebSearch };
+  }
 
   if (data.instructionsPreset === "other-writing") {
     if (promptAlreadyCreated) {
