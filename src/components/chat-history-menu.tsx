@@ -143,7 +143,7 @@ export function ChatHistoryMenu({
                     <p className="truncate">{c.title}</p>
                     <p className="text-[11px] text-muted-foreground">{relativeTime(c.updated_at)}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100">
+                  <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                     <button
                       onClick={(e) => startRename(c, e)}
                       className="text-muted-foreground hover:text-foreground"
