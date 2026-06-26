@@ -709,17 +709,16 @@ function AnalyzePage() {
     }
   }
 
-  // User accepted the offer: switch to the prompt-builder template and kick off the
-  // plan-first conversation (the AI asks clarifying questions, then drafts the prompt).
+  // User accepted the offer: kick off the plan-first conversation under their CURRENT
+  // template — the AI adapts that template's standards into a tailored prompt for this work.
   function acceptPromptBuild() {
     setOfferPrompt(false);
     setPresetTouched(true);
     setPromptMode(true);
     setPromptExecuted(false);
-    setInstructionsPreset("other-writing");
     send(
       "Yes — before writing anything, build a tailored prompt for this work. Ask me any clarifying questions you need first, then show me the finished prompt and wait for my go-ahead.",
-      "other-writing",
+      "build",
     );
   }
 
@@ -730,10 +729,7 @@ function AnalyzePage() {
 
   function executePrompt() {
     setPromptExecuted(true);
-    send(
-      "The prompt looks right — execute it now and write the full work, in full.",
-      "other-writing",
-    );
+    send("The prompt looks right — execute it now and write the full work, in full.", "execute");
   }
 
   async function summarizeDocFiles(files: File[]) {
@@ -815,10 +811,9 @@ function AnalyzePage() {
     return { type: "none" as const };
   }
 
-  async function send(overrideText?: string, presetOverride?: InstructionsPreset) {
+  async function send(overrideText?: string, promptModeArg?: "build" | "execute") {
     const text = (overrideText ?? input).trim();
     if (!text || sending) return;
-    const presetForTurn = presetOverride ?? instructionsPreset;
     // On the very first message (no brief uploaded), consider offering a tailored prompt.
     if (!overrideText && messages.length === 0 && !docSummary.trim()) maybeOfferPrompt(text);
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
@@ -840,9 +835,10 @@ function AnalyzePage() {
           messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
           source: currentSource(),
           background: docSummary || undefined,
-          instructionsPreset: presetForTurn,
+          instructionsPreset,
           instructions: instructions.trim() || undefined,
           folderContext: folderContext || undefined,
+          promptMode: promptModeArg,
         }),
         signal: controller.signal,
       });

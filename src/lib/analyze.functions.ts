@@ -32,6 +32,9 @@ export const AnalyzeChatInput = z.object({
     .default("none"),
   instructions: z.string().max(4000).optional(),
   folderContext: z.string().max(200000).optional(),
+  // Plan-first prompt workflow, layered on top of whichever template is selected:
+  // "build" = ask questions + draft a tailored prompt (don't write yet); "execute" = write it.
+  promptMode: z.enum(["build", "execute"]).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), text: z.string() });
@@ -409,6 +412,23 @@ Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.`
     : ""
 }
 Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
+  }
+
+  // Plan-first prompt workflow — layered on top of whatever template is selected, so the
+  // user keeps their chosen preset and we adapt ITS standards into a tailored prompt.
+  if (data.promptMode === "build") {
+    prompt += `
+
+=== PROMPT-BUILD MODE (overrides the default "just write it" behaviour for THIS turn) ===
+The user has asked you to FIRST build a tailored prompt for their specific work, before writing any of it. Do NOT write the actual work this turn.
+1. If anything important is unclear — the exact task, scope, required length/word count, format, audience, citation style, marking criteria, or which uploaded material to use — ask concise clarifying questions and wait for the answers. Keep this conversational across turns until you genuinely have what you need.
+2. Once you have enough, produce ONE clear, self-contained prompt/specification for this exact piece of work, adapting the writing standards and structure described above (the user's selected template) to fit it. A concise markdown table — sections, requirements, word counts, formatting, constraints, and quality criteria — is ideal.
+3. Present that prompt and STOP. Explicitly invite the user to review it and give the go-ahead before you write anything. Never begin the full work in this turn.`;
+  } else if (data.promptMode === "execute") {
+    prompt += `
+
+=== EXECUTE MODE ===
+The user has approved the tailored prompt/specification you built earlier in this conversation. Now WRITE THE FULL WORK to that specification and the template standards above — in full, to the required depth — beginning immediately with the content itself. No preamble, and do not restate or summarise the specification.`;
   }
 
   return { model, prompt, useCodeExecution, useWebSearch };
