@@ -132,6 +132,7 @@ type Msg = {
   chartImage?: string | null;
   figures?: FigureImage[] | null;
   generatingFigures?: boolean;
+  options?: string[] | null;
 };
 type InstructionsPreset =
   | "chapter4-quant"
@@ -260,11 +261,13 @@ function splitMarkers(raw: string): {
   sources: SourceRef[] | null;
   chartImage: string | null;
   figureRequests: FigureRequest[];
+  options: string[] | null;
 } {
   let chart: ChartSpec | null = null;
   let table: TableSpec | null = null;
   let sources: SourceRef[] | null = null;
   let chartImage: string | null = null;
+  let options: string[] | null = null;
   const figureRequests: FigureRequest[] = [];
   const cleaned = stripFakeToolSyntax(raw);
   const lines = cleaned.split("\n");
@@ -312,9 +315,20 @@ function splitMarkers(raw: string): {
       }
       continue;
     }
+    const optionsMatch = /^@@OPTIONS@@(.*)$/.exec(line);
+    if (optionsMatch) {
+      try {
+        const parsed = JSON.parse(optionsMatch[1]);
+        if (Array.isArray(parsed?.options))
+          options = parsed.options.map((o: unknown) => String(o)).slice(0, 8);
+      } catch {
+        /* still streaming */
+      }
+      continue;
+    }
     kept.push(line);
   }
-  return { display: kept.join("\n"), chart, table, sources, chartImage, figureRequests };
+  return { display: kept.join("\n"), chart, table, sources, chartImage, figureRequests, options };
 }
 
 function MarkdownLite({ text }: { text: string }) {
@@ -816,6 +830,13 @@ function AnalyzePage() {
     if (!text || sending) return;
     // On the very first message (no brief uploaded), consider offering a tailored prompt.
     if (!overrideText && messages.length === 0 && !docSummary.trim()) maybeOfferPrompt(text);
+    // While the prompt is still being built (no prompt table yet), keep typed turns in
+    // build mode so the AI keeps clarifying instead of reverting to "just write it".
+    const tableReadyNow = /\|\s*:?-{2,}:?\s*\|/.test(
+      [...messages].reverse().find((m) => m.role === "assistant")?.content ?? "",
+    );
+    const effectiveMode =
+      promptModeArg ?? (promptMode && !promptExecuted && !tableReadyNow ? "build" : undefined);
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
     if (!overrideText) setInput("");
@@ -838,7 +859,7 @@ function AnalyzePage() {
           instructionsPreset,
           instructions: instructions.trim() || undefined,
           folderContext: folderContext || undefined,
-          promptMode: promptModeArg,
+          promptMode: effectiveMode,
         }),
         signal: controller.signal,
       });
@@ -854,17 +875,18 @@ function AnalyzePage() {
         if (done) break;
         raw += decoder.decode(value, { stream: true });
         const { text: withoutError } = splitStreamError(raw);
-        const { display } = splitMarkers(withoutError);
+        const { display, options } = splitMarkers(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: display };
+          copy[copy.length - 1] = { role: "assistant", content: display, options };
           return copy;
         });
       }
 
       const { text: rawText, error: streamError } = splitStreamError(raw);
       if (streamError) throw new Error(streamError);
-      const { display, chart, table, sources, chartImage, figureRequests } = splitMarkers(rawText);
+      const { display, chart, table, sources, chartImage, figureRequests, options } =
+        splitMarkers(rawText);
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = {
@@ -872,6 +894,7 @@ function AnalyzePage() {
           content: display.trim() || "I couldn't generate an answer for that.",
           chart,
           table,
+          options,
           sources,
           chartImage,
           generatingFigures: figureRequests.length > 0,
@@ -1153,6 +1176,25 @@ function AnalyzePage() {
                           </ul>
                         </details>
                       )}
+                      {m.role === "assistant" &&
+                        m.options &&
+                        m.options.length > 0 &&
+                        i === messages.length - 1 &&
+                        !sending && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {m.options.map((opt, oi) => (
+                              <Button
+                                key={oi}
+                                size="sm"
+                                variant="outline"
+                                className="h-auto whitespace-normal py-1.5 text-left text-xs"
+                                onClick={() => send(opt, "build")}
+                              >
+                                {opt}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
                       {m.role === "assistant" &&
                         m.content.trim() !== "" &&
                         !(sending && i === messages.length - 1) && (

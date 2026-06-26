@@ -358,6 +358,39 @@ export async function buildAnalyzePrompt(
 
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
 
+  // Plan-first prompt workflow — available under ANY selected template, using the same
+  // superior "Exe.Prompt" builder that Advanced Writing uses, adapted to the user's preset.
+  if (data.promptMode === "build") {
+    const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
+    prompt = `${OTHER_WRITING_TEMPLATE}
+
+You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+@@OPTIONS@@{"options":["First option","Second option","Third option"]}
+so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.
+
+SELECTED WRITING TEMPLATE TO ADAPT THE PROMPT TO:${presetBlock || "\nGeneral academic standards."}
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}
+
+CONVERSATION SO FAR
+${history}
+
+Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON.`;
+    return { model, prompt, useCodeExecution, useWebSearch };
+  }
+
+  if (data.promptMode === "execute") {
+    prompt = `You earlier created a detailed executable prompt table in this conversation — that table is now the fixed specification for this work. EXECUTE it now: write the full, A+-grade work to that specification${presetBlock ? " and the selected template standards below" : ""}, in full and to the required depth, beginning immediately with the content itself. No preamble, and never restate or summarise the specification table.${presetBlock}
+
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
+
+CONVERSATION SO FAR
+${history}
+
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
+    return { model, prompt, useCodeExecution, useWebSearch };
+  }
+
   if (data.instructionsPreset === "other-writing") {
     if (promptAlreadyCreated) {
       prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, summarise, preview, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
@@ -412,23 +445,6 @@ Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.`
     : ""
 }
 Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
-  }
-
-  // Plan-first prompt workflow — layered on top of whatever template is selected, so the
-  // user keeps their chosen preset and we adapt ITS standards into a tailored prompt.
-  if (data.promptMode === "build") {
-    prompt += `
-
-=== PROMPT-BUILD MODE (overrides the default "just write it" behaviour for THIS turn) ===
-The user has asked you to FIRST build a tailored prompt for their specific work, before writing any of it. Do NOT write the actual work this turn.
-1. If anything important is unclear — the exact task, scope, required length/word count, format, audience, citation style, marking criteria, or which uploaded material to use — ask concise clarifying questions and wait for the answers. Keep this conversational across turns until you genuinely have what you need.
-2. Once you have enough, produce ONE clear, self-contained prompt/specification for this exact piece of work, adapting the writing standards and structure described above (the user's selected template) to fit it. A concise markdown table — sections, requirements, word counts, formatting, constraints, and quality criteria — is ideal.
-3. Present that prompt and STOP. Explicitly invite the user to review it and give the go-ahead before you write anything. Never begin the full work in this turn.`;
-  } else if (data.promptMode === "execute") {
-    prompt += `
-
-=== EXECUTE MODE ===
-The user has approved the tailored prompt/specification you built earlier in this conversation. Now WRITE THE FULL WORK to that specification and the template standards above — in full, to the required depth — beginning immediately with the content itself. No preamble, and do not restate or summarise the specification.`;
   }
 
   return { model, prompt, useCodeExecution, useWebSearch };
