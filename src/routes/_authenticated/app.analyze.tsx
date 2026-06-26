@@ -409,9 +409,11 @@ function AnalyzePage() {
       : "basic-academia",
   );
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
-  // One-tap template suggestion from a lightweight classifier. Stays out of the way once
-  // the user has picked a template themselves.
-  const [suggestedPreset, setSuggestedPreset] = useState<InstructionsPreset | null>(null);
+  // "Build a tailored prompt first?" offer — driven by a lightweight classifier on the
+  // user's first message / brief. Stays out of the way once the user has acted on it.
+  const [offerPrompt, setOfferPrompt] = useState(false);
+  const [promptMode, setPromptMode] = useState(false);
+  const [promptExecuted, setPromptExecuted] = useState(false);
   const [presetTouched, setPresetTouched] = useState(false);
 
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
@@ -600,7 +602,9 @@ function AnalyzePage() {
     setDocSummary("");
     setInstructionsPreset("basic-academia");
     setInstructions("");
-    setSuggestedPreset(null);
+    setOfferPrompt(false);
+    setPromptMode(false);
+    setPromptExecuted(false);
     setPresetTouched(false);
   }
 
@@ -624,8 +628,10 @@ function AnalyzePage() {
       setFileRows(state.fileRows ?? []);
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
-      // An existing chat already has its template; don't nag with suggestions.
-      setSuggestedPreset(null);
+      // An existing chat already has its setup; don't nag with the offer.
+      setOfferPrompt(false);
+      setPromptMode(false);
+      setPromptExecuted(false);
       setPresetTouched(true);
       return loadedMessages;
     } catch {
@@ -688,21 +694,46 @@ function AnalyzePage() {
   function applyPreset(p: InstructionsPreset) {
     setInstructionsPreset(p);
     setPresetTouched(true);
-    setSuggestedPreset(null);
+    setOfferPrompt(false);
   }
 
-  // Ask the classifier for a fitting template and surface it as a chip — unless the user
-  // has already chosen one, or it matches the current selection.
-  async function maybeSuggestPreset(text: string) {
-    if (presetTouched || !text.trim()) return;
+  // Decide whether to offer building a tailored prompt — only when the classifier judges
+  // this to be real, substantial work (anything but "none"), and the user hasn't acted yet.
+  async function maybeOfferPrompt(text: string) {
+    if (presetTouched || promptMode || !text.trim()) return;
     try {
       const { preset } = await suggestPresetFn({ data: { text: text.slice(0, 40000) } });
-      if (preset !== "none" && preset !== instructionsPreset && preset in PRESET_LABELS) {
-        setSuggestedPreset(preset as InstructionsPreset);
-      }
+      if (preset !== "none") setOfferPrompt(true);
     } catch (e) {
-      console.error("[analyze] preset suggestion failed:", e);
+      console.error("[analyze] prompt-offer check failed:", e);
     }
+  }
+
+  // User accepted the offer: switch to the prompt-builder template and kick off the
+  // plan-first conversation (the AI asks clarifying questions, then drafts the prompt).
+  function acceptPromptBuild() {
+    setOfferPrompt(false);
+    setPresetTouched(true);
+    setPromptMode(true);
+    setPromptExecuted(false);
+    setInstructionsPreset("other-writing");
+    send(
+      "Yes — before writing anything, build a tailored prompt for this work. Ask me any clarifying questions you need first, then show me the finished prompt and wait for my go-ahead.",
+      "other-writing",
+    );
+  }
+
+  function declinePromptBuild() {
+    setOfferPrompt(false);
+    setPresetTouched(true);
+  }
+
+  function executePrompt() {
+    setPromptExecuted(true);
+    send(
+      "The prompt looks right — execute it now and write the full work, in full.",
+      "other-writing",
+    );
   }
 
   async function summarizeDocFiles(files: File[]) {
@@ -734,7 +765,7 @@ function AnalyzePage() {
 
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
-      maybeSuggestPreset(res.summary);
+      maybeOfferPrompt(res.summary);
       if (failed.length) {
         toast.warning(
           `Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`,
@@ -784,14 +815,15 @@ function AnalyzePage() {
     return { type: "none" as const };
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string, presetOverride?: InstructionsPreset) {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
-    // On the very first message (no brief uploaded), let the classifier suggest a template.
-    if (messages.length === 0 && !docSummary.trim()) maybeSuggestPreset(text);
+    const presetForTurn = presetOverride ?? instructionsPreset;
+    // On the very first message (no brief uploaded), consider offering a tailored prompt.
+    if (!overrideText && messages.length === 0 && !docSummary.trim()) maybeOfferPrompt(text);
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
-    setInput("");
+    if (!overrideText) setInput("");
     setSending(true);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -808,7 +840,7 @@ function AnalyzePage() {
           messages: nextMessages.map((m) => ({ role: m.role, content: m.content })),
           source: currentSource(),
           background: docSummary || undefined,
-          instructionsPreset,
+          instructionsPreset: presetForTurn,
           instructions: instructions.trim() || undefined,
           folderContext: folderContext || undefined,
         }),
@@ -912,6 +944,10 @@ function AnalyzePage() {
       : fileName;
 
   const sourceActive = sourceTab === "project" ? !!projectId : !!fileName;
+
+  // The prompt builder signals it's done by emitting a markdown table (the prompt spec).
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+  const promptTableReady = /\|\s*:?-{2,}:?\s*\|/.test(lastAssistant?.content ?? "");
 
   return (
     <AppShell fullScreenMobile>
@@ -1166,26 +1202,42 @@ function AnalyzePage() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* Template suggestion chip */}
-              {suggestedPreset && suggestedPreset !== instructionsPreset && (
+              {/* "Build a tailored prompt first?" offer */}
+              {offerPrompt && !promptMode && (
                 <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
                   <Sparkles className="size-3.5 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1">
-                    Looks like{" "}
-                    <span className="font-medium">{PRESET_FULL_LABELS[suggestedPreset]}</span> —
-                    apply that template?
+                    Want me to build a tailored prompt for this first? It plans the work before
+                    writing — higher chance of a great result and less back-and-forth.
                   </span>
+                  <Button size="sm" className="h-6 px-2 text-xs" onClick={acceptPromptBuild}>
+                    Yes
+                  </Button>
                   <Button
                     size="sm"
+                    variant="ghost"
                     className="h-6 px-2 text-xs"
-                    onClick={() => applyPreset(suggestedPreset)}
+                    onClick={declinePromptBuild}
                   >
-                    Apply
+                    No
+                  </Button>
+                </div>
+              )}
+
+              {/* "Execute the prompt?" — shown once the builder has drafted a prompt table */}
+              {promptMode && !promptExecuted && !sending && promptTableReady && (
+                <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
+                  <Sparkles className="size-3.5 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    Prompt ready. Execute it now and write the full work?
+                  </span>
+                  <Button size="sm" className="h-6 px-2 text-xs" onClick={executePrompt}>
+                    Execute
                   </Button>
                   <button
-                    onClick={() => setSuggestedPreset(null)}
+                    onClick={() => setPromptExecuted(true)}
                     className="shrink-0 text-muted-foreground hover:text-foreground"
-                    title="Dismiss"
+                    title="Not yet"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -1480,7 +1532,7 @@ function AnalyzePage() {
                       </Button>
                     ) : (
                       <Button
-                        onClick={send}
+                        onClick={() => send()}
                         disabled={!input.trim()}
                         size="icon"
                         className="size-9"
