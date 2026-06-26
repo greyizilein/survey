@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ArrowRight, ClipboardPenLine, Users, Wand2, Sparkles, Globe, Gauge, FileDown, Zap, ShieldCheck, BarChart3, Presentation, Bot, MessageSquareText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Logo } from "@/components/logo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -57,12 +58,7 @@ function Landing() {
         {/* Header */}
         <header className="relative z-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div
-              className="flex size-9 items-center justify-center border-2 font-extrabold"
-              style={{ background: LIME, borderColor: LIME, color: INK }}
-            >
-              P
-            </div>
+            <Logo className="size-9" />
             <span className="text-sm font-bold tracking-tight" style={{ color: PAPER }}>
               Paperstudio
             </span>
@@ -221,12 +217,7 @@ function Landing() {
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
               <Link to="/" className="flex items-center gap-2">
-                <div
-                  className="flex size-8 items-center justify-center border-2 font-extrabold"
-                  style={{ background: LIME, borderColor: INK, color: INK }}
-                >
-                  P
-                </div>
+                <Logo className="size-8" />
                 <span className="text-sm font-bold tracking-tight">Paperstudio</span>
               </Link>
               <p className="mt-3 max-w-xs text-sm text-muted-foreground">
