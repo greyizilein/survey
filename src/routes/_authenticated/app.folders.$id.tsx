@@ -17,6 +17,7 @@ import {
   Bot,
   PenLine,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +47,8 @@ import {
   removeFolderFile,
   assignChatToFolder,
 } from "@/lib/folders.functions";
+import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/folders/$id")({
   head: () => ({ meta: [{ title: "Folder · Paperstudio" }] }),
@@ -87,6 +90,10 @@ function FolderDetail() {
   const [instructionsDirty, setInstructionsDirty] = useState(false);
   const [savingInstructions, setSavingInstructions] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pending, setPending] = useState<
+    { id: number; name: string; status: IngestStatus; file: File }[]
+  >([]);
+  const pendingIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -127,25 +134,54 @@ function FolderDetail() {
     }
   }
 
+  // Reads + stores one pending entry; flips it to "failed" (kept, retryable) or removes it on success.
+  async function uploadPending(entryId: number) {
+    let entry: { id: number; name: string; file: File } | undefined;
+    setPending((prev) => {
+      entry = prev.find((p) => p.id === entryId);
+      return prev.map((p) => (p.id === entryId ? { ...p, status: "reading" } : p));
+    });
+    if (!entry) return false;
+    try {
+      const data = await readAsBase64(entry.file);
+      await addFileFn({ data: { folder_id: id, name: entry.name, data } });
+      setPending((prev) => prev.filter((p) => p.id !== entryId));
+      qc.invalidateQueries({ queryKey: ["folder", id] });
+      qc.invalidateQueries({ queryKey: ["folders"] });
+      return true;
+    } catch (e) {
+      console.error(`[folders] could not add "${entry.name}":`, e);
+      setPending((prev) => prev.map((p) => (p.id === entryId ? { ...p, status: "failed" } : p)));
+      return false;
+    }
+  }
+
   async function onFilesPicked(files: FileList | null) {
     if (!files?.length) return;
+    const entries = Array.from(files).map((f) => ({
+      id: ++pendingIdRef.current,
+      name: f.name,
+      status: "reading" as IngestStatus,
+      file: f,
+    }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setPending((prev) => [...prev, ...entries]);
     setUploading(true);
-    const failed: string[] = [];
-    for (const f of Array.from(files)) {
-      try {
-        const data = await readAsBase64(f);
-        await addFileFn({ data: { folder_id: id, name: f.name, data } });
-      } catch (e) {
-        console.error(`[folders] could not add "${f.name}":`, e);
-        failed.push(f.name);
-      }
+    let failedCount = 0;
+    for (const entry of entries) {
+      const ok = await uploadPending(entry.id);
+      if (!ok) failedCount++;
     }
     setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    qc.invalidateQueries({ queryKey: ["folder", id] });
-    qc.invalidateQueries({ queryKey: ["folders"] });
-    if (failed.length) toast.warning(`Couldn't read: ${failed.join(", ")}`);
+    if (failedCount)
+      toast.warning(
+        `Couldn't read ${failedCount} file${failedCount > 1 ? "s" : ""} — retry from the list`,
+      );
     else toast.success("Files added to folder");
+  }
+
+  function dismissPending(entryId: number) {
+    setPending((prev) => prev.filter((p) => p.id !== entryId));
   }
 
   async function removeFile(fileId: string) {
@@ -335,12 +371,40 @@ function FolderDetail() {
               onChange={(e) => onFilesPicked(e.target.files)}
             />
           </div>
-          {files.length === 0 ? (
+          {files.length === 0 && pending.length === 0 ? (
             <p className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
               No files yet. PDFs, Word, Excel, PowerPoint, and text all work.
             </p>
           ) : (
             <ul className="space-y-1.5">
+              {pending.map((p) => (
+                <li
+                  key={`pending-${p.id}`}
+                  className="flex items-center gap-2 rounded-md border bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <FileText className={cn("size-4 shrink-0", ingestIconClass(p.status))} />
+                  <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                  <IngestBadge status={p.status} />
+                  {p.status === "failed" && (
+                    <>
+                      <button
+                        onClick={() => uploadPending(p.id)}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Try again"
+                      >
+                        <RefreshCw className="size-4" />
+                      </button>
+                      <button
+                        onClick={() => dismissPending(p.id)}
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        title="Dismiss"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
               {files.map((f) => (
                 <li
                   key={f.id}
