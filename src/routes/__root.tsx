@@ -12,6 +12,9 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { LOGO_SVG_MARKUP } from "@/components/logo";
+
+const FAVICON_HREF = `data:image/svg+xml,${encodeURIComponent(LOGO_SVG_MARKUP)}`;
 
 function NotFoundComponent() {
   return (
@@ -92,6 +95,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4c66dec6-b219-4bcd-bb93-8b7d0c2a8a35/id-preview-4be2861b--4139d43d-176c-42e0-bd57-6de12912cd73.lovable.app-1780698387685.png" },
     ],
     links: [
+      { rel: "icon", type: "image/svg+xml", href: FAVICON_HREF },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" },

@@ -3,6 +3,7 @@ import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, MessageSquareText,
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
+import { Logo } from "@/components/logo";
 import { useEffect, useState, type ReactNode } from "react";
 import { useModelTier } from "@/lib/use-model-tier";
 import { MODEL_TIER_LABELS, MODEL_TIER_DESCRIPTIONS, type ModelTier } from "@/lib/model-tier";
@@ -180,7 +181,7 @@ export function AppShell({
     <>
       <div className={cn("py-5 border-b-2 border-sidebar-border flex items-center", collapsed ? "justify-center px-2" : "justify-between px-5")}>
         <Link to="/" className="flex items-center gap-2.5 overflow-hidden">
-          <div className="size-8 shrink-0 bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-bold text-base border-2 border-sidebar-foreground rotate-[-3deg]">O</div>
+          <Logo className="size-8 shrink-0 rotate-[-3deg]" />
           {!collapsed && <span className="font-bold tracking-tight text-lg whitespace-nowrap">Office</span>}
         </Link>
         {!collapsed && (
@@ -250,7 +251,7 @@ export function AppShell({
               <Menu className="size-5" />
             </button>
             <Link to="/" className="flex items-center gap-2">
-              <div className="size-6 bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs border-2 border-foreground rotate-[-3deg]">O</div>
+              <Logo className="size-6 rotate-[-3deg]" />
               <span className="font-bold tracking-tight text-sm">Office</span>
             </Link>
           </header>
