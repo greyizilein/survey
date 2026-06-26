@@ -3,8 +3,17 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  Upload, Loader2, Sparkles, FileText, Trash2, Download, Plus,
-  CheckCircle2, AlertCircle, ArrowLeft, MessageSquareText,
+  Upload,
+  Loader2,
+  Sparkles,
+  FileText,
+  Trash2,
+  Download,
+  Plus,
+  CheckCircle2,
+  AlertCircle,
+  ArrowLeft,
+  MessageSquareText,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
@@ -14,16 +23,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  analyzeInterviewDoc, createInterviewStudy, generateTranscript,
-  listInterviewStudies, getInterviewStudy, deleteInterviewStudy,
+  analyzeInterviewDoc,
+  createInterviewStudy,
+  generateTranscript,
+  listInterviewStudies,
+  getInterviewStudy,
+  deleteInterviewStudy,
 } from "@/lib/interviews.functions";
+import { createNotification } from "@/lib/notifications.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import {
-  renderTranscript, downloadBlob, downloadAllAsZip,
-  type TranscriptFormat, type TranscriptMeta, type Turn,
+  renderTranscript,
+  downloadBlob,
+  downloadAllAsZip,
+  type TranscriptFormat,
+  type TranscriptMeta,
+  type Turn,
 } from "@/lib/transcript-formats";
 
 export const Route = createFileRoute("/_authenticated/app/interviews")({
@@ -69,6 +93,7 @@ function InterviewStudio() {
   const listFn = useServerFn(listInterviewStudies);
   const getFn = useServerFn(getInterviewStudy);
   const delFn = useServerFn(deleteInterviewStudy);
+  const notifyFn = useServerFn(createNotification);
 
   const studiesQ = useQuery({ queryKey: ["interview-studies"], queryFn: () => listFn() });
 
@@ -106,15 +131,32 @@ function InterviewStudio() {
 
   function reset() {
     setStage("intake");
-    setGuideFiles([]); setContextFiles([]); setNotes(""); setTitle(""); setInterviewer(""); setMode("teams");
-    setDateStart(""); setDateEnd(""); setContextSummary(""); setNamingContext("");
-    setSourceExcerpt(""); setCountEvidence(""); setCount(12); setGuide([]);
-    setAnonymize(false); setDepth("standard"); setStudy(null); setParticipants([]);
+    setGuideFiles([]);
+    setContextFiles([]);
+    setNotes("");
+    setTitle("");
+    setInterviewer("");
+    setMode("teams");
+    setDateStart("");
+    setDateEnd("");
+    setContextSummary("");
+    setNamingContext("");
+    setSourceExcerpt("");
+    setCountEvidence("");
+    setCount(12);
+    setGuide([]);
+    setAnonymize(false);
+    setDepth("standard");
+    setStudy(null);
+    setParticipants([]);
     setGenProgress(null);
   }
 
   async function analyze() {
-    if (!guideFiles.length) { toast.error("Upload your interview guide"); return; }
+    if (!guideFiles.length) {
+      toast.error("Upload your interview guide");
+      return;
+    }
     setAnalyzing(true);
     try {
       async function extractAll(fileList: File[]) {
@@ -128,7 +170,13 @@ function InterviewStudio() {
       }
       const guidePayload = await extractAll(guideFiles);
       const contextPayload = await extractAll(contextFiles);
-      const res = await analyzeFn({ data: { guide_files: guidePayload, context_files: contextPayload.length ? contextPayload : undefined, notes: notes.trim() || undefined } });
+      const res = await analyzeFn({
+        data: {
+          guide_files: guidePayload,
+          context_files: contextPayload.length ? contextPayload : undefined,
+          notes: notes.trim() || undefined,
+        },
+      });
       setTitle(res.title);
       setContextSummary(res.context_summary);
       setNamingContext(res.naming_context);
@@ -155,24 +203,32 @@ function InterviewStudio() {
   }
 
   async function createAndGenerate() {
-    if (!interviewer.trim()) { toast.error("Enter the interviewer's name"); return; }
-    if (!guide.length) { toast.error("Need at least one interview question"); return; }
+    if (!interviewer.trim()) {
+      toast.error("Enter the interviewer's name");
+      return;
+    }
+    if (!guide.length) {
+      toast.error("Need at least one interview question");
+      return;
+    }
     setCreating(true);
     try {
-      const res = await createFn({ data: {
-        title: title.trim() || "Untitled study",
-        interviewer_name: interviewer.trim(),
-        interview_mode: mode,
-        date_start: dateStart || undefined,
-        date_end: dateEnd || undefined,
-        context_summary: contextSummary || undefined,
-        naming_context: namingContext || undefined,
-        source_excerpt: sourceExcerpt || undefined,
-        guide_questions: guide,
-        respondent_count: count,
-        anonymize,
-        depth,
-      }});
+      const res = await createFn({
+        data: {
+          title: title.trim() || "Untitled study",
+          interviewer_name: interviewer.trim(),
+          interview_mode: mode,
+          date_start: dateStart || undefined,
+          date_end: dateEnd || undefined,
+          context_summary: contextSummary || undefined,
+          naming_context: namingContext || undefined,
+          source_excerpt: sourceExcerpt || undefined,
+          guide_questions: guide,
+          respondent_count: count,
+          anonymize,
+          depth,
+        },
+      });
       setStudy(res.study);
       setParticipants(res.participants);
       setStage("results");
@@ -190,11 +246,13 @@ function InterviewStudio() {
     if (!pending.length) return;
     setGenProgress({ done: 0, total: pending.length });
     let done = 0;
+    let errors = 0;
     await runPool(pending, 3, async (p) => {
       try {
         const updated = await genFn({ data: { participant_id: p.id } });
         setParticipants((prev) => prev.map((x) => (x.id === p.id ? updated : x)));
       } catch {
+        errors++;
         setParticipants((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "error" } : x)));
       } finally {
         done++;
@@ -204,6 +262,16 @@ function InterviewStudio() {
     setGenProgress(null);
     qc.invalidateQueries({ queryKey: ["interview-studies"] });
     toast.success("Transcripts ready");
+    notifyFn({
+      data: {
+        title: `Interview study "${study?.title ?? "Untitled study"}" ready`,
+        body: errors
+          ? `${pending.length - errors} of ${pending.length} transcripts generated — ${errors} failed`
+          : `${pending.length} transcript${pending.length === 1 ? "" : "s"} generated`,
+        level: errors ? "warning" : "success",
+        link: "/app/interviews",
+      },
+    }).catch((e) => console.error("[interviews] notification failed:", e));
   }
 
   async function openStudy(id: string) {
@@ -220,9 +288,16 @@ function InterviewStudio() {
   }
 
   async function downloadOne(p: any) {
-    if (!p.turns?.length) { toast.error("This transcript isn't ready yet"); return; }
+    if (!p.turns?.length) {
+      toast.error("This transcript isn't ready yet");
+      return;
+    }
     try {
-      const { blob, filename } = await renderTranscript(p.turns as Turn[], metaFor(p), downloadFormat);
+      const { blob, filename } = await renderTranscript(
+        p.turns as Turn[],
+        metaFor(p),
+        downloadFormat,
+      );
       downloadBlob(blob, filename);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not render that format");
@@ -231,7 +306,10 @@ function InterviewStudio() {
 
   async function downloadZip() {
     const ready = participants.filter((p) => p.turns?.length);
-    if (!ready.length) { toast.error("No finished transcripts yet"); return; }
+    if (!ready.length) {
+      toast.error("No finished transcripts yet");
+      return;
+    }
     setZipping(true);
     try {
       const items = ready.map((p) => ({ turns: p.turns as Turn[], meta: metaFor(p) }));
@@ -255,8 +333,9 @@ function InterviewStudio() {
               <MessageSquareText className="size-6 text-primary" /> Interview Studio
             </h1>
             <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-              Upload your interview guide and (optionally) your written chapters separately. Paperstudio builds a distinct respondent for each
-              interview and writes a full transcript you can download as VTT, Word, PDF, text, or Markdown.
+              Upload your interview guide and (optionally) your written chapters separately.
+              Paperstudio builds a distinct respondent for each interview and writes a full
+              transcript you can download as VTT, Word, PDF, text, or Markdown.
             </p>
           </div>
           {stage !== "intake" && (
@@ -273,7 +352,9 @@ function InterviewStudio() {
               {/* Interview guide — the ONLY source of questions */}
               <Label className="text-base font-semibold">1. Interview guide</Label>
               <p className="text-sm text-muted-foreground mt-1 mb-3">
-                The file with your actual interview questions/prompts. These are used verbatim — nothing else here is treated as a question. Accepts PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, and .md.
+                The file with your actual interview questions/prompts. These are used verbatim —
+                nothing else here is treated as a question. Accepts PDF, Word (.docx), PowerPoint
+                (.pptx), Excel (.xlsx/.xls), .txt, and .md.
               </p>
               <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
                 <Upload className="size-6 text-muted-foreground" />
@@ -290,9 +371,17 @@ function InterviewStudio() {
               {guideFiles.length > 0 && (
                 <div className="mt-3 space-y-1.5">
                   {guideFiles.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                      <button onClick={() => setGuideFiles(guideFiles.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}
+                      </span>
+                      <button
+                        onClick={() => setGuideFiles(guideFiles.filter((_, j) => j !== i))}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
                         <Trash2 className="size-4" />
                       </button>
                     </div>
@@ -301,9 +390,12 @@ function InterviewStudio() {
               )}
 
               {/* Background chapters / context — never used as questions */}
-              <Label className="text-base font-semibold mt-6 block">2. Written chapters / context (optional)</Label>
+              <Label className="text-base font-semibold mt-6 block">
+                2. Written chapters / context (optional)
+              </Label>
               <p className="text-sm text-muted-foreground mt-1 mb-3">
-                Methodology, chapters, literature, background. Used only to understand the study and shape realistic respondents — never as interview questions.
+                Methodology, chapters, literature, background. Used only to understand the study and
+                shape realistic respondents — never as interview questions.
               </p>
               <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
                 <Upload className="size-6 text-muted-foreground" />
@@ -320,9 +412,17 @@ function InterviewStudio() {
               {contextFiles.length > 0 && (
                 <div className="mt-3 space-y-1.5">
                   {contextFiles.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                      <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                      <button onClick={() => setContextFiles(contextFiles.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}
+                      </span>
+                      <button
+                        onClick={() => setContextFiles(contextFiles.filter((_, j) => j !== i))}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
                         <Trash2 className="size-4" />
                       </button>
                     </div>
@@ -340,8 +440,17 @@ function InterviewStudio() {
                   onChange={(e) => setNotes(e.target.value)}
                 />
               </div>
-              <Button onClick={analyze} disabled={analyzing || !guideFiles.length} size="lg" className="mt-4">
-                {analyzing ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+              <Button
+                onClick={analyze}
+                disabled={analyzing || !guideFiles.length}
+                size="lg"
+                className="mt-4"
+              >
+                {analyzing ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 size-4" />
+                )}
                 {analyzing ? "Reading your documents..." : "Analyze documents"}
               </Button>
             </Card>
@@ -358,10 +467,15 @@ function InterviewStudio() {
                         <div className="text-xs text-muted-foreground mt-0.5">
                           {s.participant_count} participants · {s.depth} · {s.status}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.context_summary}</div>
+                        <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {s.context_summary}
+                        </div>
                       </button>
                       <button
-                        onClick={async () => { await delFn({ data: { id: s.id } }); qc.invalidateQueries({ queryKey: ["interview-studies"] }); }}
+                        onClick={async () => {
+                          await delFn({ data: { id: s.id } });
+                          qc.invalidateQueries({ queryKey: ["interview-studies"] });
+                        }}
                         className="text-muted-foreground hover:text-destructive shrink-0"
                       >
                         <Trash2 className="size-4" />
@@ -378,7 +492,9 @@ function InterviewStudio() {
         {stage === "confirm" && (
           <Card className="p-4 sm:p-6 space-y-5">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setStage("intake")}><ArrowLeft className="size-4" /></Button>
+              <Button variant="ghost" size="sm" onClick={() => setStage("intake")}>
+                <ArrowLeft className="size-4" />
+              </Button>
               <h2 className="font-semibold">Review before generating</h2>
             </div>
 
@@ -389,7 +505,12 @@ function InterviewStudio() {
               </div>
               <div>
                 <Label>Your name (the interviewer)</Label>
-                <Input className="mt-1" placeholder="e.g. Dr. Amara Nwosu" value={interviewer} onChange={(e) => setInterviewer(e.target.value)} />
+                <Input
+                  className="mt-1"
+                  placeholder="e.g. Dr. Amara Nwosu"
+                  value={interviewer}
+                  onChange={(e) => setInterviewer(e.target.value)}
+                />
               </div>
             </div>
 
@@ -397,7 +518,9 @@ function InterviewStudio() {
               <div>
                 <Label>Interview mode</Label>
                 <Select value={mode} onValueChange={(v) => setMode(v as any)}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="teams">Microsoft Teams</SelectItem>
                     <SelectItem value="zoom">Zoom</SelectItem>
@@ -407,18 +530,34 @@ function InterviewStudio() {
               </div>
               <div>
                 <Label>Interviews from</Label>
-                <Input type="date" className="mt-1" value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={dateStart}
+                  onChange={(e) => setDateStart(e.target.value)}
+                />
               </div>
               <div>
                 <Label>Interviews to</Label>
-                <Input type="date" className="mt-1" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} />
+                <Input
+                  type="date"
+                  className="mt-1"
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                />
               </div>
             </div>
 
             <div>
               <Label>Number of respondents</Label>
-              <Input type="number" min={1} max={60} className="mt-1 w-32" value={count}
-                onChange={(e) => setCount(Math.min(60, Math.max(1, +e.target.value || 1)))} />
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                className="mt-1 w-32"
+                value={count}
+                onChange={(e) => setCount(Math.min(60, Math.max(1, +e.target.value || 1)))}
+              />
               <p className="text-xs text-muted-foreground mt-1.5">
                 <span className="font-medium">Detected from your methodology:</span> {countEvidence}
               </p>
@@ -426,13 +565,26 @@ function InterviewStudio() {
 
             <div>
               <Label>Study context (the AI uses this to shape respondents)</Label>
-              <Textarea rows={3} className="mt-1" value={contextSummary} onChange={(e) => setContextSummary(e.target.value)} />
+              <Textarea
+                rows={3}
+                className="mt-1"
+                value={contextSummary}
+                onChange={(e) => setContextSummary(e.target.value)}
+              />
             </div>
 
             <div>
               <Label>Naming guidance</Label>
-              <Textarea rows={2} className="mt-1" value={namingContext} onChange={(e) => setNamingContext(e.target.value)} />
-              <p className="text-xs text-muted-foreground mt-1">Names are drawn to fit this population, de-duplicated, and kept off a generic-name blocklist.</p>
+              <Textarea
+                rows={2}
+                className="mt-1"
+                value={namingContext}
+                onChange={(e) => setNamingContext(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Names are drawn to fit this population, de-duplicated, and kept off a generic-name
+                blocklist.
+              </p>
             </div>
 
             <div>
@@ -440,18 +592,31 @@ function InterviewStudio() {
               <div className="mt-1 space-y-2">
                 {guide.map((q, i) => (
                   <div key={q.id} className="flex gap-2">
-                    <span className="text-sm text-muted-foreground pt-2.5 w-6 shrink-0">{i + 1}.</span>
+                    <span className="text-sm text-muted-foreground pt-2.5 w-6 shrink-0">
+                      {i + 1}.
+                    </span>
                     <Textarea
                       rows={1}
                       value={q.text}
-                      onChange={(e) => setGuide(guide.map((x) => (x.id === q.id ? { ...x, text: e.target.value } : x)))}
+                      onChange={(e) =>
+                        setGuide(
+                          guide.map((x) => (x.id === q.id ? { ...x, text: e.target.value } : x)),
+                        )
+                      }
                     />
-                    <button onClick={() => setGuide(guide.filter((x) => x.id !== q.id))} className="text-muted-foreground hover:text-destructive pt-2.5">
+                    <button
+                      onClick={() => setGuide(guide.filter((x) => x.id !== q.id))}
+                      className="text-muted-foreground hover:text-destructive pt-2.5"
+                    >
                       <Trash2 className="size-4" />
                     </button>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" onClick={() => setGuide([...guide, { id: `q${Date.now()}`, text: "" }])}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGuide([...guide, { id: `q${Date.now()}`, text: "" }])}
+                >
                   <Plus className="mr-2 size-4" /> Add question
                 </Button>
               </div>
@@ -461,7 +626,9 @@ function InterviewStudio() {
               <div>
                 <Label>Interview depth</Label>
                 <Select value={depth} onValueChange={(v) => setDepth(v as any)}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="brief">Brief (~12–16 turns)</SelectItem>
                     <SelectItem value="standard">Standard (~22–30 turns)</SelectItem>
@@ -472,14 +639,20 @@ function InterviewStudio() {
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div>
                   <Label className="cursor-pointer">De-identify participants</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Use codes (P01, P02) as speaker labels instead of names.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Use codes (P01, P02) as speaker labels instead of names.
+                  </p>
                 </div>
                 <Switch checked={anonymize} onCheckedChange={setAnonymize} />
               </div>
             </div>
 
             <Button onClick={createAndGenerate} disabled={creating} size="lg">
-              {creating ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+              {creating ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 size-4" />
+              )}
               {creating ? "Building respondents..." : `Generate ${count} interviews`}
             </Button>
           </Card>
@@ -489,11 +662,14 @@ function InterviewStudio() {
         {stage === "results" && study && (
           <Card className="p-4 sm:p-6">
             <div className="flex items-center gap-2 mb-1">
-              <Button variant="ghost" size="sm" onClick={() => setStage("intake")}><ArrowLeft className="size-4" /></Button>
+              <Button variant="ghost" size="sm" onClick={() => setStage("intake")}>
+                <ArrowLeft className="size-4" />
+              </Button>
               <h2 className="font-semibold">{study.title}</h2>
             </div>
             <p className="text-sm text-muted-foreground ml-10">
-              {doneCount} of {participants.length} transcripts ready · interviewer {study.interviewer_name}
+              {doneCount} of {participants.length} transcripts ready · interviewer{" "}
+              {study.interviewer_name}
             </p>
 
             {genProgress && (
@@ -506,40 +682,73 @@ function InterviewStudio() {
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <Label>Download format</Label>
-                <Select value={downloadFormat} onValueChange={(v) => setDownloadFormat(v as TranscriptFormat)}>
-                  <SelectTrigger className="mt-1 w-48"><SelectValue /></SelectTrigger>
+                <Select
+                  value={downloadFormat}
+                  onValueChange={(v) => setDownloadFormat(v as TranscriptFormat)}
+                >
+                  <SelectTrigger className="mt-1 w-48">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {FORMATS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                    {FORMATS.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <Button onClick={downloadZip} disabled={zipping || doneCount === 0}>
-                {zipping ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Download className="mr-2 size-4" />}
+                {zipping ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 size-4" />
+                )}
                 Download all as .zip
               </Button>
             </div>
 
             <div className="mt-5 space-y-2">
               {participants.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 rounded-md border p-3"
+                >
                   <div className="min-w-0">
                     <div className="font-medium text-sm flex items-center gap-2">
                       {study.anonymize ? p.participant_label : p.display_name}
-                      {!study.anonymize && <span className="text-xs text-muted-foreground font-normal">({p.participant_label})</span>}
+                      {!study.anonymize && (
+                        <span className="text-xs text-muted-foreground font-normal">
+                          ({p.participant_label})
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {[p.persona?.age, p.persona?.gender, p.persona?.role_context].filter(Boolean).join(" · ")}
+                      {[p.persona?.age, p.persona?.gender, p.persona?.role_context]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {p.status === "done" && <CheckCircle2 className="size-4 text-green-600" />}
-                    {p.status === "pending" && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                    {p.status === "pending" && (
+                      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                    )}
                     {p.status === "error" && (
-                      <button onClick={() => generateAll([p])} title="Retry" className="text-destructive">
+                      <button
+                        onClick={() => generateAll([p])}
+                        title="Retry"
+                        className="text-destructive"
+                      >
                         <AlertCircle className="size-4" />
                       </button>
                     )}
-                    <Button variant="outline" size="sm" disabled={p.status !== "done"} onClick={() => downloadOne(p)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={p.status !== "done"}
+                      onClick={() => downloadOne(p)}
+                    >
                       <Download className="mr-1.5 size-3.5" /> {downloadFormat.toUpperCase()}
                     </Button>
                   </div>

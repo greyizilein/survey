@@ -44,14 +44,19 @@ export const runSimulation = createServerFn({ method: "POST" })
     const ai = createAi();
 
     const { data: survey, error: surveyErr } = await context.supabase
-      .from("surveys").select("*").eq("id", data.survey_id).single();
+      .from("surveys")
+      .select("*")
+      .eq("id", data.survey_id)
+      .single();
     if (surveyErr || !survey) throw new Error("Survey not found");
 
     const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
     if (!questions.length) throw new Error("Survey has no questions");
 
     const { data: personas, error: pErr } = await context.supabase
-      .from("personas").select("*").in("id", data.persona_ids);
+      .from("personas")
+      .select("*")
+      .in("id", data.persona_ids);
     if (pErr || !personas) throw new Error("Personas not found");
 
     const { data: sim, error: simErr } = await context.supabase
@@ -62,10 +67,16 @@ export const runSimulation = createServerFn({ method: "POST" })
         status: "running",
         total_personas: personas.length,
       })
-      .select().single();
+      .select()
+      .single();
     if (simErr || !sim) throw new Error("Could not create simulation");
 
-    const questionList = questions.map((q, i) => `${i + 1}. [${q.type}] ${q.text}${q.options?.length ? ` (Options: ${q.options.join(" | ")})` : ""}`).join("\n");
+    const questionList = questions
+      .map(
+        (q, i) =>
+          `${i + 1}. [${q.type}] ${q.text}${q.options?.length ? ` (Options: ${q.options.join(" | ")})` : ""}`,
+      )
+      .join("\n");
     const backgroundBlock = survey.background_context
       ? `\n\nBackground material for this survey (use it to ground your answers in consistent, concrete facts/themes where relevant — but still answer as yourself, in your own voice):\n${survey.background_context}`
       : "";
@@ -75,17 +86,19 @@ export const runSimulation = createServerFn({ method: "POST" })
     const BATCH = 5;
     for (let i = 0; i < personas.length; i += BATCH) {
       const batch = personas.slice(i, i + BATCH) as Persona[];
-      const results = await Promise.all(batch.map(async (p) => {
-        const prompt = `${personaPrompt(p)}${backgroundBlock}\n\nAnswer these ${questions.length} survey questions:\n${questionList}\n\nOutput ONLY a valid JSON array, one element per question in order:\n[{"question_id":"q1","answer":"your answer here"}]\nFor choice questions answer with one option text. For open-ended give a 1-3 sentence authentic response. For likert/rating give a number 1-5.`;
-        try {
-          const { text } = await generateText({ model: ai(textModelForTier()), prompt });
-          const m = text.match(/\[[\s\S]*\]/);
-          const answers = m ? JSON.parse(m[0]) : fallbackAnswers(questions, p);
-          return { persona_id: p.id, answers: normalizeAnswers(answers, questions, p) };
-        } catch {
-          return { persona_id: p.id, answers: fallbackAnswers(questions, p) };
-        }
-      }));
+      const results = await Promise.all(
+        batch.map(async (p) => {
+          const prompt = `${personaPrompt(p)}${backgroundBlock}\n\nAnswer these ${questions.length} survey questions:\n${questionList}\n\nOutput ONLY a valid JSON array, one element per question in order:\n[{"question_id":"q1","answer":"your answer here"}]\nFor choice questions answer with one option text. For open-ended give a 1-3 sentence authentic response. For likert/rating give a number 1-5.`;
+          try {
+            const { text } = await generateText({ model: ai(textModelForTier()), prompt });
+            const m = text.match(/\[[\s\S]*\]/);
+            const answers = m ? JSON.parse(m[0]) : fallbackAnswers(questions, p);
+            return { persona_id: p.id, answers: normalizeAnswers(answers, questions, p) };
+          } catch {
+            return { persona_id: p.id, answers: fallbackAnswers(questions, p) };
+          }
+        }),
+      );
       responses.push(...results);
     }
 
@@ -102,6 +115,14 @@ export const runSimulation = createServerFn({ method: "POST" })
       .update({ status: "complete", completed_count: rows.length })
       .eq("id", sim.id);
 
+    await context.supabase.from("notifications").insert({
+      user_id: context.userId,
+      title: "Survey simulation finished",
+      body: `${rows.length} persona${rows.length === 1 ? "" : "s"} answered "${survey.title ?? "your survey"}"`,
+      level: "success",
+      link: "/app/fill",
+    });
+
     return { simulation_id: sim.id, count: rows.length };
   });
 
@@ -116,22 +137,33 @@ export const updateResponseAnswer = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => UpdateAnswerInput.parse(d))
   .handler(async ({ data, context }) => {
     const { data: row, error: fetchErr } = await context.supabase
-      .from("responses").select("answers").eq("id", data.response_id).single();
+      .from("responses")
+      .select("answers")
+      .eq("id", data.response_id)
+      .single();
     if (fetchErr || !row) throw new Error("Response not found");
 
-    const answers = (Array.isArray(row.answers) ? row.answers : []) as Array<{ question_id: string; answer: unknown }>;
+    const answers = (Array.isArray(row.answers) ? row.answers : []) as Array<{
+      question_id: string;
+      answer: unknown;
+    }>;
     const next = answers.some((a) => a.question_id === data.question_id)
       ? answers.map((a) => (a.question_id === data.question_id ? { ...a, answer: data.answer } : a))
       : [...answers, { question_id: data.question_id, answer: data.answer }];
 
-    const { error } = await context.supabase.from("responses").update({ answers: next as any }).eq("id", data.response_id);
+    const { error } = await context.supabase
+      .from("responses")
+      .update({ answers: next as any })
+      .eq("id", data.response_id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
 
 export const getSimulationResults = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { simulation_id: string }) => z.object({ simulation_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { simulation_id: string }) =>
+    z.object({ simulation_id: z.string().uuid() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("responses")
@@ -143,17 +175,29 @@ export const getSimulationResults = createServerFn({ method: "GET" })
 
 export const generateVtt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({
-    survey_id: z.string().uuid(),
-    persona_id: z.string().uuid(),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        survey_id: z.string().uuid(),
+        persona_id: z.string().uuid(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
 
-    const { data: survey } = await context.supabase.from("surveys").select("*").eq("id", data.survey_id).single();
-    const { data: persona } = await context.supabase.from("personas").select("*").eq("id", data.persona_id).single();
+    const { data: survey } = await context.supabase
+      .from("surveys")
+      .select("*")
+      .eq("id", data.survey_id)
+      .single();
+    const { data: persona } = await context.supabase
+      .from("personas")
+      .select("*")
+      .eq("id", data.persona_id)
+      .single();
     if (!survey || !persona) throw new Error("Not found");
 
     const questions = (survey.parsed_questions as unknown as Question[]) ?? [];
@@ -161,8 +205,12 @@ export const generateVtt = createServerFn({ method: "POST" })
 
     // Interviewer name: survey metadata (user-entered or AI-detected) first, then the signed-in user's profile.
     const { data: profile } = await context.supabase
-      .from("profiles").select("display_name").eq("id", context.userId).single();
-    const interviewerName = survey.interviewer_name?.trim() || profile?.display_name?.trim() || "Researcher";
+      .from("profiles")
+      .select("display_name")
+      .eq("id", context.userId)
+      .single();
+    const interviewerName =
+      survey.interviewer_name?.trim() || profile?.display_name?.trim() || "Researcher";
     const interviewerAffiliation = survey.interviewer_affiliation?.trim() || "";
     const participantName = (persona.name as string)?.trim() || "Participant";
 
@@ -204,7 +252,9 @@ Write in the participant's natural voice and dialect where appropriate. Return O
     } catch {
       throw new Error("Transcript came back malformed — please try again");
     }
-    turns = (Array.isArray(turns) ? turns : []).filter((t) => t && typeof t.text === "string" && t.text.trim());
+    turns = (Array.isArray(turns) ? turns : []).filter(
+      (t) => t && typeof t.text === "string" && t.text.trim(),
+    );
     if (!turns.length) throw new Error("Transcript was empty — please try again");
 
     // Build a Zoom-style WebVTT where each cue payload is a JSON object with speaker + timing metadata.
@@ -221,13 +271,15 @@ Write in the participant's natural voice and dialect where appropriate. Return O
       const startSec = t;
       const endSec = t + duration;
       cues.push(`${formatTime(startSec)} --> ${formatTime(endSec)}`);
-      cues.push(JSON.stringify({
-        startDateTime: formatIsoZoom(new Date(base.getTime() + startSec * 1000)),
-        endDateTime: formatIsoZoom(new Date(base.getTime() + endSec * 1000)),
-        speakerName,
-        spokenText,
-        spokenLanguage: "en-us",
-      }));
+      cues.push(
+        JSON.stringify({
+          startDateTime: formatIsoZoom(new Date(base.getTime() + startSec * 1000)),
+          endDateTime: formatIsoZoom(new Date(base.getTime() + endSec * 1000)),
+          speakerName,
+          spokenText,
+          spokenLanguage: "en-us",
+        }),
+      );
       cues.push("");
       t = endSec + 0.7; // small gap between turns
     }
@@ -241,7 +293,8 @@ Write in the participant's natural voice and dialect where appropriate. Return O
         persona_id: data.persona_id,
         vtt_content: vtt,
       })
-      .select().single();
+      .select()
+      .single();
     if (error) throw new Error(error.message);
     return tr;
   });
@@ -270,13 +323,21 @@ function normalizeAnswers(answers: unknown, questions: Question[], persona: Pers
 }
 
 function fallbackAnswers(questions: Question[], persona: Persona) {
-  return questions.map((question) => ({ question_id: question.id, answer: fallbackAnswer(question, persona) }));
+  return questions.map((question) => ({
+    question_id: question.id,
+    answer: fallbackAnswer(question, persona),
+  }));
 }
 
 function fallbackAnswer(question: Question, persona: Persona) {
-  if (question.options?.length) return question.options[Math.abs(hash(`${persona.id}-${question.id}`)) % question.options.length];
-  if (question.type === "rating" || question.type === "likert") return 3 + (Math.abs(hash(`${persona.name}-${question.text}`)) % 3) - 1;
-  if (question.type === "yes_no") return Math.abs(hash(`${question.id}-${persona.country}`)) % 2 === 0 ? "Yes" : "No";
+  if (question.options?.length)
+    return question.options[
+      Math.abs(hash(`${persona.id}-${question.id}`)) % question.options.length
+    ];
+  if (question.type === "rating" || question.type === "likert")
+    return 3 + (Math.abs(hash(`${persona.name}-${question.text}`)) % 3) - 1;
+  if (question.type === "yes_no")
+    return Math.abs(hash(`${question.id}-${persona.country}`)) % 2 === 0 ? "Yes" : "No";
   const place = [persona.city, persona.country].filter(Boolean).join(", ") || "my community";
   return `From my perspective as ${persona.occupation ?? "someone with my background"} in ${place}, ${question.text.toLowerCase().replace(/[?]+$/, "")} depends on trust, cost, and whether it fits my day-to-day life.`;
 }

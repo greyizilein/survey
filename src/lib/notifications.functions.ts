@@ -5,6 +5,13 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const MarkReadInput = z.object({ id: z.string().uuid() });
 
+const CreateInput = z.object({
+  title: z.string().max(200),
+  body: z.string().max(2000).optional(),
+  level: z.enum(["info", "success", "warning", "error"]).optional(),
+  link: z.string().max(200).optional(),
+});
+
 export const listNotifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -15,6 +22,22 @@ export const listNotifications = createServerFn({ method: "GET" })
       .limit(50);
     if (error) throw new Error(error.message);
     return { notifications: rows ?? [] };
+  });
+
+/** Client-callable: lets a page report completion of a job it just ran/awaited itself (e.g. a batch of transcript generations finishing). */
+export const createNotification = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => CreateInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase.from("notifications").insert({
+      user_id: context.userId,
+      title: data.title,
+      body: data.body ?? null,
+      level: data.level ?? "info",
+      link: data.link ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const markNotificationRead = createServerFn({ method: "POST" })
