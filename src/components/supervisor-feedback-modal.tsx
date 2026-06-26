@@ -281,7 +281,7 @@ export function SupervisorFeedbackModal({
   const downloadResult = async () => {
     if (!appliedResult) return;
     try {
-      const blob = await exportToDocx(appliedResult.content, effectiveTitle);
+      const blob = await exportToDocx(appliedResult.content);
       downloadBlob(
         blob,
         `${effectiveTitle.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}_corrected.docx`,

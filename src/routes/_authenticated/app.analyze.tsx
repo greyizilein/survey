@@ -446,10 +446,27 @@ function AnalyzePage() {
     abortRef.current?.abort();
   }
 
+  // Title derived from the document's OWN content — never the template/preset name, which
+  // would otherwise be stamped at the top of the user's downloaded work (a leak).
+  function deriveDocTitle(content: string): string {
+    const heading = content.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
+    if (heading) return heading.replace(/[*_`]/g, "").slice(0, 80);
+    const firstLine = content
+      .split("\n")
+      .map((s) => s.trim())
+      .find(Boolean);
+    return (firstLine?.replace(/[*_#`>]/g, "").trim() || "Document").slice(0, 80);
+  }
+
+  function fileNameFor(content: string): string {
+    const base = deriveDocTitle(content)
+      .replace(/[^a-z0-9]+/gi, "_")
+      .replace(/^_+|_+$/g, "");
+    return `${base || "Document"}.docx`;
+  }
+
   function documentTitle() {
-    return PRESET_FULL_LABELS[instructionsPreset] !== "None"
-      ? PRESET_FULL_LABELS[instructionsPreset]
-      : "Written Document";
+    return deriveDocTitle(documentText());
   }
 
   function documentText() {
@@ -499,12 +516,8 @@ function AnalyzePage() {
   async function downloadMessage(index: number, content: string) {
     setDownloadingIndex(index);
     try {
-      const title =
-        PRESET_FULL_LABELS[instructionsPreset] !== "None"
-          ? PRESET_FULL_LABELS[instructionsPreset]
-          : "Written Document";
-      const blob = await exportToDocx(content, title);
-      downloadBlob(blob, `${title.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.docx`);
+      const blob = await exportToDocx(content);
+      downloadBlob(blob, fileNameFor(content));
     } catch {
       toast.error("Couldn't download that message");
     } finally {
@@ -521,12 +534,8 @@ function AnalyzePage() {
     }
     setExporting(true);
     try {
-      const title =
-        PRESET_FULL_LABELS[instructionsPreset] !== "None"
-          ? PRESET_FULL_LABELS[instructionsPreset]
-          : "Written Document";
-      const blob = await exportToDocx(compiled, title);
-      downloadBlob(blob, `${title.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "")}.docx`);
+      const blob = await exportToDocx(compiled);
+      downloadBlob(blob, fileNameFor(compiled));
     } catch {
       toast.error("Couldn't export the document");
     } finally {
