@@ -12,7 +12,7 @@ const ExtractInput = z.object({ name: z.string().max(200), data: z.string() });
 export const extractDocumentText = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ExtractInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const { extractText } = await import("./interviews.functions");
     const { extractWithSandbox } = await import("./sandbox-extract.server");
 
@@ -20,9 +20,22 @@ export const extractDocumentText = createServerFn({ method: "POST" })
     try {
       sandboxText = await extractWithSandbox(data.data, data.name);
     } catch (e) {
-      console.error(`[document-extract] sandbox extraction failed for "${data.name}", falling back to plain-text extractor:`, e);
+      console.error(
+        `[document-extract] sandbox extraction failed for "${data.name}", falling back to plain-text extractor:`,
+        e,
+      );
     }
 
-    const text = sandboxText ?? (await extractText(data.data, data.name));
-    return { text };
+    try {
+      const text = sandboxText ?? (await extractText(data.data, data.name));
+      return { text };
+    } catch (e) {
+      const { notifyUser } = await import("./notifications.functions");
+      await notifyUser(context.userId, {
+        title: `Couldn't read "${data.name}"`,
+        body: e instanceof Error ? e.message : "Extraction failed",
+        level: "error",
+      });
+      throw e;
+    }
   });
