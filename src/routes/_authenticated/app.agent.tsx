@@ -1,7 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
-import { Bot, Send, Loader2, FileDown, FileStack, Upload, FileText, Trash2, Square, Copy, CopyCheck, Menu } from "lucide-react";
+import {
+  Bot,
+  Send,
+  Loader2,
+  FileDown,
+  FileStack,
+  Upload,
+  FileText,
+  Trash2,
+  Square,
+  Copy,
+  CopyCheck,
+  Menu,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -15,8 +28,14 @@ import { parseMarkdownLite, blocksToHtml, blocksToPlainText } from "@/lib/markdo
 import { exportToDocx, downloadBlob } from "@/lib/writing-export";
 import { createAgentSessionFn, downloadAgentFileFn } from "@/lib/agent-chat.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
-import { saveChatConversation, getChatConversation, listChatConversations } from "@/lib/chat-history.functions";
+import {
+  saveChatConversation,
+  getChatConversation,
+  listChatConversations,
+} from "@/lib/chat-history.functions";
+import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
+import { FolderBadge } from "@/components/folder-badge";
 import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 
 function readAsBase64(file: File): Promise<string> {
@@ -30,6 +49,10 @@ function readAsBase64(file: File): Promise<string> {
 
 export const Route = createFileRoute("/_authenticated/app/agent")({
   head: () => ({ meta: [{ title: "Agent · Paperstudio" }] }),
+  validateSearch: (s: Record<string, unknown>): { folder?: string; chat?: string } => ({
+    folder: typeof s.folder === "string" ? s.folder : undefined,
+    chat: typeof s.chat === "string" ? s.chat : undefined,
+  }),
   component: AgentPage,
 });
 
@@ -64,8 +87,13 @@ function AgentPage() {
   const listConversationsFn = useServerFn(listChatConversations);
   const downloadFileFn = useServerFn(downloadAgentFileFn);
   const extractDocTextFn = useServerFn(extractDocumentText);
+  const folderContextFn = useServerFn(getFolderContext);
+  const search = Route.useSearch();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(search.folder ?? null);
+  const [folderName, setFolderName] = useState<string | null>(null);
+  const [folderContext, setFolderContext] = useState<string>("");
   const [starting, setStarting] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -127,7 +155,9 @@ function AgentPage() {
         extracted.push({ name: f.name, text });
       }
       setDocTexts((prev) => [...prev, ...extracted]);
-      toast.success(`Read ${newFiles.length} document${newFiles.length > 1 ? "s" : ""} for context`);
+      toast.success(
+        `Read ${newFiles.length} document${newFiles.length > 1 ? "s" : ""} for context`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read those documents");
       setDocFiles((prev) => prev.filter((f) => !newFiles.includes(f)));
@@ -182,22 +212,28 @@ function AgentPage() {
           title,
           state: { messages },
           agentSessionId: sessionId ?? undefined,
+          folderId: conversationId ? undefined : folderId,
         },
-      }).then(({ id }: { id: string }) => {
-        if (!conversationId) setConversationId(id);
-      }).catch((err) => {
-        console.error("[chat-history] save failed:", err);
-        toast.error(`Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`);
-      });
+      })
+        .then(({ id }: { id: string }) => {
+          if (!conversationId) setConversationId(id);
+        })
+        .catch((err) => {
+          console.error("[chat-history] save failed:", err);
+          toast.error(
+            `Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`,
+          );
+        });
     }, 1000);
     return () => clearTimeout(handle);
-  }, [messages, sessionId, conversationId, saveConversationFn]);
+  }, [messages, sessionId, conversationId, folderId, saveConversationFn]);
 
   function handleNewChat() {
     setConversationId(null);
     setSessionId(null);
     setMessages([]);
     setInput("");
+    // Keep the active folder so consecutive new chats stay in it.
   }
 
   async function handleSelectConversation(id: string) {
@@ -207,12 +243,19 @@ function AgentPage() {
       setConversationId(conversation.id);
       setSessionId(conversation.agent_session_id ?? null);
       setMessages(state.messages ?? []);
+      setFolderId(conversation.folder_id ?? null);
     } catch {
       toast.error("Couldn't load that chat");
     }
   }
 
   useEffect(() => {
+    // A deep link wins: ?chat=… opens a specific chat, ?folder=… starts fresh in a folder.
+    if (search.chat) {
+      handleSelectConversation(search.chat);
+      return;
+    }
+    if (search.folder) return; // new chat in folder — don't auto-open the latest
     listConversationsFn({ data: { tool: "agent" } })
       .then(({ conversations }: { conversations: { id: string }[] }) => {
         if (conversations.length > 0) handleSelectConversation(conversations[0].id);
@@ -220,6 +263,21 @@ function AgentPage() {
       .catch((err) => console.error("[chat-history] list failed:", err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load the active folder's shared context (instructions + files) whenever the folder changes.
+  useEffect(() => {
+    if (!folderId) {
+      setFolderContext("");
+      setFolderName(null);
+      return;
+    }
+    folderContextFn({ data: { id: folderId } })
+      .then(({ context, name }: { context: string; name: string | null }) => {
+        setFolderContext(context);
+        setFolderName(name);
+      })
+      .catch((err) => console.error("[folders] context load failed:", err));
+  }, [folderId, folderContextFn]);
 
   async function ensureSession(): Promise<string> {
     if (sessionId) return sessionId;
@@ -236,7 +294,11 @@ function AgentPage() {
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
-    setMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: "" }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: text },
+      { role: "assistant", content: "" },
+    ]);
     setInput("");
     setSending(true);
     const controller = new AbortController();
@@ -247,9 +309,15 @@ function AgentPage() {
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Not authenticated");
 
+      const folderBlock = folderContext ? `${folderContext}\n\n` : "";
       const docContext = docTexts.length
-        ? `Uploaded document context:\n${docTexts.map((d) => `===== FILE: ${d.name} =====\n${d.text}`).join("\n\n").slice(0, 60000)}\n\nUSER REQUEST:\n${text}`
-        : text;
+        ? `${folderBlock}Uploaded document context:\n${docTexts
+            .map((d) => `===== FILE: ${d.name} =====\n${d.text}`)
+            .join("\n\n")
+            .slice(0, 60000)}\n\nUSER REQUEST:\n${text}`
+        : folderBlock
+          ? `${folderBlock}USER REQUEST:\n${text}`
+          : text;
 
       const res = await fetch("/api/agent-stream", {
         method: "POST",
@@ -289,7 +357,10 @@ function AgentPage() {
         toast.error(e instanceof Error ? e.message : "Something went wrong");
         setMessages((prev) => {
           const copy = [...prev];
-          copy[copy.length - 1] = { role: "assistant", content: "Sorry, I hit an error — please try again." };
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Sorry, I hit an error — please try again.",
+          };
           return copy;
         });
       }
@@ -302,168 +373,226 @@ function AgentPage() {
   return (
     <AppShell fullScreenMobile>
       {(openMobileMenu) => (
-      <div className="flex h-dvh flex-col gap-4 p-0 sm:p-6">
-        <div className="flex items-center justify-between gap-2 px-3 pt-3 sm:px-0 sm:pt-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <button onClick={openMobileMenu} className="md:hidden -ml-1.5 p-1.5 shrink-0 text-muted-foreground" aria-label="Open menu">
-              <Menu className="size-5" />
-            </button>
-            <Bot className="h-5 w-5 text-primary shrink-0 hidden sm:block" />
-            <div>
-              <h1 className="text-lg font-semibold">Agent</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block">
-                An open-ended assistant that can analyze data, write, and build presentations end to end — generating
-                real .pptx/.xlsx/.docx files when you ask. It doesn't handle Surveys or Interviews — use those tools directly for that.
-              </p>
+        <div className="flex h-dvh flex-col gap-4 p-0 sm:p-6">
+          <div className="flex items-center justify-between gap-2 px-3 pt-3 sm:px-0 sm:pt-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                onClick={openMobileMenu}
+                className="md:hidden -ml-1.5 p-1.5 shrink-0 text-muted-foreground"
+                aria-label="Open menu"
+              >
+                <Menu className="size-5" />
+              </button>
+              <Bot className="h-5 w-5 text-primary shrink-0 hidden sm:block" />
+              <div>
+                <h1 className="text-lg font-semibold">Agent</h1>
+                <p className="text-sm text-muted-foreground hidden sm:block">
+                  An open-ended assistant that can analyze data, write, and build presentations end
+                  to end — generating real .pptx/.xlsx/.docx files when you ask. It doesn't handle
+                  Surveys or Interviews — use those tools directly for that.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {folderId && folderName && <FolderBadge id={folderId} name={folderName} />}
+              <ChatHistoryMenu
+                tool="agent"
+                activeId={conversationId}
+                folderId={folderId}
+                onSelect={handleSelectConversation}
+                onNew={handleNewChat}
+              />
             </div>
           </div>
-          <ChatHistoryMenu
-            tool="agent"
-            activeId={conversationId}
-            onSelect={handleSelectConversation}
-            onNew={handleNewChat}
-          />
-        </div>
 
-        <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow">
-          {messages.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              {starting ? "Starting a session…" : "Ask it to analyze something, write a draft, or build a deck — say what you want, including any files it should produce."}
-            </p>
-          )}
-          <div className="space-y-4">
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "rounded-none p-0 sm:rounded-lg sm:p-3",
-                  m.role === "user"
-                    ? "ml-auto w-full text-right font-medium sm:w-auto sm:max-w-[80%] sm:bg-muted sm:text-left sm:font-normal"
-                    : "bg-transparent sm:bg-background"
-                )}
-              >
-                {m.content ? (
-                  <div
-                    className="prose prose-sm max-w-none min-w-0 break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
-                    dangerouslySetInnerHTML={{ __html: blocksToHtml(parseMarkdownLite(m.content)) }}
-                  />
+          <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow">
+            {messages.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                {starting
+                  ? "Starting a session…"
+                  : "Ask it to analyze something, write a draft, or build a deck — say what you want, including any files it should produce."}
+              </p>
+            )}
+            <div className="space-y-4">
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "rounded-none p-0 sm:rounded-lg sm:p-3",
+                    m.role === "user"
+                      ? "ml-auto w-full text-right font-medium sm:w-auto sm:max-w-[80%] sm:bg-muted sm:text-left sm:font-normal"
+                      : "bg-transparent sm:bg-background",
+                  )}
+                >
+                  {m.content ? (
+                    <div
+                      className="prose prose-sm max-w-none min-w-0 break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
+                      dangerouslySetInnerHTML={{
+                        __html: blocksToHtml(parseMarkdownLite(m.content)),
+                      }}
+                    />
+                  ) : (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {m.files && m.files.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {m.files.map((f) => (
+                        <Button
+                          key={f.fileId}
+                          size="sm"
+                          variant="secondary"
+                          disabled={downloadingFile === f.fileId}
+                          onClick={() => handleDownloadFile(f.fileId)}
+                        >
+                          {downloadingFile === f.fileId ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          ) : (
+                            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                          )}
+                          {f.filename || "Download file"}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  {m.role === "assistant" &&
+                    m.content.trim() !== "" &&
+                    !(sending && i === messages.length - 1) && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <button
+                          onClick={() => copyMessage(i, m.content)}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {copiedIndex === i ? (
+                            <>
+                              <CopyCheck className="size-3.5" /> Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="size-3.5" /> Copy
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => downloadMessage(i, m.content)}
+                          disabled={downloadingIndex === i}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                        >
+                          {downloadingIndex === i ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <FileDown className="size-3.5" />
+                          )}{" "}
+                          Download
+                        </button>
+                      </div>
+                    )}
+                </div>
+              ))}
+            </div>
+            <div ref={bottomRef} />
+          </Card>
+
+          <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-md sm:border sm:shadow-none sm:p-0 sm:bg-transparent shrink-0">
+            <Textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Ask the agent anything…"
+              className="resize-none min-h-0 max-h-40 overflow-y-auto border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base sm:border sm:shadow-sm sm:px-3 sm:py-2"
+              disabled={sending}
+            />
+            <div className="flex items-center gap-1 mt-1 sm:mt-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={docFiles.length > 0 ? "default" : "ghost"}
+                    size="sm"
+                    className="h-8 gap-1.5 px-2"
+                    title="Background docs"
+                  >
+                    <FileStack className="size-4 shrink-0" />
+                    <span className="text-xs hidden sm:inline">
+                      {docFiles.length > 0 ? `${docFiles.length}` : "Docs"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="start" side="top">
+                  <h3 className="font-semibold text-sm mb-1">Background documents</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Upload files so the agent has context for what you're asking it to do.
+                  </p>
+                  <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
+                    <Upload className="size-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Choose documents</span>
+                    <span className="text-xs text-muted-foreground">
+                      PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md
+                    </span>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
+                      className="hidden"
+                      onChange={(e) => {
+                        const fs = Array.from(e.target.files ?? []);
+                        if (fs.length) addDocFiles(fs);
+                      }}
+                    />
+                  </label>
+                  {docFiles.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      {docFiles.map((f, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            <FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}
+                          </span>
+                          <button
+                            onClick={() => removeDocFile(i)}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {readingDocs && (
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
+                      <Loader2 className="size-3 animate-spin" /> Reading documents...
+                    </p>
+                  )}
+                </PopoverContent>
+              </Popover>
+
+              <div className="ml-auto">
+                {sending ? (
+                  <Button
+                    onClick={stopGenerating}
+                    variant="secondary"
+                    size="icon"
+                    className="size-9"
+                    title="Stop"
+                  >
+                    <Square className="size-4" />
+                  </Button>
                 ) : (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-                {m.files && m.files.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {m.files.map((f) => (
-                      <Button
-                        key={f.fileId}
-                        size="sm"
-                        variant="secondary"
-                        disabled={downloadingFile === f.fileId}
-                        onClick={() => handleDownloadFile(f.fileId)}
-                      >
-                        {downloadingFile === f.fileId ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                        ) : (
-                          <FileDown className="h-3.5 w-3.5 mr-1.5" />
-                        )}
-                        {f.filename || "Download file"}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-                {m.role === "assistant" && m.content.trim() !== "" && !(sending && i === messages.length - 1) && (
-                  <div className="mt-2 flex items-center gap-3">
-                    <button
-                      onClick={() => copyMessage(i, m.content)}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copiedIndex === i ? <><CopyCheck className="size-3.5" /> Copied</> : <><Copy className="size-3.5" /> Copy</>}
-                    </button>
-                    <button
-                      onClick={() => downloadMessage(i, m.content)}
-                      disabled={downloadingIndex === i}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                    >
-                      {downloadingIndex === i ? <Loader2 className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} Download
-                    </button>
-                  </div>
+                  <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
+                    <Send className="size-4" />
+                  </Button>
                 )}
               </div>
-            ))}
-          </div>
-          <div ref={bottomRef} />
-        </Card>
-
-        <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-md sm:border sm:shadow-none sm:p-0 sm:bg-transparent shrink-0">
-          <Textarea
-            ref={textareaRef}
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            placeholder="Ask the agent anything…"
-            className="resize-none min-h-0 max-h-40 overflow-y-auto border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base sm:border sm:shadow-sm sm:px-3 sm:py-2"
-            disabled={sending}
-          />
-          <div className="flex items-center gap-1 mt-1 sm:mt-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={docFiles.length > 0 ? "default" : "ghost"}
-                  size="sm"
-                  className="h-8 gap-1.5 px-2"
-                  title="Background docs"
-                >
-                  <FileStack className="size-4 shrink-0" />
-                  <span className="text-xs hidden sm:inline">{docFiles.length > 0 ? `${docFiles.length}` : "Docs"}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="start" side="top">
-                <h3 className="font-semibold text-sm mb-1">Background documents</h3>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Upload files so the agent has context for what you're asking it to do.
-                </p>
-                <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
-                  <Upload className="size-5 text-muted-foreground" />
-                  <span className="text-sm font-medium">Choose documents</span>
-                  <span className="text-xs text-muted-foreground">PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md</span>
-                  <input type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
-                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addDocFiles(fs); }} />
-                </label>
-                {docFiles.length > 0 && (
-                  <div className="mt-3 space-y-1.5">
-                    {docFiles.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between rounded border px-3 py-2 text-sm">
-                        <span className="flex items-center gap-2 truncate"><FileText className="size-4 text-muted-foreground shrink-0" /> {f.name}</span>
-                        <button onClick={() => removeDocFile(i)} className="text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {readingDocs && (
-                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5"><Loader2 className="size-3 animate-spin" /> Reading documents...</p>
-                )}
-              </PopoverContent>
-            </Popover>
-
-            <div className="ml-auto">
-              {sending ? (
-                <Button onClick={stopGenerating} variant="secondary" size="icon" className="size-9" title="Stop">
-                  <Square className="size-4" />
-                </Button>
-              ) : (
-                <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
-                  <Send className="size-4" />
-                </Button>
-              )}
             </div>
           </div>
         </div>
-      </div>
       )}
     </AppShell>
   );

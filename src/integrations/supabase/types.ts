@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           agent_session_id: string | null
           created_at: string
+          folder_id: string | null
           id: string
           state: Json
           title: string
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           agent_session_id?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           state?: Json
           title?: string
@@ -38,11 +40,66 @@ export type Database = {
         Update: {
           agent_session_id?: string | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           state?: Json
           title?: string
           tool?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      folders: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      folder_files: {
+        Row: {
+          created_at: string
+          extracted_text: string
+          folder_id: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_text?: string
+          folder_id: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_text?: string
+          folder_id?: string
+          id?: string
+          name?: string
           user_id?: string
         }
         Relationships: []
@@ -152,6 +209,39 @@ export type Database = {
           respondent_count?: number
           source_excerpt?: string | null
           status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          level: string
+          link: string | null
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          link?: string | null
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          level?: string
+          link?: string | null
+          read_at?: string | null
           title?: string
           user_id?: string
         }

@@ -1,9 +1,28 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { ClipboardPenLine, Users, FolderKanban, LogOut, Menu, MessageSquareText, BarChart3, Presentation, Bot, ClipboardCheck, FileCheck2, LayoutDashboard, Zap, Gem, Crown } from "lucide-react";
+import {
+  ClipboardPenLine,
+  Users,
+  FolderKanban,
+  LogOut,
+  Menu,
+  MessageSquareText,
+  BarChart3,
+  Presentation,
+  Bot,
+  ClipboardCheck,
+  FileCheck2,
+  LayoutDashboard,
+  Folder,
+  Settings,
+  Zap,
+  Gem,
+  Crown,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { clearPasskey } from "@/lib/passkey";
 import { Logo } from "@/components/logo";
+import { NotificationsMenu } from "@/components/notifications-menu";
 import { useEffect, useState, type ReactNode } from "react";
 import { useModelTier } from "@/lib/use-model-tier";
 import { MODEL_TIER_LABELS, MODEL_TIER_DESCRIPTIONS, type ModelTier } from "@/lib/model-tier";
@@ -26,7 +45,7 @@ function TierPicker({ tier, setTier }: { tier: ModelTier; setTier: (t: ModelTier
                 "flex flex-col items-center gap-0.5 py-1.5 text-[10px] font-bold uppercase tracking-wide border-2 transition-all",
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground"
-                  : "border-transparent text-sidebar-foreground/60 hover:border-sidebar-border hover:text-sidebar-foreground"
+                  : "border-transparent text-sidebar-foreground/60 hover:border-sidebar-border hover:text-sidebar-foreground",
               )}
             >
               <Icon className="size-3.5" />
@@ -41,6 +60,7 @@ function TierPicker({ tier, setTier }: { tier: ModelTier; setTier: (t: ModelTier
 
 const nav = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/app/folders", label: "Folders", icon: Folder },
   { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
   { to: "/app/personas", label: "Persona Studio", icon: Users },
@@ -67,7 +87,9 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [tier, setTier] = useModelTier();
 
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -103,7 +125,7 @@ export function AppShell({
                 !showLabels && "justify-center",
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
-                  : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground"
+                  : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground",
               )}
             >
               <n.icon className="size-4 shrink-0" />
@@ -127,7 +149,9 @@ export function AppShell({
               search={"search" in n ? n.search : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl transition-colors",
-                active ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                active
+                  ? "bg-white/10 text-white"
+                  : "text-white/70 hover:bg-white/5 hover:text-white",
               )}
             >
               <n.icon className="size-4 shrink-0" />
@@ -142,6 +166,13 @@ export function AppShell({
   const MobileFloatingMenu = (
     <div className="md:hidden fixed inset-0 z-50 flex items-center justify-center px-6 pointer-events-none">
       <div className="w-full max-w-xs rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-white/10 shadow-2xl text-white overflow-hidden pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 px-3 py-3 border-b border-white/10 hover:bg-white/5 transition-colors"
+        >
+          <Logo className="size-7 shrink-0 rotate-[-3deg]" />
+          <span className="font-bold tracking-tight">Office</span>
+        </Link>
         <div className="px-3 py-2.5 border-b border-white/10">
           <div className="grid grid-cols-3 gap-1">
             {(["fast", "pro", "max"] as const).map((t) => {
@@ -154,7 +185,7 @@ export function AppShell({
                   title={MODEL_TIER_DESCRIPTIONS[t]}
                   className={cn(
                     "flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all",
-                    active ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80"
+                    active ? "bg-white/15 text-white" : "text-white/50 hover:text-white/80",
                   )}
                 >
                   <Icon className="size-3.5" />
@@ -166,6 +197,12 @@ export function AppShell({
         </div>
         {renderFloatingNav()}
         <div className="border-t border-white/10 p-2">
+          <Link
+            to="/app/settings"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <Settings className="size-4" /> Settings
+          </Link>
           <button
             onClick={signOut}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
@@ -179,20 +216,30 @@ export function AppShell({
 
   const DesktopSidebarBody = (
     <>
-      <div className={cn("py-5 border-b-2 border-sidebar-border flex items-center", collapsed ? "justify-center px-2" : "justify-between px-5")}>
+      <div
+        className={cn(
+          "py-5 border-b-2 border-sidebar-border flex items-center",
+          collapsed ? "justify-center px-2" : "justify-between px-5",
+        )}
+      >
         <Link to="/" className="flex items-center gap-2.5 overflow-hidden">
           <Logo className="size-8 shrink-0 rotate-[-3deg]" />
-          {!collapsed && <span className="font-bold tracking-tight text-lg whitespace-nowrap">Office</span>}
+          {!collapsed && (
+            <span className="font-bold tracking-tight text-lg whitespace-nowrap">Office</span>
+          )}
         </Link>
         {!collapsed && (
-          <button
-            onClick={toggleCollapsed}
-            className="p-1.5 hover:bg-sidebar-accent/60 shrink-0"
-            aria-label="Collapse menu"
-            title="Collapse menu"
-          >
-            <Menu className="size-4" />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <NotificationsMenu />
+            <button
+              onClick={toggleCollapsed}
+              className="p-1.5 hover:bg-sidebar-accent/60 shrink-0"
+              aria-label="Collapse menu"
+              title="Collapse menu"
+            >
+              <Menu className="size-4" />
+            </button>
+          </div>
         )}
       </div>
       {collapsed && (
@@ -207,12 +254,25 @@ export function AppShell({
       )}
       {!collapsed && <TierPicker tier={tier} setTier={setTier} />}
       {renderNav(!collapsed)}
+      <Link
+        to="/app/settings"
+        title={collapsed ? "Settings" : undefined}
+        className={cn(
+          "mx-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 transition-all",
+          collapsed && "justify-center",
+          pathname.startsWith("/app/settings")
+            ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
+            : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground",
+        )}
+      >
+        <Settings className="size-4 shrink-0" /> {!collapsed && "Settings"}
+      </Link>
       <button
         onClick={signOut}
         title={collapsed ? "Sign out" : undefined}
         className={cn(
-          "m-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all",
-          collapsed && "justify-center"
+          "mx-3 mt-1 mb-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground transition-all",
+          collapsed && "justify-center",
         )}
       >
         <LogOut className="size-4 shrink-0" /> {!collapsed && "Sign out"}
@@ -223,7 +283,12 @@ export function AppShell({
   return (
     <div className="min-h-dvh flex bg-background overflow-x-hidden">
       {/* Desktop sidebar */}
-      <aside className={cn("hidden md:flex border-r-2 border-sidebar-border bg-sidebar flex-col transition-[width] duration-150 animate-in fade-in slide-in-from-left-4 duration-300", collapsed ? "w-16" : "w-60")}>
+      <aside
+        className={cn(
+          "hidden md:flex border-r-2 border-sidebar-border bg-sidebar flex-col transition-[width] duration-150 animate-in fade-in slide-in-from-left-4 duration-300",
+          collapsed ? "w-16" : "w-60",
+        )}
+      >
         {DesktopSidebarBody}
       </aside>
 
@@ -250,14 +315,20 @@ export function AppShell({
             >
               <Menu className="size-5" />
             </button>
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2 flex-1 min-w-0">
               <Logo className="size-6 rotate-[-3deg]" />
               <span className="font-bold tracking-tight text-sm">Office</span>
             </Link>
+            <NotificationsMenu />
           </header>
         )}
 
-        <main className={cn("flex-1 overflow-y-auto overflow-x-hidden animate-in fade-in duration-300", fullScreenMobile && "md:overflow-y-auto overflow-hidden")}>
+        <main
+          className={cn(
+            "flex-1 overflow-y-auto overflow-x-hidden animate-in fade-in duration-300",
+            fullScreenMobile && "md:overflow-y-auto overflow-hidden",
+          )}
+        >
           {typeof children === "function" ? children(() => setOpen(true)) : children}
         </main>
       </div>
