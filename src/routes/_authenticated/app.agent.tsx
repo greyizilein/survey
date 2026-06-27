@@ -442,10 +442,9 @@ function AgentPage() {
                 <div
                   key={i}
                   className={cn(
-                    "rounded-none p-0 sm:rounded-lg sm:p-3",
                     m.role === "user"
-                      ? "ml-auto w-full text-right font-medium sm:w-auto sm:max-w-[80%] sm:bg-muted sm:text-left sm:font-normal"
-                      : "bg-transparent sm:bg-background",
+                      ? "ml-auto w-fit max-w-[85%] rounded-2xl bg-primary px-3.5 py-2 text-primary-foreground"
+                      : "rounded-none bg-transparent p-0 sm:rounded-lg sm:bg-background sm:p-3",
                   )}
                 >
                   {m.content ? (
