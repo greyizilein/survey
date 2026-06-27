@@ -122,7 +122,7 @@ function Landing() {
             className="mx-auto mt-6 max-w-2xl text-base sm:text-xl"
             style={{ color: "rgba(244,244,239,0.78)" }}
           >
-            Chapters, decks, interview transcripts, and survey responses — written in voice by AI, and ready to export or submit, all in one workspace.
+            Everything you need to finish your work, in one workspace built around how easy work should be done. Plan. Draft. Write. All you need. At once.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -152,7 +152,7 @@ function Landing() {
             className="mb-3 text-center text-[11px] uppercase tracking-[0.3em]"
             style={{ color: "rgba(244,244,239,0.55)" }}
           >
-            Trusted by researchers, founders & students
+            Loved by 99% of first time users
           </p>
           <div
             className="relative overflow-hidden border-y-2 py-3"
@@ -185,8 +185,9 @@ function Landing() {
           <h2 className="max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
             One workspace for everything you write.
           </h2>
-          <p className="mt-5 max-w-2xl text-base text-muted-foreground sm:text-lg">
-            Paperstudio writes chapters, decks, interview transcripts, and survey responses in voice — then exports or submits them for you.
+          <p className="mt-5 max-w-2xl text-base italic text-muted-foreground sm:text-lg">
+            "I went from blank page to a 9,000-word draft I was proud of, in 12 minutes. Everything took 20."
+            <span className="mt-2 block not-italic text-muted-foreground/80">— An anonymous user</span>
           </p>
 
           <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -197,7 +198,7 @@ function Landing() {
           </div>
 
           <div className="mt-20 rounded-2xl bg-accent p-10 text-center shadow-md shadow-black/5 sm:p-16">
-            <h3 className="text-3xl font-extrabold tracking-tight text-accent-foreground sm:text-4xl">Stop starting from a blank page.</h3>
+            <h3 className="text-3xl font-extrabold tracking-tight text-accent-foreground sm:text-4xl">Built by Writers, For First Drafts.</h3>
             <p className="mx-auto mt-3 max-w-md text-sm text-accent-foreground/80 sm:text-base">
               One workspace, every format. Paperstudio does the writing.
             </p>
@@ -221,7 +222,7 @@ function Landing() {
                 <span className="text-sm font-bold tracking-tight">Paperstudio</span>
               </Link>
               <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-                The writing workspace. Serious work, done.
+                Draft anything. Finish everything.
               </p>
             </div>
 
