@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { LOGO_SVG_MARKUP } from "@/components/logo";
+import { THEME_INIT_SCRIPT, useTheme } from "@/lib/use-theme";
 
 const FAVICON_HREF = `data:image/svg+xml,${encodeURIComponent(LOGO_SVG_MARKUP)}`;
 
@@ -82,23 +83,46 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Paperstudio" },
-      { name: "description", content: "Paperstudio is a full writing workspace — survey autofill, AI-written documents, presentations, interview studies, and an open-ended writing agent, all in one place." },
+      {
+        name: "description",
+        content:
+          "Paperstudio is a full writing workspace — survey autofill, AI-written documents, presentations, interview studies, and an open-ended writing agent, all in one place.",
+      },
       { name: "author", content: "Paperstudio" },
       { property: "og:title", content: "Paperstudio" },
-      { property: "og:description", content: "Paperstudio is a full writing workspace — survey autofill, AI-written documents, presentations, interview studies, and an open-ended writing agent, all in one place." },
+      {
+        property: "og:description",
+        content:
+          "Paperstudio is a full writing workspace — survey autofill, AI-written documents, presentations, interview studies, and an open-ended writing agent, all in one place.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Paperstudio" },
       { name: "twitter:title", content: "Paperstudio" },
-      { name: "twitter:description", content: "Paperstudio is a full writing workspace — survey autofill, AI-written documents, presentations, interview studies, and an open-ended writing agent, all in one place." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4c66dec6-b219-4bcd-bb93-8b7d0c2a8a35/id-preview-4be2861b--4139d43d-176c-42e0-bd57-6de12912cd73.lovable.app-1780698387685.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4c66dec6-b219-4bcd-bb93-8b7d0c2a8a35/id-preview-4be2861b--4139d43d-176c-42e0-bd57-6de12912cd73.lovable.app-1780698387685.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Paperstudio is a full writing workspace — survey autofill, AI-written documents, presentations, interview studies, and an open-ended writing agent, all in one place.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4c66dec6-b219-4bcd-bb93-8b7d0c2a8a35/id-preview-4be2861b--4139d43d-176c-42e0-bd57-6de12912cd73.lovable.app-1780698387685.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/4c66dec6-b219-4bcd-bb93-8b7d0c2a8a35/id-preview-4be2861b--4139d43d-176c-42e0-bd57-6de12912cd73.lovable.app-1780698387685.png",
+      },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: FAVICON_HREF },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
@@ -113,8 +137,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Apply the saved theme before paint to avoid a flash of the wrong mode. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -128,6 +154,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  useTheme(); // keep <html> in sync with the saved theme + OS changes
 
   useEffect(() => {
     import("@/integrations/supabase/client").then(({ supabase }) => {
