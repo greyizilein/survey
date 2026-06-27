@@ -10,6 +10,9 @@ import {
   ShieldCheck,
   Fingerprint,
   TriangleAlert,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { clearPasskey, enrollPasskey, getStoredPasskey, isPasskeySupported } from "@/lib/passkey";
 import { useModelTier } from "@/lib/use-model-tier";
+import { useTheme, type Theme } from "@/lib/use-theme";
 import { MODEL_TIER_LABELS, MODEL_TIER_DESCRIPTIONS, type ModelTier } from "@/lib/model-tier";
 import { getProfile, updateProfile, deleteAccount } from "@/lib/settings.functions";
 
@@ -217,40 +221,79 @@ function ProfileTab({
   );
 }
 
+const THEME_OPTIONS: { value: Theme; label: string; desc: string; icon: typeof Sun }[] = [
+  { value: "light", label: "Light", desc: "Always light", icon: Sun },
+  { value: "dark", label: "Dark", desc: "Always dark", icon: Moon },
+  { value: "system", label: "System", desc: "Match your device", icon: Monitor },
+];
+
 function PreferencesTab() {
   const [tier, setTier] = useModelTier();
+  const [theme, setTheme] = useTheme();
 
   return (
-    <Card className="p-5 sm:p-6 space-y-4">
-      <div>
-        <h2 className="font-medium">Default model tier</h2>
-        <p className="text-sm text-muted-foreground">
-          Sets which models the tools use by default. You can still switch it any time from the
-          sidebar.
-        </p>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {(["fast", "pro", "max"] as const).map((t) => {
-          const active = tier === t;
-          return (
-            <button
-              key={t}
-              onClick={() => {
-                setTier(t);
-                toast.success(`Default set to ${MODEL_TIER_LABELS[t]}`);
-              }}
-              className={cn(
-                "flex flex-col gap-1 rounded-lg border-2 p-3 text-left transition-all",
-                active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
-              )}
-            >
-              <span className="text-sm font-semibold">{MODEL_TIER_LABELS[t]}</span>
-              <span className="text-xs text-muted-foreground">{MODEL_TIER_DESCRIPTIONS[t]}</span>
-            </button>
-          );
-        })}
-      </div>
-    </Card>
+    <div className="space-y-4">
+      <Card className="p-5 sm:p-6 space-y-4">
+        <div>
+          <h2 className="font-medium">Appearance</h2>
+          <p className="text-sm text-muted-foreground">
+            Choose day or night mode, or follow your device.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {THEME_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const active = theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setTheme(opt.value)}
+                className={cn(
+                  "flex flex-col gap-1 rounded-lg border-2 p-3 text-left transition-all",
+                  active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
+                )}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Icon className="size-4" /> {opt.label}
+                </span>
+                <span className="text-xs text-muted-foreground">{opt.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card className="p-5 sm:p-6 space-y-4">
+        <div>
+          <h2 className="font-medium">Default model tier</h2>
+          <p className="text-sm text-muted-foreground">
+            Sets which models the tools use by default. You can still switch it any time from the
+            sidebar.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {(["fast", "pro", "max"] as const).map((t) => {
+            const active = tier === t;
+            return (
+              <button
+                key={t}
+                onClick={() => {
+                  setTier(t);
+                  toast.success(`Default set to ${MODEL_TIER_LABELS[t]}`);
+                }}
+                className={cn(
+                  "flex flex-col gap-1 rounded-lg border-2 p-3 text-left transition-all",
+                  active ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
+                )}
+              >
+                <span className="text-sm font-semibold">{MODEL_TIER_LABELS[t]}</span>
+                <span className="text-xs text-muted-foreground">{MODEL_TIER_DESCRIPTIONS[t]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
   );
 }
 
