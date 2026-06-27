@@ -1043,11 +1043,11 @@ function AnalyzePage() {
                     className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`w-full sm:w-auto sm:max-w-[85%] rounded-none px-0 py-0 text-sm sm:rounded-lg sm:px-3 sm:py-2 ${
+                      className={
                         m.role === "user"
-                          ? "text-right text-foreground font-medium sm:bg-primary sm:text-primary-foreground sm:text-left sm:font-normal"
-                          : "bg-transparent sm:bg-muted"
-                      }`}
+                          ? "max-w-[85%] rounded-2xl bg-primary px-3.5 py-2 text-sm text-primary-foreground"
+                          : "w-full sm:max-w-[85%] rounded-none bg-transparent px-0 py-0 text-sm sm:rounded-lg sm:bg-muted sm:px-3 sm:py-2"
+                      }
                     >
                       {m.role === "assistant" ? (
                         <MarkdownLite text={m.content} />
