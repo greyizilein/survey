@@ -198,7 +198,7 @@ function Landing() {
           </div>
 
           <div className="mt-20 rounded-2xl bg-accent p-10 text-center shadow-md shadow-black/5 sm:p-16">
-            <h3 className="text-3xl font-extrabold tracking-tight text-accent-foreground sm:text-4xl">Stop starting from a blank page.</h3>
+            <h3 className="text-3xl font-extrabold tracking-tight text-accent-foreground sm:text-4xl">Built by Writers, For First Drafts.</h3>
             <p className="mx-auto mt-3 max-w-md text-sm text-accent-foreground/80 sm:text-base">
               One workspace, every format. Paperstudio does the writing.
             </p>
