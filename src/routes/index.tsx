@@ -16,9 +16,7 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-// Fixed dark palette for the hero so contrast is correct in any theme.
-const INK = "#0a0a0a";
-const PAPER = "#f4f4ef";
+// Brand lime, used only for the ambient hero glows (subtle in either theme).
 const LIME = "#b6de48";
 
 const marqueeItems = [
@@ -49,34 +47,27 @@ function Landing() {
   const ctaHref = authed ? "/app/dashboard" : "/auth";
 
   return (
-    <div className="min-h-screen" style={{ background: INK, color: PAPER }}>
+    <div className="min-h-screen bg-background text-foreground">
       {/* HERO — near-fullscreen */}
-      <section
-        className="relative flex min-h-[100svh] flex-col overflow-hidden px-5 pb-6 pt-5 sm:px-8 md:min-h-[84svh]"
-        style={{ background: INK, color: PAPER }}
-      >
+      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-background px-5 pb-6 pt-5 text-foreground sm:px-8 md:min-h-[84svh]">
         {/* Header */}
         <header className="relative z-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <Logo className="size-9" />
-            <span className="text-sm font-bold tracking-tight" style={{ color: PAPER }}>
-              Paperstudio
-            </span>
+            <span className="text-sm font-bold tracking-tight text-foreground">PAPERSTUDIO</span>
           </Link>
           <div className="flex items-center gap-2">
             {!authed && (
               <Link
                 to="/auth"
-                className="hidden sm:inline-flex border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors"
-                style={{ borderColor: "rgba(244,244,239,0.25)", color: PAPER }}
+                className="hidden sm:inline-flex border-2 border-foreground/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-foreground transition-colors"
               >
                 Sign in
               </Link>
             )}
             <Link
               to={ctaHref}
-              className="lime-cta border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest hard-shadow-sm hard-shadow-hover"
-              style={{ background: LIME, borderColor: LIME, color: INK }}
+              className="lime-cta border-2 border-primary bg-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-primary-foreground hard-shadow-sm hard-shadow-hover"
             >
               {authed ? "Office" : "Get started"}
             </Link>
@@ -102,34 +93,24 @@ function Landing() {
 
         {/* Centered headline */}
         <div className="relative z-10 mx-auto flex flex-1 max-w-4xl flex-col items-center justify-center text-center animate-fade-up">
-          <span
-            className="inline-flex items-center gap-2 border-2 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] backdrop-blur"
-            style={{ borderColor: LIME, color: LIME, background: "rgba(182,222,72,0.08)" }}
-          >
+          <span className="inline-flex items-center gap-2 border-2 border-primary bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-primary backdrop-blur">
             <Sparkles className="size-3" /> Writing, on autopilot
           </span>
 
-          <h1
-            className="mt-6 text-[clamp(2.75rem,11vw,8rem)] font-extrabold leading-[0.95] tracking-tight"
-            style={{ color: PAPER }}
-          >
+          <h1 className="mt-6 text-[clamp(2.75rem,11vw,8rem)] font-extrabold leading-[0.95] tracking-tight text-foreground">
             Describe it.
             <br />
-            <span style={{ color: LIME }}>Paperstudio writes it.</span>
+            <span className="text-primary">Paperstudio writes it.</span>
           </h1>
 
-          <p
-            className="mx-auto mt-6 max-w-2xl text-base sm:text-xl"
-            style={{ color: "rgba(244,244,239,0.78)" }}
-          >
+          <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-xl">
             Everything you need to finish your work, in one workspace built around how easy work should be done. Plan, Draft, WRITE. Push.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               to={ctaHref}
-              className="lime-cta group inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold hard-shadow-sm hard-shadow-hover"
-              style={{ background: LIME, borderColor: LIME, color: INK }}
+              className="lime-cta group inline-flex items-center gap-2 border-2 border-primary bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
             >
               {authed ? "Enter Office" : "Start writing free"}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
@@ -137,8 +118,7 @@ function Landing() {
             {!authed && (
               <Link
                 to="/auth"
-                className="inline-flex items-center gap-2 border-2 px-6 py-3.5 text-sm font-bold"
-                style={{ borderColor: "rgba(244,244,239,0.5)", color: PAPER }}
+                className="inline-flex items-center gap-2 border-2 border-foreground/40 px-6 py-3.5 text-sm font-bold text-foreground"
               >
                 See a demo
               </Link>
@@ -148,18 +128,14 @@ function Landing() {
 
         {/* Scrolling marquee — bottom of hero */}
         <div className="relative z-10 mt-auto pt-10 md:pt-14">
-          <p
-            className="mb-3 text-center text-[11px] uppercase tracking-[0.3em]"
-            style={{ color: "rgba(244,244,239,0.55)" }}
-          >
+          <p className="mb-3 text-center text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
             Loved by 99%
             <br />
             of first time users
           </p>
           <div
-            className="relative overflow-hidden border-y-2 py-3"
+            className="relative overflow-hidden border-y-2 border-foreground/15 py-3"
             style={{
-              borderColor: "rgba(244,244,239,0.15)",
               maskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)",
               WebkitMaskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)",
             }}
@@ -168,12 +144,11 @@ function Landing() {
               {[...marqueeItems, ...marqueeItems].map((item, i) => (
                 <div
                   key={i}
-                  className="flex shrink-0 items-center gap-2 text-sm font-bold uppercase tracking-widest"
-                  style={{ color: "rgba(244,244,239,0.75)" }}
+                  className="flex shrink-0 items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground"
                 >
-                  <item.icon className="size-4" style={{ color: LIME }} />
+                  <item.icon className="size-4 text-primary" />
                   <span>{item.label}</span>
-                  <span style={{ color: LIME }}>·</span>
+                  <span className="text-primary">·</span>
                 </div>
               ))}
             </div>
@@ -223,7 +198,7 @@ function Landing() {
             <div className="lg:col-span-2">
               <Link to="/" className="flex items-center gap-2">
                 <Logo className="size-8" />
-                <span className="text-sm font-bold tracking-tight">Paperstudio</span>
+                <span className="text-sm font-bold tracking-tight">PAPERSTUDIO</span>
               </Link>
               <p className="mt-3 max-w-xs text-sm text-muted-foreground">
                 Draft anything. Finish everything.
