@@ -83,6 +83,48 @@ function splitFileMarkers(raw: string): { display: string; files: AgentFile[] } 
   return { display: kept.join("\n"), files };
 }
 
+function isTabularDoc(filename: string, text: string): boolean {
+  const ext = filename.toLowerCase().split(".").pop() ?? "";
+  if (ext === "csv" || ext === "tsv") return true;
+  return /^Sheet: /m.test(text);
+}
+
+function truncateRowsAware(text: string, budget: number): string {
+  if (text.length <= budget) return text;
+  const lines = text.split("\n");
+  const header = lines[0] ?? "";
+  let out = header;
+  let i = 1;
+  for (; i < lines.length; i++) {
+    const next = out.length + 1 + lines[i].length;
+    if (next > budget) break;
+    out += "\n" + lines[i];
+  }
+  const omitted = lines.length - i;
+  return omitted > 0 ? `${out}\n…[${omitted} more rows omitted for length]` : out;
+}
+
+/** Gives every uploaded file a guaranteed share of the total budget instead of
+ *  concatenating-then-flat-slicing, which silently drops whichever files land later in
+ *  the list once the cap is hit. Tabular files get a bigger share and are truncated on
+ *  row boundaries so a cut never misaligns columns. */
+function budgetDocTexts(docTexts: { name: string; text: string }[], totalBudget: number): string {
+  const tabularCount = docTexts.filter((d) => isTabularDoc(d.name, d.text)).length;
+  const narrativeCount = docTexts.length - tabularCount;
+  const tabularBudget = tabularCount > 0 ? Math.floor((totalBudget * 0.6) / tabularCount) : 0;
+  const narrativeBudget =
+    narrativeCount > 0 ? Math.floor((totalBudget * (tabularCount > 0 ? 0.4 : 1)) / narrativeCount) : 0;
+
+  return docTexts
+    .map((d) => {
+      const tabular = isTabularDoc(d.name, d.text);
+      const budget = tabular ? tabularBudget : narrativeBudget;
+      const text = d.text.length <= budget ? d.text : tabular ? truncateRowsAware(d.text, budget) : d.text.slice(0, budget) + "\n…[truncated]";
+      return `===== FILE: ${d.name} =====\n${text}`;
+    })
+    .join("\n\n");
+}
+
 function AgentPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const createSession = useServerFn(createAgentSessionFn);
@@ -346,10 +388,7 @@ function AgentPage() {
 
       const folderBlock = folderContext ? `${folderContext}\n\n` : "";
       const docContext = docTexts.length
-        ? `${folderBlock}Uploaded document context:\n${docTexts
-            .map((d) => `===== FILE: ${d.name} =====\n${d.text}`)
-            .join("\n\n")
-            .slice(0, 60000)}\n\nUSER REQUEST:\n${text}`
+        ? `${folderBlock}Uploaded document context:\n${budgetDocTexts(docTexts, 60000)}\n\nUSER REQUEST:\n${text}`
         : folderBlock
           ? `${folderBlock}USER REQUEST:\n${text}`
           : text;
