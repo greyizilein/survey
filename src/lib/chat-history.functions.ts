@@ -50,16 +50,18 @@ export const saveChatConversation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SaveInput.parse(d))
   .handler(async ({ context, data }) => {
-    const title = data.title?.trim() || "New chat";
+    const trimmedTitle = data.title?.trim();
     if (data.id) {
-      const patch = {
-        title,
+      const patch: Record<string, unknown> = {
         state: data.state as Json,
         agent_session_id: data.agentSessionId,
         updated_at: new Date().toISOString(),
         // Only touch folder_id when the caller explicitly sends it, so a normal
         // autosave never clobbers an assignment made elsewhere.
         ...(data.folderId !== undefined ? { folder_id: data.folderId } : {}),
+        // Only touch title when explicitly provided. Autosave omits it so a
+        // user rename via the history menu is never overwritten.
+        ...(trimmedTitle ? { title: trimmedTitle } : {}),
       };
       const { data: row, error } = await context.supabase
         .from("chat_conversations")
