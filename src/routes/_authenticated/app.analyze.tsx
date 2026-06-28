@@ -850,14 +850,23 @@ function AnalyzePage() {
     toast.success(`Loaded ${rows.length} rows from ${file.name}`);
   }
 
-  /** Routes dropped/attached files: a single bare .csv becomes the data source (so it's
-   *  usable for real statistics), everything else is added as a background document. */
+  /** Routes dropped/attached files: a .csv becomes the data source (so it's usable for real,
+   *  code-computed statistics) even when it arrives bundled with other documents in the same
+   *  drop — a csv mixed in with a brief/report used to fall through to the lossy background-text
+   *  path just because it wasn't dropped alone, which is exactly the case that matters most.
+   *  Everything else (and any csv beyond the first, once a dataset is already loaded) is added
+   *  as a background document. */
   function handleIncomingFiles(files: File[]) {
     if (!files.length) return;
-    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".csv") && !fileRows.length) {
-      setSourceTab("file");
-      handleFile(files[0]);
-      return;
+    if (!fileRows.length) {
+      const csvIndex = files.findIndex((f) => f.name.toLowerCase().endsWith(".csv"));
+      if (csvIndex !== -1) {
+        setSourceTab("file");
+        handleFile(files[csvIndex]);
+        const rest = files.filter((_, i) => i !== csvIndex);
+        if (rest.length) addDocFiles(rest);
+        return;
+      }
     }
     addDocFiles(files);
   }
