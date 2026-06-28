@@ -1286,6 +1286,62 @@ function AnalyzePage() {
 
               {/* Composer — textarea on top, tool icons + send in a single bar */}
               <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-none sm:border-0 sm:border-t-2 sm:bg-background sm:shadow-none sm:p-3 shrink-0">
+                {(docFiles.length > 0 || fileName) && (
+                  <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+                    {fileName && (
+                      <span className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs">
+                        <Database className="size-3 shrink-0 text-muted-foreground" />
+                        <span className="max-w-[140px] truncate">{fileName}</span>
+                        <button
+                          onClick={clearSource}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Remove data source"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    )}
+                    {docFiles.map((f, i) => {
+                      const status: IngestStatus = summarizingDocs
+                        ? "reading"
+                        : failedDocs.includes(f.name)
+                          ? "failed"
+                          : "ready";
+                      return (
+                        <span
+                          key={i}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+                            status === "failed" ? "border-destructive/40 bg-destructive/5" : "bg-muted/50",
+                          )}
+                          title={f.name}
+                        >
+                          <FileText className={cn("size-3 shrink-0", ingestIconClass(status))} />
+                          <span className="max-w-[140px] truncate">{f.name}</span>
+                          {status === "reading" && (
+                            <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                          )}
+                          {status === "failed" && (
+                            <button
+                              onClick={() => summarizeDocFiles(docFiles)}
+                              className="text-muted-foreground hover:text-foreground"
+                              title="Try again"
+                            >
+                              <RefreshCw className="size-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeDocFile(i)}
+                            className="text-muted-foreground hover:text-destructive"
+                            title="Remove"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <Textarea
                   ref={textareaRef}
                   rows={1}

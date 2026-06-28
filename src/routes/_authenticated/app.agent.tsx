@@ -16,6 +16,7 @@ import {
   CopyCheck,
   Menu,
   Paperclip,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -556,6 +557,49 @@ function AgentPage() {
           </Card>
 
           <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-md sm:border sm:shadow-none sm:p-0 sm:bg-transparent shrink-0">
+            {docFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+                {docFiles.map((f, i) => {
+                  const status: IngestStatus = failedDocs.includes(f.name)
+                    ? "failed"
+                    : docTexts.some((t) => t.name === f.name)
+                      ? "ready"
+                      : "reading";
+                  return (
+                    <span
+                      key={i}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+                        status === "failed" ? "border-destructive/40 bg-destructive/5" : "bg-muted/50",
+                      )}
+                      title={f.name}
+                    >
+                      <FileText className={cn("size-3 shrink-0", ingestIconClass(status))} />
+                      <span className="max-w-[140px] truncate">{f.name}</span>
+                      {status === "reading" && (
+                        <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                      )}
+                      {status === "failed" && (
+                        <button
+                          onClick={() => retryDocFile(f)}
+                          className="text-muted-foreground hover:text-foreground"
+                          title="Try again"
+                        >
+                          <RefreshCw className="size-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeDocFile(i)}
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Remove"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
             <Textarea
               ref={textareaRef}
               rows={1}
