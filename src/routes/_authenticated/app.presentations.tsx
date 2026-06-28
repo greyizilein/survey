@@ -776,6 +776,7 @@ function PresentationsPage() {
 
   function handleNewChat() {
     setConversationId(null);
+    pendingIdRef.current = null;
     setMessages([]);
     setDeck(null);
     setInput("");
