@@ -16,6 +16,7 @@ import {
   CopyCheck,
   Menu,
   Paperclip,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -80,6 +81,51 @@ function splitFileMarkers(raw: string): { display: string; files: AgentFile[] } 
     kept.push(line);
   }
   return { display: kept.join("\n"), files };
+}
+
+function isTabularDoc(filename: string, text: string): boolean {
+  const ext = filename.toLowerCase().split(".").pop() ?? "";
+  // Detect by extension regardless of extractor — sandboxed xlsx/xls comes back as a
+  // markdown table, not the "Sheet: " text-extractor format, so content-sniffing alone
+  // would miss it.
+  if (ext === "csv" || ext === "tsv" || ext === "xlsx" || ext === "xls") return true;
+  return /^Sheet: /m.test(text);
+}
+
+function truncateRowsAware(text: string, budget: number): string {
+  if (text.length <= budget) return text;
+  const lines = text.split("\n");
+  const header = lines[0] ?? "";
+  let out = header;
+  let i = 1;
+  for (; i < lines.length; i++) {
+    const next = out.length + 1 + lines[i].length;
+    if (next > budget) break;
+    out += "\n" + lines[i];
+  }
+  const omitted = lines.length - i;
+  return omitted > 0 ? `${out}\n…[${omitted} more rows omitted for length]` : out;
+}
+
+/** Gives every uploaded file a guaranteed share of the total budget instead of
+ *  concatenating-then-flat-slicing, which silently drops whichever files land later in
+ *  the list once the cap is hit. Tabular files get a bigger share and are truncated on
+ *  row boundaries so a cut never misaligns columns. */
+function budgetDocTexts(docTexts: { name: string; text: string }[], totalBudget: number): string {
+  const tabularCount = docTexts.filter((d) => isTabularDoc(d.name, d.text)).length;
+  const narrativeCount = docTexts.length - tabularCount;
+  const tabularBudget = tabularCount > 0 ? Math.floor((totalBudget * 0.6) / tabularCount) : 0;
+  const narrativeBudget =
+    narrativeCount > 0 ? Math.floor((totalBudget * (tabularCount > 0 ? 0.4 : 1)) / narrativeCount) : 0;
+
+  return docTexts
+    .map((d) => {
+      const tabular = isTabularDoc(d.name, d.text);
+      const budget = tabular ? tabularBudget : narrativeBudget;
+      const text = d.text.length <= budget ? d.text : tabular ? truncateRowsAware(d.text, budget) : d.text.slice(0, budget) + "\n…[truncated]";
+      return `===== FILE: ${d.name} =====\n${text}`;
+    })
+    .join("\n\n");
 }
 
 function AgentPage() {
@@ -370,10 +416,7 @@ function AgentPage() {
 
       const folderBlock = folderContext ? `${folderContext}\n\n` : "";
       const docContext = docTexts.length
-        ? `${folderBlock}Uploaded document context:\n${docTexts
-            .map((d) => `===== FILE: ${d.name} =====\n${d.text}`)
-            .join("\n\n")
-            .slice(0, 60000)}\n\nUSER REQUEST:\n${text}`
+        ? `${folderBlock}Uploaded document context:\n${budgetDocTexts(docTexts, 60000)}\n\nUSER REQUEST:\n${text}`
         : folderBlock
           ? `${folderBlock}USER REQUEST:\n${text}`
           : text;
@@ -581,6 +624,49 @@ function AgentPage() {
           </Card>
 
           <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-md sm:border sm:shadow-none sm:p-0 sm:bg-transparent shrink-0">
+            {docFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+                {docFiles.map((f, i) => {
+                  const status: IngestStatus = failedDocs.includes(f.name)
+                    ? "failed"
+                    : docTexts.some((t) => t.name === f.name)
+                      ? "ready"
+                      : "reading";
+                  return (
+                    <span
+                      key={i}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+                        status === "failed" ? "border-destructive/40 bg-destructive/5" : "bg-muted/50",
+                      )}
+                      title={f.name}
+                    >
+                      <FileText className={cn("size-3 shrink-0", ingestIconClass(status))} />
+                      <span className="max-w-[140px] truncate">{f.name}</span>
+                      {status === "reading" && (
+                        <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                      )}
+                      {status === "failed" && (
+                        <button
+                          onClick={() => retryDocFile(f)}
+                          className="text-muted-foreground hover:text-foreground"
+                          title="Try again"
+                        >
+                          <RefreshCw className="size-3" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeDocFile(i)}
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Remove"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
             <Textarea
               ref={textareaRef}
               rows={1}

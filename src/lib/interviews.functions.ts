@@ -34,12 +34,16 @@ const BLOCKED_NAMES = [
 // ---------------------------------------------------------------------------
 // Document extraction (runs on the server; client sends base64 + filename)
 // ---------------------------------------------------------------------------
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
 export async function extractText(base64: string, filename: string): Promise<string> {
   const ext = filename.toLowerCase().split(".").pop() ?? "";
   const bytes = Buffer.from(base64, "base64");
 
   if (ext === "txt" || ext === "md" || ext === "markdown" || ext === "csv") {
-    return bytes.toString("utf-8");
+    return stripBom(bytes.toString("utf-8"));
   }
   if (ext === "docx") {
     const mammoth = await import("mammoth");

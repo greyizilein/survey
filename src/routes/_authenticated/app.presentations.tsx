@@ -30,7 +30,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { splitStreamError } from "@/lib/stream-error-marker";
+import { splitStreamError, splitStreamTruncated } from "@/lib/stream-error-marker";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export const Route = createFileRoute("/_authenticated/app/presentations")({
   component: PresentationsPage,
 });
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; truncated?: boolean };
 
 const LAYOUT_LABELS: Record<Slide["layout"], string> = {
   title: "Title",
@@ -920,8 +920,8 @@ function PresentationsPage() {
     );
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
     const nextMessages: Msg[] = [...messages, { role: "user", content: text }];
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
@@ -958,7 +958,8 @@ function PresentationsPage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
-        const { text: withoutError } = splitStreamError(raw);
+        const { text: withoutTruncation } = splitStreamTruncated(raw);
+        const { text: withoutError } = splitStreamError(withoutTruncation);
         const { display } = splitDeckMarker(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
@@ -967,7 +968,8 @@ function PresentationsPage() {
         });
       }
 
-      const { text: rawText, error: streamError } = splitStreamError(raw);
+      const { text: rawAfterTruncation, truncated } = splitStreamTruncated(raw);
+      const { text: rawText, error: streamError } = splitStreamError(rawAfterTruncation);
       if (streamError) throw new Error(streamError);
       const { display, deck: newDeck } = splitDeckMarker(rawText);
       setMessages((prev) => {
@@ -975,6 +977,7 @@ function PresentationsPage() {
         copy[copy.length - 1] = {
           role: "assistant",
           content: display.trim() || "Here's the deck.",
+          truncated,
         };
         return copy;
       });
@@ -1176,6 +1179,24 @@ function PresentationsPage() {
                     className={`max-w-[90%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
                   >
                     {m.content || (sending && i === messages.length - 1 ? "" : m.content)}
+                    {m.truncated && i === messages.length - 1 && !sending && (
+                      <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                        <span className="flex-1 text-muted-foreground">
+                          This response hit the length limit and was cut off.
+                        </span>
+                        <Button
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() =>
+                            send(
+                              "Continue exactly where you left off — do not repeat anything you already wrote, do not restate or summarize, just keep going from the exact point you stopped.",
+                            )
+                          }
+                        >
+                          Continue
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1190,6 +1211,49 @@ function PresentationsPage() {
             </div>
 
             <div className="border-t-2 p-2 sm:p-3 shrink-0 bg-background">
+              {docFiles.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+                  {docFiles.map((f, i) => {
+                    const status: IngestStatus = summarizingDocs
+                      ? "reading"
+                      : failedDocs.includes(f.name)
+                        ? "failed"
+                        : "ready";
+                    return (
+                      <span
+                        key={i}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+                          status === "failed" ? "border-destructive/40 bg-destructive/5" : "bg-muted/50",
+                        )}
+                        title={f.name}
+                      >
+                        <FileText className={cn("size-3 shrink-0", ingestIconClass(status))} />
+                        <span className="max-w-[140px] truncate">{f.name}</span>
+                        {status === "reading" && (
+                          <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                        )}
+                        {status === "failed" && (
+                          <button
+                            onClick={() => summarizeDocFiles(docFiles)}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="Try again"
+                          >
+                            <RefreshCw className="size-3" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeDocFile(i)}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Remove"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               <Textarea
                 rows={1}
                 placeholder="Describe the deck or the change you want..."
@@ -1371,7 +1435,7 @@ function PresentationsPage() {
                       <Square className="size-4" />
                     </Button>
                   ) : (
-                    <Button onClick={send} disabled={!input.trim()} size="icon" className="size-9">
+                    <Button onClick={() => send()} disabled={!input.trim()} size="icon" className="size-9">
                       <Send className="size-4" />
                     </Button>
                   )}

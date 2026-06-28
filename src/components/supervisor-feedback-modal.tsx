@@ -25,7 +25,7 @@ import { parseSupervisorFeedback } from "@/lib/supervisor-feedback.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { exportToDocx, downloadBlob } from "@/lib/writing-export";
 import { supabase } from "@/integrations/supabase/client";
-import { splitStreamError } from "@/lib/stream-error-marker";
+import { splitStreamError, splitStreamTruncated } from "@/lib/stream-error-marker";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -431,11 +431,13 @@ export function SupervisorFeedbackModal({
       clearInterval(ramp);
       clearInterval(statusInterval);
 
-      const { text: accText, error: streamError } = splitStreamError(acc);
+      const { text: accAfterTruncation, truncated } = splitStreamTruncated(acc);
+      const { text: accText, error: streamError } = splitStreamError(accAfterTruncation);
       if (streamError) throw new Error(streamError);
 
       setApplyProgress(100);
       setApplyStatus("Done!");
+      if (truncated) toast.warning("This response hit the length limit and may be incomplete — review before relying on it.");
 
       const logMatch = accText.match(/CORRECTIONS_LOG\s*Applied:\s*([^\n-]*)/);
       const appliedIds = logMatch

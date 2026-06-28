@@ -1,7 +1,7 @@
 import { createGateway } from "@ai-sdk/gateway";
 import { createAnthropic, anthropic } from "@ai-sdk/anthropic";
 import { getCookie } from "@tanstack/react-start/server";
-import { STREAM_ERROR_MARKER } from "./stream-error-marker";
+import { STREAM_ERROR_MARKER, STREAM_TRUNCATED_MARKER } from "./stream-error-marker";
 import { MODEL_TIER_COOKIE, TEXT_MODEL_BY_TIER, IMAGE_MODEL_BY_TIER, type ModelTier } from "./model-tier";
 
 export function createAi() {
@@ -101,10 +101,17 @@ export function figureImageModel(tier: ModelTier = getModelTier()) {
  * answer with no way to tell something failed. This wraps the stream so a mid-stream
  * error is appended as a plain-text marker the client can detect and surface for real.
  */
-export { STREAM_ERROR_MARKER } from "./stream-error-marker";
+export { STREAM_ERROR_MARKER, STREAM_TRUNCATED_MARKER } from "./stream-error-marker";
+
+type StreamPart = {
+  type: string;
+  text?: string;
+  error?: unknown;
+  finishReason?: string;
+};
 
 export function toTextStreamResponseWithErrors(
-  result: { fullStream: AsyncIterable<{ type: string; text?: string; error?: unknown }> },
+  result: { fullStream: AsyncIterable<StreamPart> },
 ): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -116,6 +123,8 @@ export function toTextStreamResponseWithErrors(
           } else if (part.type === "error") {
             const message = part.error instanceof Error ? part.error.message : String(part.error);
             controller.enqueue(encoder.encode(`${STREAM_ERROR_MARKER}${message}`));
+          } else if (part.type === "finish" && part.finishReason === "length") {
+            controller.enqueue(encoder.encode(STREAM_TRUNCATED_MARKER));
           }
         }
       } catch (e) {
@@ -141,14 +150,14 @@ function isAutoInjectToolConflict(message: string): boolean {
 }
 
 export function toTextStreamResponseWithToolFallback(
-  primary: { fullStream: AsyncIterable<{ type: string; text?: string; error?: unknown }> },
-  makeFallback: () => { fullStream: AsyncIterable<{ type: string; text?: string; error?: unknown }> },
+  primary: { fullStream: AsyncIterable<StreamPart> },
+  makeFallback: () => { fullStream: AsyncIterable<StreamPart> },
 ): Response {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let switchedToFallback = false;
-      const consume = async (source: AsyncIterable<{ type: string; text?: string; error?: unknown }>) => {
+      const consume = async (source: AsyncIterable<StreamPart>) => {
         for await (const part of source) {
           if (part.type === "text-delta" && part.text) {
             controller.enqueue(encoder.encode(part.text));
@@ -160,6 +169,8 @@ export function toTextStreamResponseWithToolFallback(
               return;
             }
             controller.enqueue(encoder.encode(`${STREAM_ERROR_MARKER}${message}`));
+          } else if (part.type === "finish" && part.finishReason === "length") {
+            controller.enqueue(encoder.encode(STREAM_TRUNCATED_MARKER));
           }
         }
       };

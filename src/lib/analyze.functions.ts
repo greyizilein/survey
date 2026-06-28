@@ -65,12 +65,30 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
     const model = ai(textModelForTier());
 
     const TOTAL_BUDGET = 22_000;
-    const perFileBudget = Math.max(1500, Math.floor(TOTAL_BUDGET / data.files.length));
+    const baseBudget = Math.max(1500, Math.floor(TOTAL_BUDGET / data.files.length));
+    // Tabular files lose rows (not just prose detail) when squeezed, so give them a
+    // bigger share of the total budget at the expense of narrative files, rather than
+    // splitting evenly and truncating a csv down to a handful of rows.
+    const tabularCount = data.files.filter((f) => isTabular(f.name, f.text)).length;
+    const tabularBudget = tabularCount > 0 ? Math.floor((TOTAL_BUDGET * 0.6) / tabularCount) : 0;
+    const narrativeBudget =
+      tabularCount < data.files.length
+        ? Math.max(1500, Math.floor((TOTAL_BUDGET * (tabularCount > 0 ? 0.4 : 1)) / (data.files.length - tabularCount)))
+        : baseBudget;
 
     const summaries = await Promise.all(
       data.files.map(async (f) => {
+        const tabular = isTabular(f.name, f.text);
+        const perFileBudget = tabular ? Math.max(baseBudget, tabularBudget) : narrativeBudget;
         if (f.text.length <= perFileBudget) {
           return `===== FILE: ${f.name} =====\n${f.text.trim()}`;
+        }
+        if (tabular) {
+          // Tabular data (csv/xlsx) must never go through narrative condensation — an LLM
+          // asked to "summarize" a table paraphrases numbers and drops/merges rows, which is
+          // exactly what produces "the data was read wrong" complaints. Truncate on row
+          // boundaries instead, keeping the header and as many whole rows as fit the budget.
+          return `===== FILE: ${f.name} =====\n${truncateRows(f.text, perFileBudget)}`;
         }
         const prompt = `Condense the following written material (a chapter, report, brief, assignment, methodology, or notes) into background context for later use, in no more than ${perFileBudget} characters. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
 
@@ -87,6 +105,33 @@ Output ONLY the condensed summary as plain text, no markdown headers, no comment
 
     return { summary: summaries.join("\n\n").slice(0, 60_000) };
   });
+
+export function isTabular(filename: string, text: string): boolean {
+  const ext = filename.toLowerCase().split(".").pop() ?? "";
+  // Detect by extension regardless of which extractor produced the text — xlsx/xls go
+  // through extractText as "Sheet: <name>\n<csv>" blocks, but through the sandbox extractor
+  // as a markdown table instead, so content-sniffing alone misses sandboxed spreadsheets.
+  if (ext === "csv" || ext === "tsv" || ext === "xlsx" || ext === "xls") return true;
+  return /^Sheet: /m.test(text);
+}
+
+
+/** Truncates on whole-line boundaries, keeping the header row, so a cut never splits a row
+ *  mid-record and misaligns columns for everything that follows. */
+export function truncateRows(text: string, budget: number): string {
+  if (text.length <= budget) return text;
+  const lines = text.split("\n");
+  const header = lines[0] ?? "";
+  let out = header;
+  let i = 1;
+  for (; i < lines.length; i++) {
+    const next = out.length + 1 + lines[i].length;
+    if (next > budget) break;
+    out += "\n" + lines[i];
+  }
+  const omitted = lines.length - i;
+  return omitted > 0 ? `${out}\n…[${omitted} more rows omitted for length]` : out;
+}
 
 interface ColumnSummary {
   column: string;

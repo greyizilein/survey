@@ -48,7 +48,7 @@ import {
   Legend,
 } from "recharts";
 import { toast } from "sonner";
-import { splitStreamError } from "@/lib/stream-error-marker";
+import { splitStreamError, splitStreamTruncated } from "@/lib/stream-error-marker";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -138,6 +138,7 @@ type Msg = {
   figures?: FigureImage[] | null;
   generatingFigures?: boolean;
   options?: string[] | null;
+  truncated?: boolean;
 };
 type InstructionsPreset =
   | "chapter4-quant"
@@ -156,14 +157,47 @@ function readAsBase64(file: File): Promise<string> {
   });
 }
 
+/** Splits one CSV line respecting quoted fields (so commas/newlines inside quotes,
+ *  e.g. `"Smith, John"`, don't get treated as delimiters) and unescapes `""`. */
+function splitCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      cells.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  cells.push(cur.trim());
+  return cells;
+}
+
 function parseCsv(text: string): Record<string, unknown>[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  const stripped = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  // Quoted fields can legitimately contain newlines, so split rows on the regex below
+  // (a newline not inside an open pair of quotes) instead of naively on every \n.
+  const lines = stripped.split(/\r?\n(?=(?:[^"]*"[^"]*")*[^"]*$)/).filter((l) => l.trim().length > 0);
   if (lines.length < 2) return [];
-  const splitLine = (line: string) =>
-    line.split(",").map((c) => c.trim().replace(/^"(.*)"$/, "$1"));
-  const headers = splitLine(lines[0]);
+  const headers = splitCsvLine(lines[0]);
   return lines.slice(1).map((line) => {
-    const cells = splitLine(line);
+    const cells = splitCsvLine(line);
     const row: Record<string, unknown> = {};
     headers.forEach((h, i) => {
       row[h] = cells[i] ?? "";
@@ -883,7 +917,8 @@ function AnalyzePage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
-        const { text: withoutError } = splitStreamError(raw);
+        const { text: withoutTruncation } = splitStreamTruncated(raw);
+        const { text: withoutError } = splitStreamError(withoutTruncation);
         const { display, options } = splitMarkers(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
@@ -892,7 +927,8 @@ function AnalyzePage() {
         });
       }
 
-      const { text: rawText, error: streamError } = splitStreamError(raw);
+      const { text: rawAfterTruncation, truncated } = splitStreamTruncated(raw);
+      const { text: rawText, error: streamError } = splitStreamError(rawAfterTruncation);
       if (streamError) throw new Error(streamError);
       const { display, chart, table, sources, chartImage, figureRequests, options } =
         splitMarkers(rawText);
@@ -907,6 +943,7 @@ function AnalyzePage() {
           sources,
           chartImage,
           generatingFigures: figureRequests.length > 0,
+          truncated,
         };
         return copy;
       });
@@ -1145,6 +1182,24 @@ function AnalyzePage() {
                           <Loader2 className="size-3.5 animate-spin" /> Drawing figure…
                         </div>
                       )}
+                      {m.truncated && i === messages.length - 1 && !sending && (
+                        <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                          <span className="flex-1 text-muted-foreground">
+                            This response hit the length limit and was cut off.
+                          </span>
+                          <Button
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() =>
+                              send(
+                                "Continue exactly where you left off — do not repeat anything you already wrote, do not restate or summarize, just keep going from the exact point you stopped.",
+                              )
+                            }
+                          >
+                            Continue
+                          </Button>
+                        </div>
+                      )}
                       {m.figures && m.figures.length > 0 && (
                         <div className="mt-3 space-y-3">
                           {m.figures.map((fig, fi) => (
@@ -1301,6 +1356,62 @@ function AnalyzePage() {
 
               {/* Composer — textarea on top, tool icons + send in a single bar */}
               <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-none sm:border-0 sm:border-t-2 sm:bg-background sm:shadow-none sm:p-3 shrink-0">
+                {(docFiles.length > 0 || fileName) && (
+                  <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+                    {fileName && (
+                      <span className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs">
+                        <Database className="size-3 shrink-0 text-muted-foreground" />
+                        <span className="max-w-[140px] truncate">{fileName}</span>
+                        <button
+                          onClick={clearSource}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Remove data source"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    )}
+                    {docFiles.map((f, i) => {
+                      const status: IngestStatus = summarizingDocs
+                        ? "reading"
+                        : failedDocs.includes(f.name)
+                          ? "failed"
+                          : "ready";
+                      return (
+                        <span
+                          key={i}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+                            status === "failed" ? "border-destructive/40 bg-destructive/5" : "bg-muted/50",
+                          )}
+                          title={f.name}
+                        >
+                          <FileText className={cn("size-3 shrink-0", ingestIconClass(status))} />
+                          <span className="max-w-[140px] truncate">{f.name}</span>
+                          {status === "reading" && (
+                            <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                          )}
+                          {status === "failed" && (
+                            <button
+                              onClick={() => summarizeDocFiles(docFiles)}
+                              className="text-muted-foreground hover:text-foreground"
+                              title="Try again"
+                            >
+                              <RefreshCw className="size-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => removeDocFile(i)}
+                            className="text-muted-foreground hover:text-destructive"
+                            title="Remove"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
                 <Textarea
                   ref={textareaRef}
                   rows={1}
