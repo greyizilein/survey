@@ -369,22 +369,21 @@ export async function buildAnalyzePrompt(
     ? `\n\nMULTI-WORK CHECK: Look at the background context above. If it contains more than one distinct piece of work, brief, assignment, or task (for example several separate questions, case studies, chapters, projects, or briefs bundled into the same upload), do not start producing output yet. Instead, briefly list the distinct pieces of work you can identify, ask the user which one (or which ones, and in what order) they want you to focus on, and ask any other clarifying questions you genuinely need about scope, requirements, or priorities — the way a thoughtful human collaborator would. Keep the conversation going naturally across turns, answering the user's questions and asking your own, until both of you are clearly aligned and the user confirms they are ready to begin. Only once that confirmation is given should you proceed to produce the actual requested output. If the background context clearly contains only one piece of work, skip this check and proceed normally.`
     : "";
 
+  // Templates are server-side reference knowledge only — they are never sent to the model.
+  // Instead, each preset maps to a compact inline spec that tells the model what standards
+  // to apply without reproducing thousands of template words in every message.
+  const PRESET_SPECS: Record<string, string> = {
+    "chapter4-quant": "Chapter Four — Quantitative Data Analysis and Findings. 4,000 words. Sections: introduction (~150w), data screening and preparation (~300w), descriptive statistics with a formatted table (~400w), inferential statistics per research question/hypothesis (one sub-section each, ~400w each), key findings summary (~300w). Write section by section, stop after each, wait for explicit go-ahead. Every statistic must be computed from the real dataset using the code execution tool. Use APA 7th in-text citations. All figures as numerals. No section may exceed its word count by more than 1%.",
+    "chapter4-qual": "Chapter Four — Qualitative Data Analysis and Findings. 4,000 words. Sections: introduction (~150w), analytical approach and positionality (~300w), theme presentation (3–5 themes, one sub-section each of ~500–700w with participant quotes), cross-cutting discussion (~400w), key findings summary (~300w). Write section by section, stop after each, wait for go-ahead. Quote only what the transcript actually contains — never paraphrase as verbatim. Participant references by pseudonym or code. Use Harvard in-text citations unless specified otherwise.",
+    "chapter4-mixed": "Chapter Four — Mixed Methods Data Analysis and Findings. 7,000 words: quantitative strand (~3,000w), qualitative strand (~2,400w), integration section (~1,100w), summary (~250w). Each strand follows its respective quantitative/qualitative chapter four structure above. The integration section explicitly brings both strands together at the interpretation stage. Write section by section, stop after each section, wait for go-ahead. Quantitative statistics computed via code execution tool. Qualitative quotes only from real transcript data.",
+    "basic-academia": "Level 7 academic writing. Formal UK English, third-person voice, no contractions. Sophisticated critical evaluation, theoretical integration, precise disciplinary terminology. Every sentence analytically supported by a cited academic source. Minimum citation density: at least one citation per sentence. All sources genuine and verifiable. Harvard referencing unless otherwise specified. Introduction and conclusion each ~10% of the total word count combined. Argument must demonstrate mature scholarly engagement — not descriptive narration.",
+    "dissertations": "Full five-chapter empirical dissertation (Abstract + Chapters One–Five). Run the intake protocol first (title, dependent variable, explanatory variables, population, methodology, word count split, citation style, academic level, pacing preference) — ask only once, hold answers for the whole conversation. Default pacing: write section by section, stop after each section, wait for go-ahead. Chapter Two is usually the longest, then Four, then Three, One, Five; Abstract is 250–350 words fixed. Apply the appropriate Chapter Four variant (quantitative, qualitative, or mixed) based on the chosen methodology. All sources genuine and verifiable.",
+  };
+
   let presetBlock = "";
-  if (data.instructionsPreset === "chapter4-quant") {
-    const { QUANT_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
-    presetBlock = `\n\nCHAPTER FOUR (QUANTITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUANT_CHAPTER_FOUR_TEMPLATE}`;
-  } else if (data.instructionsPreset === "chapter4-qual") {
-    const { QUAL_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
-    presetBlock = `\n\nCHAPTER FOUR (QUALITATIVE) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${QUAL_CHAPTER_FOUR_TEMPLATE}`;
-  } else if (data.instructionsPreset === "chapter4-mixed") {
-    const { MIXED_CHAPTER_FOUR_TEMPLATE } = await import("./analyze-templates.server");
-    presetBlock = `\n\nCHAPTER FOUR (MIXED METHODS) WRITING TEMPLATE — follow this exactly for structure, formatting, depth, and word counts:\n${MIXED_CHAPTER_FOUR_TEMPLATE}`;
-  } else if (data.instructionsPreset === "basic-academia") {
-    const { BASIC_ACADEMIA_TEMPLATE } = await import("./analyze-templates.server");
-    presetBlock = `\n\nBASIC ACADEMIA WRITING TEMPLATE — follow this exactly for tone, citation density, structure, and quality standards:\n${BASIC_ACADEMIA_TEMPLATE}`;
-  } else if (data.instructionsPreset === "dissertations") {
-    const { DISSERTATION_WRITER_TEMPLATE } = await import("./analyze-templates.server");
-    presetBlock = `\n\nDISSERTATION WRITER TEMPLATE — follow this exactly for intake, chapter ordering, drafting discipline, structure, formatting, citation density, and quality standards across the whole five-chapter dissertation plus abstract:\n${DISSERTATION_WRITER_TEMPLATE}`;
+  const presetSpec = PRESET_SPECS[data.instructionsPreset];
+  if (presetSpec) {
+    presetBlock = `\n\nWRITING PRESET — apply these standards exactly:\n${presetSpec}`;
   }
 
   const instructionsBlock = data.instructions?.trim()
@@ -455,20 +454,19 @@ export async function buildAnalyzePrompt(
   // only falling back to a question when something critical truly cannot be inferred.
   if (data.promptMode === "build" || data.promptMode === "meta") {
     const isMeta = data.promptMode === "meta" && useCodeExecution;
-    const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
-    prompt = `${OTHER_WRITING_TEMPLATE}
+    prompt = `You are a specialist academic writing assistant helping a user create a short, focused writing specification (200–350 words maximum) for their work. The specification must capture only the details that are specific to this particular piece: document type, title/topic, section breakdown with word counts, citation style, audience, and any hard constraints from the brief or rubric. It should NOT reproduce generic writing standards — those are already known. Output the specification as clean prose or a compact list, not a large table.
 
 ${
   isMeta
-    ? `You are in META-PROMPT MODE, the deepest version of this builder. Before writing anything, exhaustively mine every piece of uploaded material below — the brief, rubric, instructions, and any files — for every concrete detail an executable prompt needs: exact scope and deliverables, section-by-section breakdown, word counts, formatting/citation style, required terminology, marking criteria phrased in the rubric's own language, and any numeric or structural constraints. Cross-reference the rubric against the brief so nothing it implies is missed. Pull exact phrasing/keywords from the source material into the prompt table itself rather than paraphrasing generically. Only ask the user a clarifying question if something genuinely essential is missing AND cannot be reasonably inferred from the material provided — and if you do, keep it to the single most important gap, using a line containing ONLY:
+    ? `You are in META-PROMPT MODE. Exhaustively mine every piece of uploaded material below for concrete specifics: exact scope, section breakdown, word counts, citation style, required terminology, and marking criteria in the rubric's own language. Cross-reference the rubric and brief so nothing is missed. Only ask the user a question if something genuinely essential is missing AND cannot be inferred — keep it to the single most critical gap, using a line containing ONLY:
 @@OPTIONS@@{"options":["First option","Second option","Third option"]}
-when the sensible answers are a small set. Otherwise, skip the back-and-forth entirely and go straight to producing the single executable prompt table, made as specific and domain-accurate as the source material allows, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in this mode.`
-    : `You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+when the sensible answers are a small set. Otherwise go straight to producing the compact specification and STOP — invite the user to review it before any writing begins. Do not write the actual work in this mode.`
+    : `You are in PROMPT-BUILD MODE. Have a brief clarifying conversation first — ask the essential questions one at a time (task, scope, word count, citation style, required sections, audience, marking criteria). Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
 @@OPTIONS@@{"options":["First option","Second option","Third option"]}
-so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.`
+so the user can tap an answer. Once you have enough, produce the compact specification and STOP — invite the user to review it before any writing begins. Do not write the actual work in build mode.`
 }
 
-SELECTED WRITING TEMPLATE TO ADAPT THE PROMPT TO:${presetBlock || "\nGeneral academic standards."}
+SELECTED WRITING PRESET:${presetBlock || "\nGeneral academic writing standards."}
 
 UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${promptBuilderDatasetBlock}${isMeta ? writingCodeExecutionBlock : ""}
 
@@ -506,17 +504,20 @@ Respond to the latest USER message by EXECUTING the previously created prompt ta
 
 Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${wordCountDisciplineBlock}${noEmojiBlock}`;
     } else {
-      const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
-      prompt = `${OTHER_WRITING_TEMPLATE}
+      prompt = `You are a specialist academic and professional writing assistant. The user has selected the Advanced Writing mode for work that falls outside the standard chapter/dissertation presets — business reports, executive briefs, proposals, white papers, articles, consultancy deliverables, or academic writing with a bespoke structure from an uploaded brief or rubric.
+
+Your job right now is to have a brief intake conversation to gather what you need, then produce a compact writing specification (200–350 words) that captures only the specifics of this particular piece: document type, section breakdown with word counts, citation style, audience, and hard constraints from the brief. Do NOT produce generic writing advice — only the specifics for this piece. Once the specification is agreed, STOP and invite the user to give the go-ahead before writing begins.
+
+Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+@@OPTIONS@@{"options":["First option","Second option","Third option"]}
+so the user can tap an answer.
 
 UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${multiWorkBlock}${instructionsBlock}${promptBuilderDatasetBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
 
-Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies — otherwise produce the executable prompt table as instructed above.
-
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.${noEmojiBlock}`;
+Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.${noEmojiBlock}`;
     }
   } else {
     const codeExecutionBlock = isQualitativeTranscript
