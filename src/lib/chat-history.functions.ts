@@ -52,7 +52,7 @@ export const saveChatConversation = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const trimmedTitle = data.title?.trim();
     if (data.id) {
-      const patch: Record<string, unknown> = {
+      const patch = {
         state: data.state as Json,
         agent_session_id: data.agentSessionId,
         updated_at: new Date().toISOString(),
@@ -79,7 +79,7 @@ export const saveChatConversation = createServerFn({ method: "POST" })
       .insert({
         user_id: context.userId,
         tool: data.tool,
-        title,
+        title: trimmedTitle || "New chat",
         state: data.state as Json,
         agent_session_id: data.agentSessionId,
         folder_id: data.folderId ?? null,
