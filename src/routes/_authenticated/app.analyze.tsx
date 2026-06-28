@@ -206,6 +206,32 @@ function parseCsv(text: string): Record<string, unknown>[] {
   });
 }
 
+/** Strips WEBVTT/SRT cue numbering and timestamp lines, leaving just the spoken text —
+ *  so a transcript upload reads as plain dialogue instead of caption markup. */
+function parseTranscript(text: string): string {
+  const stripped = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  return stripped
+    .split(/\r?\n/)
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return false;
+      if (/^WEBVTT/i.test(t)) return false;
+      if (/^\d+$/.test(t)) return false; // SRT cue index
+      if (/-->/.test(t)) return false; // timestamp line
+      if (/^(NOTE|STYLE|REGION)\b/i.test(t)) return false;
+      return true;
+    })
+    .join("\n")
+    .trim();
+}
+
+const TRANSCRIPT_EXTENSIONS = [".vtt", ".srt"];
+
+function isTranscriptFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return TRANSCRIPT_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 const PRESET_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-quant": "Ch.4 Quant",
   "chapter4-qual": "Ch.4 Qual",
@@ -235,6 +261,7 @@ type PersistedState = {
   projectId: string;
   fileName: string;
   fileRows: Record<string, unknown>[];
+  fileTranscript: string;
 };
 
 function loadPersistedState(): Partial<PersistedState> {
@@ -252,7 +279,7 @@ function savePersistedState(state: PersistedState) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, fileRows: [] }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, fileRows: [], fileTranscript: "" }));
     } catch {
       // localStorage unavailable or still too large — fail silently, nothing else we can do
     }
@@ -436,6 +463,7 @@ function AnalyzePage() {
   const [projectId, setProjectId] = useState<string>(initial.projectId ?? "");
   const [fileName, setFileName] = useState<string>(initial.fileName ?? "");
   const [fileRows, setFileRows] = useState<Record<string, unknown>[]>(initial.fileRows ?? []);
+  const [fileTranscript, setFileTranscript] = useState<string>(initial.fileTranscript ?? "");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -581,6 +609,7 @@ function AnalyzePage() {
       projectId,
       fileName,
       fileRows,
+      fileTranscript,
     });
   }, [
     messages,
@@ -591,6 +620,7 @@ function AnalyzePage() {
     projectId,
     fileName,
     fileRows,
+    fileTranscript,
   ]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
@@ -606,6 +636,7 @@ function AnalyzePage() {
         projectId,
         fileName,
         fileRows,
+        fileTranscript,
       };
       const runSave = async () => {
         try {
@@ -650,6 +681,7 @@ function AnalyzePage() {
     projectId,
     fileName,
     fileRows,
+    fileTranscript,
     conversationId,
     folderId,
     saveConversationFn,
@@ -664,6 +696,7 @@ function AnalyzePage() {
     setProjectId("");
     setFileName("");
     setFileRows([]);
+    setFileTranscript("");
     setDocFiles([]);
     setDocSummary("");
     setInstructionsPreset("basic-academia");
@@ -691,6 +724,7 @@ function AnalyzePage() {
       setProjectId(state.projectId ?? "");
       setFileName(state.fileName ?? "");
       setFileRows(state.fileRows ?? []);
+      setFileTranscript(state.fileTranscript ?? "");
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
       setPromptMode(false);
@@ -835,35 +869,63 @@ function AnalyzePage() {
     setProjectId("");
     setFileName("");
     setFileRows([]);
+    setFileTranscript("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleFile(file: File) {
+    if (isTranscriptFile(file.name)) {
+      const text = await file.text();
+      const cleaned = parseTranscript(text);
+      if (!cleaned) {
+        toast.error("Couldn't read any dialogue from that transcript file.");
+        return;
+      }
+      setFileName(file.name);
+      setFileRows([]);
+      setFileTranscript(cleaned);
+      toast.success(`Loaded transcript "${file.name}" as data`);
+      return;
+    }
     const text = await file.text();
     const rows = parseCsv(text);
     if (!rows.length) {
-      toast.error("Couldn't read any rows from that file — expecting a CSV with a header row.");
+      // Not tabular (e.g. a plain .txt transcript or notes file) — fall back to treating
+      // the raw text itself as qualitative data rather than rejecting the upload.
+      const cleaned = parseTranscript(text);
+      if (!cleaned) {
+        toast.error("Couldn't read any data from that file.");
+        return;
+      }
+      setFileName(file.name);
+      setFileRows([]);
+      setFileTranscript(cleaned);
+      toast.success(`Loaded "${file.name}" as data`);
       return;
     }
     setFileName(file.name);
+    setFileTranscript("");
     setFileRows(rows);
     toast.success(`Loaded ${rows.length} rows from ${file.name}`);
   }
 
-  /** Routes dropped/attached files: a .csv becomes the data source (so it's usable for real,
-   *  code-computed statistics) even when it arrives bundled with other documents in the same
-   *  drop — a csv mixed in with a brief/report used to fall through to the lossy background-text
-   *  path just because it wasn't dropped alone, which is exactly the case that matters most.
-   *  Everything else (and any csv beyond the first, once a dataset is already loaded) is added
-   *  as a background document. */
+  /** Routes dropped/attached files: a .csv or transcript (.vtt/.srt) becomes the data source
+   *  (so it's usable as real data — computed statistics for csv, full-fidelity quotes for
+   *  transcripts) even when it arrives bundled with other documents in the same drop — a
+   *  dataset file mixed in with a brief/report used to fall through to the lossy
+   *  background-text path just because it wasn't dropped alone, which is exactly the case
+   *  that matters most. Everything else (and any dataset file beyond the first, once one is
+   *  already loaded) is added as a background document. */
   function handleIncomingFiles(files: File[]) {
     if (!files.length) return;
-    if (!fileRows.length) {
-      const csvIndex = files.findIndex((f) => f.name.toLowerCase().endsWith(".csv"));
-      if (csvIndex !== -1) {
+    if (!fileRows.length && !fileTranscript) {
+      const dataIndex = files.findIndex(
+        (f) => f.name.toLowerCase().endsWith(".csv") || isTranscriptFile(f.name),
+      );
+      if (dataIndex !== -1) {
         setSourceTab("file");
-        handleFile(files[csvIndex]);
-        const rest = files.filter((_, i) => i !== csvIndex);
+        handleFile(files[dataIndex]);
+        const rest = files.filter((_, i) => i !== dataIndex);
         if (rest.length) addDocFiles(rest);
         return;
       }
@@ -876,6 +938,8 @@ function AnalyzePage() {
       return { type: "project" as const, project_id: projectId };
     if (sourceTab === "file" && fileRows.length)
       return { type: "file" as const, filename: fileName, rows: fileRows };
+    if (sourceTab === "file" && fileTranscript)
+      return { type: "transcript" as const, filename: fileName, text: fileTranscript };
     return { type: "none" as const };
   }
 
@@ -1448,7 +1512,7 @@ function AnalyzePage() {
                     ref={docFileInputRef}
                     type="file"
                     multiple
-                    accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                    accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.vtt,.srt"
                     className="hidden"
                     onChange={(e) => {
                       const fs = Array.from(e.target.files ?? []);
@@ -1513,11 +1577,11 @@ function AnalyzePage() {
                         <TabsContent value="file" className="space-y-2 mt-3">
                           <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-5 cursor-pointer hover:bg-muted/30 transition-colors">
                             <Upload className="size-5 text-muted-foreground" />
-                            <span className="text-sm font-medium">Choose a CSV file</span>
+                            <span className="text-sm font-medium">Choose a data file</span>
                             <input
                               ref={fileInputRef}
                               type="file"
-                              accept=".csv,.txt"
+                              accept=".csv,.txt,.vtt,.srt"
                               className="hidden"
                               onChange={(e) => {
                                 const f = e.target.files?.[0];
@@ -1529,7 +1593,12 @@ function AnalyzePage() {
                             <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
                               <span className="flex items-center gap-2 truncate">
                                 <FileText className="size-4 text-muted-foreground shrink-0" />{" "}
-                                {fileName} ({fileRows.length} rows)
+                                {fileName}{" "}
+                                {fileRows.length > 0
+                                  ? `(${fileRows.length} rows)`
+                                  : fileTranscript
+                                    ? "(transcript)"
+                                    : ""}
                               </span>
                               <button
                                 onClick={clearSource}
@@ -1540,7 +1609,9 @@ function AnalyzePage() {
                             </div>
                           )}
                           <p className="text-xs text-muted-foreground">
-                            CSV with a header row. Columns are auto-summarized for the AI.
+                            CSV with a header row for quantitative data, or a transcript
+                            (.vtt/.srt/.txt) for qualitative analysis — either way it's used as
+                            real data, not summarized.
                           </p>
                         </TabsContent>
                       </Tabs>
@@ -1578,7 +1649,7 @@ function AnalyzePage() {
                         <input
                           type="file"
                           multiple
-                          accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                          accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.vtt,.srt"
                           className="hidden"
                           onChange={(e) => {
                             const fs = Array.from(e.target.files ?? []);
