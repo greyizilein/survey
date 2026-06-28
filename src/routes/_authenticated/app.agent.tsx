@@ -224,30 +224,54 @@ function AgentPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, sending]);
 
+  const pendingIdRef = useRef<Promise<string> | null>(null);
   useEffect(() => {
     if (messages.length === 0) return;
     const handle = setTimeout(() => {
-      const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
-      const title = firstUserMsg.slice(0, 80);
-      saveConversationFn({
-        data: {
-          id: conversationId ?? undefined,
-          tool: "agent",
-          title,
-          state: { messages },
-          agentSessionId: sessionId ?? undefined,
-          folderId: conversationId ? undefined : folderId,
-        },
-      })
-        .then(({ id }: { id: string }) => {
-          if (!conversationId) setConversationId(id);
-        })
-        .catch((err) => {
+      const state = { messages };
+      const runSave = async () => {
+        try {
+          if (conversationId) {
+            await saveConversationFn({
+              data: {
+                id: conversationId,
+                tool: "agent",
+                state,
+                agentSessionId: sessionId ?? undefined,
+              },
+            });
+            return;
+          }
+          if (pendingIdRef.current) {
+            const id = await pendingIdRef.current;
+            await saveConversationFn({
+              data: { id, tool: "agent", state, agentSessionId: sessionId ?? undefined },
+            });
+            return;
+          }
+          const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
+          const title = firstUserMsg.slice(0, 80);
+          const p = saveConversationFn({
+            data: {
+              tool: "agent",
+              title,
+              state,
+              agentSessionId: sessionId ?? undefined,
+              folderId,
+            },
+          }).then(({ id }: { id: string }) => id);
+          pendingIdRef.current = p;
+          const id = await p;
+          setConversationId(id);
+        } catch (err) {
+          pendingIdRef.current = null;
           console.error("[chat-history] save failed:", err);
           toast.error(
             `Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`,
           );
-        });
+        }
+      };
+      runSave();
     }, 1000);
     return () => clearTimeout(handle);
   }, [messages, sessionId, conversationId, folderId, saveConversationFn]);
