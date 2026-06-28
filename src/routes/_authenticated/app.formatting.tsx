@@ -16,7 +16,7 @@ import { extractDocumentText } from "@/lib/document-extract.functions";
 import { extractFormattingRequirements, gradeWork } from "@/lib/formatting.functions";
 import { exportFormattedDocx, exportFormattedPdf, exportFormattedPptx, splitCoverPage, downloadBlob } from "@/lib/writing-export";
 import { supabase } from "@/integrations/supabase/client";
-import { splitStreamError } from "@/lib/stream-error-marker";
+import { splitStreamError, splitStreamTruncated } from "@/lib/stream-error-marker";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/formatting")({
@@ -184,10 +184,12 @@ function FormattingPage() {
         if (done) break;
         full += decoder.decode(value, { stream: true });
       }
-      const { text, error } = splitStreamError(full);
+      const { text: afterTruncation, truncated } = splitStreamTruncated(full);
+      const { text, error } = splitStreamError(afterTruncation);
       if (error) throw new Error(error);
       setDocumentText(text.trim());
-      toast.success("Work enhanced — review and format it below");
+      if (truncated) toast.warning("This was cut off due to length — review before formatting, or try again.");
+      else toast.success("Work enhanced — review and format it below");
       setStep("review");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not enhance the work");
@@ -235,17 +237,20 @@ function FormattingPage() {
         const { done, value } = await reader.read();
         if (done) break;
         full += decoder.decode(value, { stream: true });
-        const { text } = splitStreamError(full);
+        const { text: noTrunc } = splitStreamTruncated(full);
+        const { text } = splitStreamError(noTrunc);
         const { body, cover } = splitCoverPage(text);
         setResultBody(body);
         if (cover) setResultCover(cover);
       }
-      const { text, error } = splitStreamError(full);
+      const { text: afterTruncation, truncated } = splitStreamTruncated(full);
+      const { text, error } = splitStreamError(afterTruncation);
       if (error) throw new Error(error);
       const { body, cover } = splitCoverPage(text);
       setResultBody(body);
       setResultCover(cover);
       setStep("result");
+      if (truncated) toast.warning("This response hit the length limit and was cut off — you may want to regenerate.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Formatting failed");
     } finally {

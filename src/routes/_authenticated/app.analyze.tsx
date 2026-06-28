@@ -48,7 +48,7 @@ import {
   Legend,
 } from "recharts";
 import { toast } from "sonner";
-import { splitStreamError } from "@/lib/stream-error-marker";
+import { splitStreamError, splitStreamTruncated } from "@/lib/stream-error-marker";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -138,6 +138,7 @@ type Msg = {
   figures?: FigureImage[] | null;
   generatingFigures?: boolean;
   options?: string[] | null;
+  truncated?: boolean;
 };
 type InstructionsPreset =
   | "chapter4-quant"
@@ -868,7 +869,8 @@ function AnalyzePage() {
         const { done, value } = await reader.read();
         if (done) break;
         raw += decoder.decode(value, { stream: true });
-        const { text: withoutError } = splitStreamError(raw);
+        const { text: withoutTruncation } = splitStreamTruncated(raw);
+        const { text: withoutError } = splitStreamError(withoutTruncation);
         const { display, options } = splitMarkers(withoutError);
         setMessages((prev) => {
           const copy = [...prev];
@@ -877,7 +879,8 @@ function AnalyzePage() {
         });
       }
 
-      const { text: rawText, error: streamError } = splitStreamError(raw);
+      const { text: rawAfterTruncation, truncated } = splitStreamTruncated(raw);
+      const { text: rawText, error: streamError } = splitStreamError(rawAfterTruncation);
       if (streamError) throw new Error(streamError);
       const { display, chart, table, sources, chartImage, figureRequests, options } =
         splitMarkers(rawText);
@@ -892,6 +895,7 @@ function AnalyzePage() {
           sources,
           chartImage,
           generatingFigures: figureRequests.length > 0,
+          truncated,
         };
         return copy;
       });
@@ -1128,6 +1132,24 @@ function AnalyzePage() {
                       {m.generatingFigures && (
                         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                           <Loader2 className="size-3.5 animate-spin" /> Drawing figure…
+                        </div>
+                      )}
+                      {m.truncated && i === messages.length - 1 && !sending && (
+                        <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                          <span className="flex-1 text-muted-foreground">
+                            This response hit the length limit and was cut off.
+                          </span>
+                          <Button
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() =>
+                              send(
+                                "Continue exactly where you left off — do not repeat anything you already wrote, do not restate or summarize, just keep going from the exact point you stopped.",
+                              )
+                            }
+                          >
+                            Continue
+                          </Button>
                         </div>
                       )}
                       {m.figures && m.figures.length > 0 && (

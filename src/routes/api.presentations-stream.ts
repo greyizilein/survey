@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/presentations-stream")({
                   model: createCodeExecutionAi()(model),
                   prompt,
                   temperature: 0.3,
-                  maxOutputTokens: 8000,
+                  maxOutputTokens: 16000,
                   ...(withTools ? { tools: { code_execution: codeExecutionTool() } } : {}),
                   onError: ({ error }) => {
                     console.error("[presentations-stream] generation error:", error);
@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/presentations-stream")({
                   model: createAi()(model),
                   prompt,
                   temperature: 0.3,
-                  maxOutputTokens: 8000,
+                  maxOutputTokens: 16000,
                   onError: ({ error }) => {
                     console.error("[presentations-stream] generation error:", error);
                   },

@@ -94,7 +94,7 @@ Instructions:
             model: createCodeExecutionAi()(CODE_EXECUTION_MODEL),
             prompt,
             temperature: 0.2,
-            maxOutputTokens: 8000,
+            maxOutputTokens: 16000,
             onError: ({ error }) => {
               console.error("[apply-corrections-stream] generation error:", error);
             },

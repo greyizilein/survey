@@ -49,7 +49,7 @@ export const Route = createFileRoute("/api/formatting-enhance-stream")({
             model: createCodeExecutionAi()(CODE_EXECUTION_MODEL),
             prompt,
             temperature: 0.3,
-            maxOutputTokens: 8000,
+            maxOutputTokens: 16000,
             onError: ({ error }) => {
               console.error("[formatting-enhance-stream] generation error:", error);
             },

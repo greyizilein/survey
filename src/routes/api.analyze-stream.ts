@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/analyze-stream")({
               model: useCodeExecution ? createCodeExecutionAi()(model) : createAi()(model),
               prompt,
               temperature: 0.2,
-              maxOutputTokens: 8000,
+              maxOutputTokens: 16000,
               ...(withTools && useCodeExecution
                 ? {
                     tools: {
