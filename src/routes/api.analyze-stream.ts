@@ -46,11 +46,33 @@ export const Route = createFileRoute("/api/analyze-stream")({
         const { streamText } = await import("ai");
 
         try {
-          const { model, prompt, useCodeExecution, useWebSearch } = await buildAnalyzePrompt(parsed.data, supabase);
+          const { model, prompt, promptCached, promptDynamic, useCodeExecution, useWebSearch } =
+            await buildAnalyzePrompt(parsed.data, supabase);
+          // On Max tier (direct Anthropic), split the prompt at a cache breakpoint so the large,
+          // per-turn-identical prefix (templates, background docs, dataset rows) is billed once
+          // per ~5 minutes instead of in full on every single chat turn — same content reaches
+          // the model either way, this only changes how Anthropic prices repeat input tokens.
+          const useCachedPrompt = useCodeExecution && promptCached.length > 0;
           const makeResult = (withTools: boolean) =>
             streamText({
               model: useCodeExecution ? createCodeExecutionAi()(model) : createAi()(model),
-              prompt,
+              ...(useCachedPrompt
+                ? {
+                    messages: [
+                      {
+                        role: "user" as const,
+                        content: [
+                          {
+                            type: "text" as const,
+                            text: promptCached,
+                            providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+                          },
+                          { type: "text" as const, text: promptDynamic },
+                        ],
+                      },
+                    ],
+                  }
+                : { prompt }),
               temperature: 0.2,
               maxOutputTokens: 16000,
               ...(withTools && useCodeExecution
