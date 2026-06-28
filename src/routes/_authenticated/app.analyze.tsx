@@ -555,38 +555,52 @@ function AnalyzePage() {
     fileRows,
   ]);
 
+  const pendingIdRef = useRef<Promise<string> | null>(null);
   useEffect(() => {
     if (messages.length === 0) return;
     const handle = setTimeout(() => {
-      const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
-      const title = firstUserMsg.slice(0, 80);
-      saveConversationFn({
-        data: {
-          id: conversationId ?? undefined,
-          tool: "analyze",
-          title,
-          state: {
-            messages,
-            instructionsPreset,
-            instructions,
-            docSummary,
-            sourceTab,
-            projectId,
-            fileName,
-            fileRows,
-          },
-          folderId: conversationId ? undefined : folderId,
-        },
-      })
-        .then(({ id }: { id: string }) => {
-          if (!conversationId) setConversationId(id);
-        })
-        .catch((err) => {
+      const state = {
+        messages,
+        instructionsPreset,
+        instructions,
+        docSummary,
+        sourceTab,
+        projectId,
+        fileName,
+        fileRows,
+      };
+      const runSave = async () => {
+        try {
+          // If a row already exists (or is being created), update without title
+          // so a user's rename via the history menu is never overwritten.
+          if (conversationId) {
+            await saveConversationFn({
+              data: { id: conversationId, tool: "analyze", state },
+            });
+            return;
+          }
+          if (pendingIdRef.current) {
+            const id = await pendingIdRef.current;
+            await saveConversationFn({ data: { id, tool: "analyze", state } });
+            return;
+          }
+          const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
+          const title = firstUserMsg.slice(0, 80);
+          const p = saveConversationFn({
+            data: { tool: "analyze", title, state, folderId },
+          }).then(({ id }: { id: string }) => id);
+          pendingIdRef.current = p;
+          const id = await p;
+          setConversationId(id);
+        } catch (err) {
+          pendingIdRef.current = null;
           console.error("[chat-history] save failed:", err);
           toast.error(
             `Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`,
           );
-        });
+        }
+      };
+      runSave();
     }, 1000);
     return () => clearTimeout(handle);
   }, [
@@ -605,6 +619,7 @@ function AnalyzePage() {
 
   function handleNewChat() {
     setConversationId(null);
+    pendingIdRef.current = null;
     setMessages([]);
     setInput("");
     setSourceTab("project");
