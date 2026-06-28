@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { createRawAnthropic } from "./ai-gateway.server";
 
 const AGENT_NAME = "Survey App Assistant";
@@ -13,7 +14,7 @@ const AGENT_SYSTEM_PROMPT = `You are the Survey App Assistant, a general-purpose
 
 You explicitly do NOT handle survey design/distribution or interview transcription/analysis — if asked for those, tell the user to use the app's dedicated Surveys or Interviews tools instead.
 
-Be direct and concrete. Prefer actually running code/searches over guessing.
+Be direct and concrete. Only reach for bash/web_search when the task genuinely requires computation, data manipulation, or live information — do not use them for pure writing, outlining, or answering questions that don't need external data or calculation. Prefer actually running code over guessing any time a numeric result is needed.
 
 DELIVERABLE FILES: any file you want the user to be able to download (charts, .pptx/.xlsx/.docx/.pdf, images, anything produced via bash or a skill) MUST be written to (or copied to) the \`/mnt/session/outputs/\` directory — that is the ONLY location the app can retrieve files from. A file saved anywhere else (e.g. just \`/workspace/\`) is invisible to the user no matter what you say about it. When you produce such a file, say so clearly and name it, and confirm it's in \`/mnt/session/outputs/\`.
 
@@ -97,12 +98,14 @@ function getConfiguredVaultIds(): string[] {
   return raw.split(",").map((id) => id.trim()).filter(Boolean);
 }
 
+type ExistingSkill = { id: string; display_title: string; description?: string | null };
+
 async function findCustomSkillByTitle(
   client: Awaited<ReturnType<typeof createRawAnthropic>>,
   title: string,
-): Promise<string | null> {
+): Promise<ExistingSkill | null> {
   for await (const skill of client.beta.skills.list({ source: "custom" })) {
-    if (skill.display_title === title) return skill.id;
+    if (skill.display_title === title) return skill as ExistingSkill;
   }
   return null;
 }
@@ -112,24 +115,45 @@ function buildSkillMarkdown(name: string, description: string, body: string): st
   return `---\nname: ${name}\ndescription: "${escapedDescription}"\n---\n\n${body}\n`;
 }
 
+/** Stable hash of the skill content so we can detect if the template has changed. */
+function skillContentHash(markdown: string): string {
+  return createHash("sha256").update(markdown).digest("hex").slice(0, 16);
+}
+
 async function getOrCreateWritingSkillId(
   client: Awaited<ReturnType<typeof createRawAnthropic>>,
   spec: (typeof WRITING_SKILLS)[number],
 ): Promise<string> {
-  const existing = await findCustomSkillByTitle(client, spec.title);
-  if (existing) return existing;
-
   const { toFile } = await import("@anthropic-ai/sdk");
   const body = await spec.template();
   const markdown = buildSkillMarkdown(spec.id, spec.description, body);
+  const hash = skillContentHash(markdown);
+
+  const existing = await findCustomSkillByTitle(client, spec.title);
+  if (existing) {
+    // The description field is repurposed to store the content hash so we can detect staleness
+    // without fetching the full skill file — cheap to check, avoids an extra download on every boot.
+    const storedHash = existing.description ?? "";
+    if (storedHash === hash) return existing.id;
+
+    // Content has changed — update the skill so the agent picks up the new template body.
+    await client.beta.skills.update(existing.id, {
+      display_title: spec.title,
+      description: hash,
+      files: [await toFile(Buffer.from(markdown, "utf-8"), `${spec.id}/SKILL.md`, { type: "text/markdown" })],
+    });
+    return existing.id;
+  }
+
   const skill = await client.beta.skills.create({
     display_title: spec.title,
+    description: hash,
     files: [await toFile(Buffer.from(markdown, "utf-8"), `${spec.id}/SKILL.md`, { type: "text/markdown" })],
   });
   return skill.id;
 }
 
-export async function getOrCreateAgentId(): Promise<string> {
+export async function getOrCreateAgentId(tier: "fast" | "pro" | "max" = "max"): Promise<string> {
   const client = await createRawAnthropic();
 
   const writingSkillIds = await Promise.all(WRITING_SKILLS.map((spec) => getOrCreateWritingSkillId(client, spec)));
@@ -149,6 +173,13 @@ export async function getOrCreateAgentId(): Promise<string> {
     ...mcpServers.map((s) => ({ type: "mcp_toolset" as const, mcp_server_name: s.name })),
   ];
 
+  // Max tier gets adaptive extended thinking at high effort for best analysis quality.
+  // Fast and Pro run in standard mode (no thinking tokens) to stay cost-effective.
+  const modelConfig =
+    tier === "max"
+      ? { model: "claude-sonnet-4-6", model_configuration: { thinking: { type: "adaptive", effort: "high" } } }
+      : { model: "claude-sonnet-4-6" };
+
   const existing = await findExisting(client.beta.agents.list(), AGENT_NAME);
   if (existing) {
     const updated = await client.beta.agents.update(existing.id, {
@@ -157,17 +188,18 @@ export async function getOrCreateAgentId(): Promise<string> {
       tools,
       skills,
       mcp_servers: mcpServers.map((s) => ({ type: "url" as const, name: s.name, url: s.url })),
+      ...modelConfig,
     });
     return updated.id;
   }
 
   const agent = await client.beta.agents.create({
     name: AGENT_NAME,
-    model: "claude-sonnet-4-6",
     system: AGENT_SYSTEM_PROMPT,
     tools,
     skills,
     mcp_servers: mcpServers.map((s) => ({ type: "url" as const, name: s.name, url: s.url })),
+    ...modelConfig,
   });
   return agent.id;
 }
@@ -206,10 +238,10 @@ export async function getOrCreateEnvironmentId(): Promise<string> {
   return environment.id;
 }
 
-export async function createAgentSession(userId: string): Promise<string> {
+export async function createAgentSession(userId: string, tier: "fast" | "pro" | "max" = "max"): Promise<string> {
   const client = await createRawAnthropic();
   const [agentId, environmentId, memoryStoreId] = await Promise.all([
-    getOrCreateAgentId(),
+    getOrCreateAgentId(tier),
     getOrCreateEnvironmentId(),
     getOrCreateUserMemoryStoreId(client, userId),
   ]);
@@ -238,8 +270,44 @@ export type AgentStreamChunk =
   | { type: "done" }
   | { type: "error"; text: string };
 
+const MANAGED_AGENTS_BETA = "managed-agents-2026-04-01" as const;
+
+/** Snapshot all file IDs that already exist for a session before a turn begins. */
+async function snapshotExistingFileIds(
+  client: Awaited<ReturnType<typeof createRawAnthropic>>,
+  sessionId: string,
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for await (const f of client.beta.files.list({ scope_id: sessionId, betas: [MANAGED_AGENTS_BETA] })) {
+    ids.add(f.id);
+  }
+  return ids;
+}
+
+/** Poll for files that weren't present before the turn started. */
+async function listNewOutputFiles(
+  client: Awaited<ReturnType<typeof createRawAnthropic>>,
+  sessionId: string,
+  preExistingIds: Set<string>,
+): Promise<Array<{ id: string; filename: string; mime_type: string }>> {
+  let fresh: Array<{ id: string; filename: string; mime_type: string }> = [];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    fresh = [];
+    for await (const f of client.beta.files.list({ scope_id: sessionId, betas: [MANAGED_AGENTS_BETA] })) {
+      if (!preExistingIds.has(f.id)) fresh.push(f);
+    }
+    if (fresh.length > 0) break;
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return fresh;
+}
+
 export async function* streamAgentTurn(sessionId: string, message: string): AsyncGenerator<AgentStreamChunk> {
   const client = await createRawAnthropic();
+
+  // Snapshot files that already exist BEFORE this turn so we only yield genuinely new ones,
+  // even on a cold-started serverless instance that has no in-memory state.
+  const preExistingIds = await snapshotExistingFileIds(client, sessionId);
 
   await client.beta.sessions.events.send(sessionId, {
     events: [{ type: "user.message", content: [{ type: "text", text: message }] }],
@@ -256,35 +324,13 @@ export async function* streamAgentTurn(sessionId: string, message: string): Asyn
     } else if (event.type === "session.error") {
       yield { type: "error", text: event.error.message ?? "The agent hit an error." };
     } else if (event.type === "session.status_idle" || event.type === "session.status_terminated") {
-      for (const f of await listNewOutputFiles(client, sessionId)) {
+      for (const f of await listNewOutputFiles(client, sessionId, preExistingIds)) {
         yield { type: "file", fileId: f.id, filename: f.filename, mediaType: f.mime_type };
       }
       yield { type: "done" };
       break;
     }
   }
-}
-
-const MANAGED_AGENTS_BETA = "managed-agents-2026-04-01" as const;
-const knownSessionOutputFiles = new Map<string, Set<string>>();
-
-async function listNewOutputFiles(
-  client: Awaited<ReturnType<typeof createRawAnthropic>>,
-  sessionId: string,
-): Promise<Array<{ id: string; filename: string; mime_type: string }>> {
-  const seen = knownSessionOutputFiles.get(sessionId) ?? new Set<string>();
-  let fresh: Array<{ id: string; filename: string; mime_type: string }> = [];
-  for (let attempt = 0; attempt < 3; attempt++) {
-    fresh = [];
-    for await (const f of client.beta.files.list({ scope_id: sessionId, betas: [MANAGED_AGENTS_BETA] })) {
-      if (!seen.has(f.id)) fresh.push(f);
-    }
-    if (fresh.length > 0) break;
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
-  }
-  for (const f of fresh) seen.add(f.id);
-  knownSessionOutputFiles.set(sessionId, seen);
-  return fresh;
 }
 
 export async function downloadAgentFile(fileId: string): Promise<{ base64: string; mediaType: string; filename: string }> {
