@@ -18,7 +18,7 @@ export const AnalyzeChatInput = z.object({
     }),
     z.object({ type: z.literal("none") }),
   ]),
-  background: z.string().max(24000).optional(),
+  background: z.string().max(60000).optional(),
   instructionsPreset: z
     .enum([
       "none",
@@ -56,20 +56,36 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
       return { summary: combined.trim() };
     }
 
+    // Condense per file rather than squeezing the whole joined blob in one shot —
+    // a single global squeeze tends to crowd out whichever files land later in the
+    // blob. Each file gets its own proportional share of the final 24,000-char budget.
     const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
+    const model = ai(textModelForTier());
 
-    const prompt = `Condense the following written material (chapters, reports, briefs, assignments, methodology, notes) into background context for later use, in no more than 22,000 characters. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
+    const TOTAL_BUDGET = 22_000;
+    const perFileBudget = Math.max(1500, Math.floor(TOTAL_BUDGET / data.files.length));
 
-Source content:
+    const summaries = await Promise.all(
+      data.files.map(async (f) => {
+        if (f.text.length <= perFileBudget) {
+          return `===== FILE: ${f.name} =====\n${f.text.trim()}`;
+        }
+        const prompt = `Condense the following written material (a chapter, report, brief, assignment, methodology, or notes) into background context for later use, in no more than ${perFileBudget} characters. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
+
+Source content (file "${f.name}"):
 """
-${combined}
+${f.text}
 """
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
-    const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0 });
-    return { summary: text.trim().slice(0, 24000) };
+        const { text } = await generateText({ model, prompt, temperature: 0 });
+        return `===== FILE: ${f.name} =====\n${text.trim().slice(0, perFileBudget)}`;
+      }),
+    );
+
+    return { summary: summaries.join("\n\n").slice(0, 60_000) };
   });
 
 interface ColumnSummary {
