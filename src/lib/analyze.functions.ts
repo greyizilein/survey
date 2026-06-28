@@ -410,11 +410,13 @@ export async function buildAnalyzePrompt(
     data.instructionsPreset === "dissertations" ||
     (data.instructionsPreset === "other-writing" && promptAlreadyCreated);
 
-  const { CODE_EXECUTION_MODEL, textModelForTier, getModelTier } =
+  const { CODE_EXECUTION_MODEL, FAST_MODEL, textModelForTier, getModelTier } =
     await import("./ai-gateway.server");
   const tier = getModelTier();
-  const useCodeExecution = tier === "max";
-  const model = useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(tier);
+  // Pro and Max both go through direct Anthropic (code execution + native web search).
+  // Fast (Haiku) also goes direct but without the code execution tool enabled.
+  const useCodeExecution = tier === "pro" || tier === "max";
+  const model = tier === "fast" ? FAST_MODEL : CODE_EXECUTION_MODEL;
 
   let sourcesBlock = "";
   const useWebSearch = needsCitations;
@@ -432,7 +434,7 @@ export async function buildAnalyzePrompt(
 
   const writingCodeExecutionBlock = useCodeExecution
     ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`
-    : `\n\nYou do NOT have a code execution tool in this mode. Never fabricate computed figures (statistics, calculations, derived numbers) — work them out carefully by hand and show your reasoning, or flag clearly that exact computation requires the Max tier.`;
+    : `\n\nYou do NOT have a code execution tool in this mode. Never fabricate computed figures (statistics, calculations, derived numbers) — work them out carefully by hand and show your reasoning, or flag clearly that exact computation requires the Pro or Max tier.`;
 
   const noEmojiBlock = `\n\nNever use emojis anywhere in your response, under any circumstances, unless the user explicitly asks you to include them.`;
 
@@ -442,7 +444,7 @@ export async function buildAnalyzePrompt(
     ? ""
     : isQualitativeTranscript
       ? `\n\nDATASET PROVIDED — this is a real, complete transcript, not background reading. ${datasetBlock}\n\nGround every claim, theme, or quote strictly in what this transcript actually contains — never invent a quote, paraphrase as if verbatim, or attribute words to a speaker who didn't say them. The text above is the complete transcript in full, not a preview or excerpt. Never tell the user to "upload," "attach," or "send" the transcript — they already have, this is it.`
-      : `\n\nDATASET PROVIDED — this is real data, not background reading. ${datasetBlock}\n\nWhenever the work requires statistics, counts, percentages, correlations, or any other computed figure, you must derive it from the RAW ROWS/dataset above${useCodeExecution ? " by writing and running actual code in your sandbox (pandas/numpy/scipy/statsmodels) — never estimate, approximate, or claim you lack the means to compute it" : " by hand, showing your work — note clearly that exact/verified computation requires the Max tier"}. Never source statistics from the uploaded chapters/reports background context below; that is for subject-matter understanding only. The complete RAW ROWS array above already contains every row of the uploaded file in full — it is not a preview, sample, or truncated excerpt. Never tell the user to "upload," "attach," or "send" the file/CSV/dataset — they already have, this is it. If you write code in your sandbox to compute a figure, build the dataframe directly from the RAW ROWS JSON given above (e.g. parse it as a Python literal/JSON and load it with pandas); do not claim you need a separately uploaded file to do this.`;
+      : `\n\nDATASET PROVIDED — this is real data, not background reading. ${datasetBlock}\n\nWhenever the work requires statistics, counts, percentages, correlations, or any other computed figure, you must derive it from the RAW ROWS/dataset above${useCodeExecution ? " by writing and running actual code in your sandbox (pandas/numpy/scipy/statsmodels) — never estimate, approximate, or claim you lack the means to compute it" : " by hand, showing your work — note clearly that exact/verified computation requires the Pro or Max tier"}. Never source statistics from the uploaded chapters/reports background context below; that is for subject-matter understanding only. The complete RAW ROWS array above already contains every row of the uploaded file in full — it is not a preview, sample, or truncated excerpt. Never tell the user to "upload," "attach," or "send" the file/CSV/dataset — they already have, this is it. If you write code in your sandbox to compute a figure, build the dataframe directly from the RAW ROWS JSON given above (e.g. parse it as a Python literal/JSON and load it with pandas); do not claim you need a separately uploaded file to do this.`;
 
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
 

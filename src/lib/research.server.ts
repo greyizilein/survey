@@ -10,7 +10,7 @@ export interface SourceItem {
   year?: number;
   authors?: string[];
   venue?: string;
-  provider: "serper" | "tavily" | "semantic-scholar" | "crossref" | "perplexity";
+  provider: "serper" | "tavily" | "semantic-scholar" | "crossref";
   relevance: number;
 }
 
@@ -120,32 +120,6 @@ async function searchCrossref(query: string): Promise<SourceItem[]> {
   }
 }
 
-async function searchPerplexity(query: string): Promise<SourceItem[]> {
-  try {
-    const { createAi } = await import("./ai-gateway.server");
-    const { generateText } = await import("ai");
-    const ai = createAi();
-    const tool = ai.tools.perplexitySearch({ maxResults: 8 });
-    const result = await generateText({
-      model: ai("perplexity/sonar"),
-      tools: { search: tool },
-      toolChoice: { type: "tool", toolName: "search" },
-      prompt: `Search query: ${query}`,
-    });
-    const output = result.toolResults?.[0]?.output as { results?: any[] } | undefined;
-    return (output?.results ?? []).map((r: any) => ({
-      title: r.title ?? "Untitled",
-      url: r.url,
-      snippet: r.snippet ?? "",
-      year: r.date ? Number((/\d{4}/.exec(r.date) ?? [])[0]) || undefined : undefined,
-      provider: "perplexity" as const,
-      relevance: 0,
-    })).filter((s: SourceItem) => s.url);
-  } catch {
-    return [];
-  }
-}
-
 function dedupeByUrl(items: SourceItem[]): SourceItem[] {
   const seen = new Set<string>();
   const out: SourceItem[] = [];
@@ -178,7 +152,6 @@ export async function gatherSources(topic: string, maxResults = 16): Promise<Sou
     searchTavily(query),
     searchSemanticScholar(query),
     searchCrossref(query),
-    searchPerplexity(query),
   ]);
 
   const all = settled.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
@@ -200,5 +173,5 @@ export function formatSourcePoolBlock(sources: SourceItem[]): string {
     const venuePart = s.venue ? ` ${s.venue}.` : "";
     return `${i + 1}. ${authorPart}${yearPart}${s.title}.${venuePart} Available at: ${s.url} [via ${s.provider}]`;
   });
-  return `\n\nVERIFIED SOURCE POOL (every entry below was fetched live from a real provider — Serper, Tavily, Semantic Scholar, CrossRef, or Perplexity — and is a genuine, checkable source. You may ONLY cite works from this pool in your in-text citations and reference list. Never invent an author, year, title, finding, or URL that is not drawn from this list. If a claim needs support and nothing here covers it, write "[citation needed]" instead of fabricating a reference. Your final reference list must be built exclusively from this pool, reproducing titles/authors/years/URLs exactly as given, in the requested referencing style):\n${lines.join("\n")}`;
+  return `\n\nVERIFIED SOURCE POOL (every entry below was fetched live from a real provider — Serper, Tavily, Semantic Scholar, or CrossRef — and is a genuine, checkable source. You may ONLY cite works from this pool in your in-text citations and reference list. Never invent an author, year, title, finding, or URL that is not drawn from this list. If a claim needs support and nothing here covers it, write "[citation needed]" instead of fabricating a reference. Your final reference list must be built exclusively from this pool, reproducing titles/authors/years/URLs exactly as given, in the requested referencing style):\n${lines.join("\n")}`;
 }
