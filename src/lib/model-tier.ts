@@ -9,14 +9,14 @@ export const MODEL_TIER_LABELS: Record<ModelTier, string> = {
 };
 
 export const MODEL_TIER_DESCRIPTIONS: Record<ModelTier, string> = {
-  fast: "GPT-5.2 — quick, low-cost model for planning, writing, and drawing.",
+  fast: "GPT-5.1 Thinking — quick reasoning model for planning, writing, and drawing.",
   pro: "GPT-5.2 Pro — higher-effort reasoning for precise, detailed results.",
   max: "Claude orchestrating tools and sub-models — today's full-power mode.",
 };
 
 /** Text-generation model id per tier, resolved through the AI Gateway. */
 export const TEXT_MODEL_BY_TIER: Record<ModelTier, string> = {
-  fast: "openai/gpt-5.2",
+  fast: "openai/gpt-5.1-thinking",
   pro: "openai/gpt-5.2-pro",
   max: "anthropic/claude-sonnet-4.6",
 };
