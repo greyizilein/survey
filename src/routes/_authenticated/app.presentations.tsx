@@ -20,6 +20,7 @@ import {
   Copy as CopyIcon,
   X,
   Square,
+  Paperclip,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -713,6 +714,9 @@ function PresentationsPage() {
   const [summarizingDocs, setSummarizingDocs] = useState(false);
   const [failedDocs, setFailedDocs] = useState<string[]>([]);
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounter = useRef(0);
 
   const [messages, setMessages] = useState<Msg[]>(initial.messages ?? []);
   const [deck, setDeck] = useState<Deck | null>(initial.deck ?? null);
@@ -862,6 +866,12 @@ function PresentationsPage() {
 
   function addDocFiles(newFiles: File[]) {
     summarizeDocFiles([...docFiles, ...newFiles]);
+  }
+
+  /** Routes dropped/attached files into the background-docs flow. */
+  function handleIncomingFiles(files: File[]) {
+    if (!files.length) return;
+    addDocFiles(files);
   }
 
   function removeDocFile(index: number) {
@@ -1103,7 +1113,37 @@ function PresentationsPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-0 lg:gap-3 flex-1 min-h-0 overflow-hidden">
-          <Card className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden lg:max-w-md rounded-none border-x-0 lg:rounded-lg lg:border-x-2">
+          <Card
+            className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden lg:max-w-md rounded-none border-x-0 lg:rounded-lg lg:border-x-2 relative"
+            onDragEnter={(e) => {
+              e.preventDefault();
+              dragCounter.current += 1;
+              setIsDraggingFile(true);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              dragCounter.current -= 1;
+              if (dragCounter.current <= 0) {
+                dragCounter.current = 0;
+                setIsDraggingFile(false);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              dragCounter.current = 0;
+              setIsDraggingFile(false);
+              handleIncomingFiles(Array.from(e.dataTransfer.files ?? []));
+            }}
+          >
+            {isDraggingFile && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none rounded-none sm:rounded-lg border-2 border-dashed border-primary">
+                <div className="flex flex-col items-center gap-2 text-primary">
+                  <Upload className="size-8" />
+                  <p className="text-sm font-medium">Drop files to add them to this chat</p>
+                </div>
+              </div>
+            )}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground px-6">
@@ -1159,6 +1199,28 @@ function PresentationsPage() {
                   onNew={handleNewChat}
                 />
                 {folderId && folderName && <FolderBadge id={folderId} name={folderName} />}
+                <input
+                  ref={docFileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                  className="hidden"
+                  onChange={(e) => {
+                    const fs = Array.from(e.target.files ?? []);
+                    if (fs.length) handleIncomingFiles(fs);
+                    if (docFileInputRef.current) docFileInputRef.current.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  title="Attach files"
+                  onClick={() => docFileInputRef.current?.click()}
+                >
+                  <Paperclip className="size-4" />
+                </Button>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -1190,7 +1252,7 @@ function PresentationsPage() {
                       <input
                         type="file"
                         multiple
-                        accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
+                        accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
                         className="hidden"
                         onChange={(e) => {
                           const fs = Array.from(e.target.files ?? []);
