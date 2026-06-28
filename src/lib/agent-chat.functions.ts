@@ -6,7 +6,9 @@ export const createAgentSessionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { createAgentSession } = await import("./managed-agent.server");
-    const sessionId = await createAgentSession(context.userId);
+    const { getModelTier } = await import("./ai-gateway.server");
+    const tier = getModelTier();
+    const sessionId = await createAgentSession(context.userId, tier);
     return { sessionId };
   });
 

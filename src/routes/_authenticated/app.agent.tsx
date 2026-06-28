@@ -335,6 +335,7 @@ function AgentPage() {
   function handleNewChat() {
     setConversationId(null);
     pendingIdRef.current = null;
+    preWarmRef.current = null;
     setSessionId(null);
     setMessages([]);
     setInput("");
@@ -384,8 +385,36 @@ function AgentPage() {
       .catch((err) => console.error("[folders] context load failed:", err));
   }, [folderId, folderContextFn]);
 
+  // Pre-warm: kick off session creation in the background as soon as the page loads with a
+  // fresh chat (no existing sessionId), so the user doesn't wait for it on their first send.
+  const preWarmRef = useRef<Promise<string> | null>(null);
+  useEffect(() => {
+    if (sessionId) return; // already have one (loaded from history)
+    if (preWarmRef.current) return; // already warming
+    preWarmRef.current = createSession()
+      .then(({ sessionId: id }) => {
+        setSessionId(id);
+        return id;
+      })
+      .catch((err) => {
+        preWarmRef.current = null; // allow retry on next send
+        console.error("[agent] pre-warm session failed:", err);
+        return Promise.reject(err);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function ensureSession(): Promise<string> {
     if (sessionId) return sessionId;
+    if (preWarmRef.current) {
+      // The background warm-up is in flight — await it instead of starting a second one.
+      try {
+        return await preWarmRef.current;
+      } catch {
+        // Pre-warm failed; fall through to a fresh attempt below.
+        preWarmRef.current = null;
+      }
+    }
     setStarting(true);
     try {
       const { sessionId: id } = await createSession();
