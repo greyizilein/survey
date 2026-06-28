@@ -390,6 +390,8 @@ export async function buildAnalyzePrompt(
 
   const noEmojiBlock = `\n\nNever use emojis anywhere in your response, under any circumstances, unless the user explicitly asks you to include them.`;
 
+  const wordCountDisciplineBlock = `\n\nWORD COUNT DISCIPLINE: If a word count (total or per-section) is specified anywhere — in the latest user message, earlier in this conversation, an uploaded brief/rubric, or a template's per-section breakdown — treat it as a hard ceiling, not a floor or a suggestion. Before you start writing, decide how to allocate that count across the sections you're about to produce. While drafting, keep a running mental tally of words written so far and actively budget what's left as you approach the target; do not let any single section silently run long and crowd out the others. Stop writing once you reach the requested count rather than continuing to add detail, examples, or elaboration — a complete, on-target answer beats an exhaustive, over-length one. Aim to land within about 10% of the requested count (slightly under is fine; do not come in at double or more). If the depth the user is asking for genuinely cannot fit the stated count, say so briefly and propose a count instead of silently blowing past it.`;
+
   const promptBuilderDatasetBlock = hasRealDataset
     ? `\n\nDATASET PROVIDED — this is real data, not background reading. ${datasetBlock}\n\nWhenever the work requires statistics, counts, percentages, correlations, or any other computed figure, you must derive it from the RAW ROWS/dataset above${useCodeExecution ? " by writing and running actual code in your sandbox (pandas/numpy/scipy/statsmodels) — never estimate, approximate, or claim you lack the means to compute it" : " by hand, showing your work — note clearly that exact/verified computation requires the Max tier"}. Never source statistics from the uploaded chapters/reports background context below; that is for subject-matter understanding only. The complete RAW ROWS array above already contains every row of the uploaded file in full — it is not a preview, sample, or truncated excerpt. Never tell the user to "upload," "attach," or "send" the file/CSV/dataset — they already have, this is it. If you write code in your sandbox to compute a figure, build the dataframe directly from the RAW ROWS JSON given above (e.g. parse it as a Python literal/JSON and load it with pandas); do not claim you need a separately uploaded file to do this.`
     : "";
@@ -435,7 +437,7 @@ UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}$
 CONVERSATION SO FAR
 ${history}
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${wordCountDisciplineBlock}${noEmojiBlock}`;
     return { model, prompt, ...splitForCache(prompt), useCodeExecution, useWebSearch };
   }
 
@@ -452,7 +454,7 @@ ${history}
 
 Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard, beginning immediately with the section's heading and prose per the ABSOLUTE OUTPUT RULE above.
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${wordCountDisciplineBlock}${noEmojiBlock}`;
     } else {
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
@@ -494,7 +496,7 @@ If the data calls for a chart type the simple bar/line/pie format above can't ex
 Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.`
     : ""
 }
-Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
+Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${wordCountDisciplineBlock}${noEmojiBlock}`;
   }
 
   return { model, prompt, ...splitForCache(prompt), useCodeExecution, useWebSearch };
