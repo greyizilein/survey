@@ -181,9 +181,9 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
 };
 
 const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
-  "chapter4-quant": "Chapter Four — Quantitative",
-  "chapter4-qual": "Chapter Four — Qualitative",
-  "chapter4-mixed": "Chapter Four — Mixed Methods",
+  "chapter4-quant": "Data Analysis (Quantitative)",
+  "chapter4-qual": "Data Analysis (Qualitative)",
+  "chapter4-mixed": "Data Analysis (Mixed-Methods)",
   "other-writing": "Advanced Writing",
   "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
