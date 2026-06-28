@@ -1458,27 +1458,25 @@ function AnalyzePage() {
                     </PopoverContent>
                   </Popover>
 
-                  {(modelTier === "pro" || modelTier === "max") && (
-                    <TooltipProvider delayDuration={200}>
-                      <UiTooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="hidden sm:inline-flex size-8 relative shrink-0"
-                            onClick={() => startPromptBuild("build")}
-                            disabled={sending}
-                          >
-                            <Logo className="size-4" />
-                            <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none">
-                              🔨
-                            </span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Create prompt</TooltipContent>
-                      </UiTooltip>
-                    </TooltipProvider>
-                  )}
+                  <TooltipProvider delayDuration={200}>
+                    <UiTooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="hidden sm:inline-flex size-8 relative shrink-0"
+                          onClick={() => startPromptBuild("build")}
+                          disabled={sending}
+                        >
+                          <Logo className="size-4" />
+                          <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none">
+                            🔨
+                          </span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Create prompt</TooltipContent>
+                    </UiTooltip>
+                  </TooltipProvider>
 
                   {modelTier === "max" && (
                     <TooltipProvider delayDuration={200}>
@@ -1500,31 +1498,29 @@ function AnalyzePage() {
                     </TooltipProvider>
                   )}
 
-                  {(modelTier === "pro" || modelTier === "max") && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="sm:hidden size-8 shrink-0"
-                          disabled={sending}
-                          title="Build a prompt"
-                        >
-                          <span className="text-base leading-none">🔨</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" side="top">
-                        <DropdownMenuItem onClick={() => startPromptBuild("build")}>
-                          Create Prompt
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="sm:hidden size-8 shrink-0"
+                        disabled={sending}
+                        title="Build a prompt"
+                      >
+                        <span className="text-base leading-none">🔨</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="top">
+                      <DropdownMenuItem onClick={() => startPromptBuild("build")}>
+                        Create Prompt
+                      </DropdownMenuItem>
+                      {modelTier === "max" && (
+                        <DropdownMenuItem onClick={() => startPromptBuild("meta")}>
+                          Meta Prompt
                         </DropdownMenuItem>
-                        {modelTier === "max" && (
-                          <DropdownMenuItem onClick={() => startPromptBuild("meta")}>
-                            Meta Prompt
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <Popover>
                     <PopoverTrigger asChild>
