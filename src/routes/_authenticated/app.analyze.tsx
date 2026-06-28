@@ -619,6 +619,7 @@ function AnalyzePage() {
 
   function handleNewChat() {
     setConversationId(null);
+    pendingIdRef.current = null;
     setMessages([]);
     setInput("");
     setSourceTab("project");
