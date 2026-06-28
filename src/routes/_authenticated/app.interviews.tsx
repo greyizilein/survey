@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Upload,
   Loader2,
@@ -105,6 +105,10 @@ function InterviewStudio() {
   const [contextFiles, setContextFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
+  const [isDraggingGuide, setIsDraggingGuide] = useState(false);
+  const guideDragCounter = useRef(0);
+  const [isDraggingContext, setIsDraggingContext] = useState(false);
+  const contextDragCounter = useRef(0);
 
   // Confirm (editable analysis)
   const [title, setTitle] = useState("");
@@ -128,6 +132,16 @@ function InterviewStudio() {
   const [genProgress, setGenProgress] = useState<{ done: number; total: number } | null>(null);
   const [downloadFormat, setDownloadFormat] = useState<TranscriptFormat>("docx");
   const [zipping, setZipping] = useState(false);
+
+  function addGuideFiles(files: File[]) {
+    if (!files.length) return;
+    setGuideFiles((prev) => [...prev, ...files]);
+  }
+
+  function addContextFiles(files: File[]) {
+    if (!files.length) return;
+    setContextFiles((prev) => [...prev, ...files]);
+  }
 
   function reset() {
     setStage("intake");
@@ -356,16 +370,42 @@ function InterviewStudio() {
                 nothing else here is treated as a question. Accepts PDF, Word (.docx), PowerPoint
                 (.pptx), Excel (.xlsx/.xls), .txt, and .md.
               </p>
-              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
+              <label
+                className={`flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                  isDraggingGuide
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/30"
+                }`}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  guideDragCounter.current += 1;
+                  setIsDraggingGuide(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  guideDragCounter.current -= 1;
+                  if (guideDragCounter.current <= 0) {
+                    guideDragCounter.current = 0;
+                    setIsDraggingGuide(false);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  guideDragCounter.current = 0;
+                  setIsDraggingGuide(false);
+                  addGuideFiles(Array.from(e.dataTransfer.files ?? []));
+                }}
+              >
                 <Upload className="size-6 text-muted-foreground" />
                 <span className="text-sm font-medium">Choose your interview guide</span>
                 <span className="text-xs text-muted-foreground">or drop it here</span>
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
+                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
                   className="hidden"
-                  onChange={(e) => setGuideFiles(Array.from(e.target.files ?? []))}
+                  onChange={(e) => addGuideFiles(Array.from(e.target.files ?? []))}
                 />
               </label>
               {guideFiles.length > 0 && (
@@ -397,16 +437,42 @@ function InterviewStudio() {
                 Methodology, chapters, literature, background. Used only to understand the study and
                 shape realistic respondents — never as interview questions.
               </p>
-              <label className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer hover:bg-muted/30 transition-colors">
+              <label
+                className={`flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                  isDraggingContext
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/30"
+                }`}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  contextDragCounter.current += 1;
+                  setIsDraggingContext(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  contextDragCounter.current -= 1;
+                  if (contextDragCounter.current <= 0) {
+                    contextDragCounter.current = 0;
+                    setIsDraggingContext(false);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  contextDragCounter.current = 0;
+                  setIsDraggingContext(false);
+                  addContextFiles(Array.from(e.dataTransfer.files ?? []));
+                }}
+              >
                 <Upload className="size-6 text-muted-foreground" />
                 <span className="text-sm font-medium">Choose chapters / context</span>
                 <span className="text-xs text-muted-foreground">or drop them here</span>
                 <input
                   type="file"
                   multiple
-                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
+                  accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
                   className="hidden"
-                  onChange={(e) => setContextFiles(Array.from(e.target.files ?? []))}
+                  onChange={(e) => addContextFiles(Array.from(e.target.files ?? []))}
                 />
               </label>
               {contextFiles.length > 0 && (

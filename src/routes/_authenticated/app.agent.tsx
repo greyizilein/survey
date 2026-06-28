@@ -15,6 +15,7 @@ import {
   Copy,
   CopyCheck,
   Menu,
+  Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -109,6 +110,9 @@ function AgentPage() {
   const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragCounter = useRef(0);
 
   useAutosizeTextarea(textareaRef, input);
 
@@ -193,6 +197,12 @@ function AgentPage() {
       setDocTexts((prev) => prev.filter((t) => t.name !== f.name));
       setFailedDocs((prev) => prev.filter((n) => n !== f.name));
     }
+  }
+
+  /** Routes dropped/attached files into the background-docs flow. */
+  function handleIncomingFiles(files: File[]) {
+    if (!files.length) return;
+    addDocFiles(files);
   }
 
   function stopGenerating() {
@@ -454,7 +464,37 @@ function AgentPage() {
             </div>
           </div>
 
-          <Card className="flex-1 overflow-y-auto p-4 min-h-0 rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow">
+          <Card
+            className="flex-1 overflow-y-auto p-4 min-h-0 rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow relative"
+            onDragEnter={(e) => {
+              e.preventDefault();
+              dragCounter.current += 1;
+              setIsDraggingFile(true);
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              dragCounter.current -= 1;
+              if (dragCounter.current <= 0) {
+                dragCounter.current = 0;
+                setIsDraggingFile(false);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              dragCounter.current = 0;
+              setIsDraggingFile(false);
+              handleIncomingFiles(Array.from(e.dataTransfer.files ?? []));
+            }}
+          >
+            {isDraggingFile && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none rounded-none sm:rounded-lg border-2 border-dashed border-primary">
+                <div className="flex flex-col items-center gap-2 text-primary">
+                  <Upload className="size-8" />
+                  <p className="text-sm font-medium">Drop files to add them to this chat</p>
+                </div>
+              </div>
+            )}
             {messages.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 {starting
@@ -557,6 +597,28 @@ function AgentPage() {
               disabled={sending}
             />
             <div className="flex items-center gap-1 mt-1 sm:mt-2">
+              <input
+                ref={docFileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                className="hidden"
+                onChange={(e) => {
+                  const fs = Array.from(e.target.files ?? []);
+                  if (fs.length) handleIncomingFiles(fs);
+                  if (docFileInputRef.current) docFileInputRef.current.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                title="Attach files"
+                onClick={() => docFileInputRef.current?.click()}
+              >
+                <Paperclip className="size-4" />
+              </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -591,7 +653,7 @@ function AgentPage() {
                     <input
                       type="file"
                       multiple
-                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown"
+                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
                       className="hidden"
                       onChange={(e) => {
                         const fs = Array.from(e.target.files ?? []);

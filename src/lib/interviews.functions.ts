@@ -52,6 +52,15 @@ export async function extractText(base64: string, filename: string): Promise<str
     const { text } = await extractPdf(pdf, { mergePages: true });
     return Array.isArray(text) ? text.join("\n") : text;
   }
+  if (ext === "xlsx" || ext === "xls") {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.read(bytes, { type: "buffer" });
+    const sheets = workbook.SheetNames.map((name) => {
+      const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[name]);
+      return `Sheet: ${name}\n${csv}`;
+    });
+    return sheets.join("\n\n");
+  }
   if (ext === "pptx") {
     const JSZip = (await import("jszip")).default;
     const zip = await JSZip.loadAsync(bytes);
@@ -73,8 +82,16 @@ export async function extractText(base64: string, filename: string): Promise<str
   if (ext === "doc") {
     throw new Error("Legacy .doc files aren't supported. Please re-save as .docx or PDF and upload again.");
   }
-  // Fall back to a best-effort UTF-8 decode for unknown text-like formats.
-  return bytes.toString("utf-8");
+  // Fall back to a best-effort UTF-8 decode for unknown text-like formats —
+  // but binary files decode to garbage/null bytes, so reject those loudly
+  // instead of silently feeding junk into the prompt.
+  const text = bytes.toString("utf-8");
+  if (text.includes("\u0000")) {
+    throw new Error(
+      `"${filename}" is a binary file type (.${ext}) that isn't supported yet. Supported types: .pdf, .docx, .pptx, .xlsx, .xls, .csv, .txt, .md.`,
+    );
+  }
+  return text;
 }
 
 function safeJson<T>(text: string, fallback: T): T {

@@ -84,6 +84,20 @@ function FormattingPage() {
 
   const workInputRef = useRef<HTMLInputElement>(null);
   const briefInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingWork, setIsDraggingWork] = useState(false);
+  const [isDraggingBrief, setIsDraggingBrief] = useState(false);
+  const workDragCounter = useRef(0);
+  const briefDragCounter = useRef(0);
+
+  function addWorkFiles(files: File[]) {
+    if (!files.length) return;
+    setWorkFiles((prev) => [...prev, ...files]);
+  }
+
+  function addBriefFiles(files: File[]) {
+    if (!files.length) return;
+    setBriefFiles((prev) => [...prev, ...files]);
+  }
 
   async function authToken(): Promise<string> {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -293,12 +307,41 @@ function FormattingPage() {
 
           {step === "upload" && (
             <Card className="p-4 sm:p-5 space-y-5">
-              <div className="space-y-2">
+              <div
+                className={cn(
+                  "space-y-2 rounded-md border-2 border-dashed p-2 transition-colors",
+                  isDraggingWork ? "border-primary bg-primary/5" : "border-transparent",
+                )}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  workDragCounter.current += 1;
+                  setIsDraggingWork(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  workDragCounter.current -= 1;
+                  if (workDragCounter.current <= 0) {
+                    workDragCounter.current = 0;
+                    setIsDraggingWork(false);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  workDragCounter.current = 0;
+                  setIsDraggingWork(false);
+                  addWorkFiles(Array.from(e.dataTransfer.files ?? []));
+                }}
+              >
                 <Label>Your work (required)</Label>
-                <input ref={workInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
-                  onChange={(e) => setWorkFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])} />
-                <Button variant="outline" onClick={() => workInputRef.current?.click()} className="w-full justify-start gap-2">
-                  <Upload className="size-4" /> Upload document(s) to submit
+                <input ref={workInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown" className="hidden"
+                  onChange={(e) => addWorkFiles(Array.from(e.target.files ?? []))} />
+                <Button
+                  variant="outline"
+                  onClick={() => workInputRef.current?.click()}
+                  className={cn("w-full justify-start gap-2 border-dashed", isDraggingWork && "border-primary bg-primary/5")}
+                >
+                  <Upload className="size-4" /> {isDraggingWork ? "Drop files here" : "Upload document(s) to submit, or drag and drop"}
                 </Button>
                 {workFiles.length > 0 && (
                   <ul className="text-sm space-y-1">
@@ -314,12 +357,41 @@ function FormattingPage() {
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div
+                className={cn(
+                  "space-y-2 rounded-md border-2 border-dashed p-2 transition-colors",
+                  isDraggingBrief ? "border-primary bg-primary/5" : "border-transparent",
+                )}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  briefDragCounter.current += 1;
+                  setIsDraggingBrief(true);
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  briefDragCounter.current -= 1;
+                  if (briefDragCounter.current <= 0) {
+                    briefDragCounter.current = 0;
+                    setIsDraggingBrief(false);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  briefDragCounter.current = 0;
+                  setIsDraggingBrief(false);
+                  addBriefFiles(Array.from(e.dataTransfer.files ?? []));
+                }}
+              >
                 <Label>Brief / requirements (optional, but helps a lot)</Label>
-                <input ref={briefInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.txt,.md,.markdown" className="hidden"
-                  onChange={(e) => setBriefFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])} />
-                <Button variant="outline" onClick={() => briefInputRef.current?.click()} className="w-full justify-start gap-2">
-                  <Upload className="size-4" /> Upload brief / rubric / submission instructions
+                <input ref={briefInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown" className="hidden"
+                  onChange={(e) => addBriefFiles(Array.from(e.target.files ?? []))} />
+                <Button
+                  variant="outline"
+                  onClick={() => briefInputRef.current?.click()}
+                  className={cn("w-full justify-start gap-2 border-dashed", isDraggingBrief && "border-primary bg-primary/5")}
+                >
+                  <Upload className="size-4" /> {isDraggingBrief ? "Drop files here" : "Upload brief / rubric / submission instructions, or drag and drop"}
                 </Button>
                 {briefFiles.length > 0 && (
                   <ul className="text-sm space-y-1">

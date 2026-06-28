@@ -18,7 +18,7 @@ export const AnalyzeChatInput = z.object({
     }),
     z.object({ type: z.literal("none") }),
   ]),
-  background: z.string().max(24000).optional(),
+  background: z.string().max(60000).optional(),
   instructionsPreset: z
     .enum([
       "none",
@@ -56,20 +56,36 @@ export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
       return { summary: combined.trim() };
     }
 
+    // Condense per file rather than squeezing the whole joined blob in one shot —
+    // a single global squeeze tends to crowd out whichever files land later in the
+    // blob. Each file gets its own proportional share of the final 24,000-char budget.
     const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
+    const model = ai(textModelForTier());
 
-    const prompt = `Condense the following written material (chapters, reports, briefs, assignments, methodology, notes) into background context for later use, in no more than 22,000 characters. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
+    const TOTAL_BUDGET = 22_000;
+    const perFileBudget = Math.max(1500, Math.floor(TOTAL_BUDGET / data.files.length));
 
-Source content:
+    const summaries = await Promise.all(
+      data.files.map(async (f) => {
+        if (f.text.length <= perFileBudget) {
+          return `===== FILE: ${f.name} =====\n${f.text.trim()}`;
+        }
+        const prompt = `Condense the following written material (a chapter, report, brief, assignment, methodology, or notes) into background context for later use, in no more than ${perFileBudget} characters. Preserve every distinct fact, theme, definition, and finding, and — critically — preserve every distinct piece of work, task, assignment, or component exactly as separate items, including each one's own word counts, deadlines, weightings, and structure. Never merge, drop, or favour one component over another; if the source describes several separate deliverables, your summary must clearly enumerate all of them. This is background context, not data to compute statistics from.
+
+Source content (file "${f.name}"):
 """
-${combined}
+${f.text}
 """
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
-    const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0 });
-    return { summary: text.trim().slice(0, 24000) };
+        const { text } = await generateText({ model, prompt, temperature: 0 });
+        return `===== FILE: ${f.name} =====\n${text.trim().slice(0, perFileBudget)}`;
+      }),
+    );
+
+    return { summary: summaries.join("\n\n").slice(0, 60_000) };
   });
 
 interface ColumnSummary {
@@ -297,6 +313,10 @@ export async function buildAnalyzePrompt(
 
   const noEmojiBlock = `\n\nNever use emojis anywhere in your response, under any circumstances, unless the user explicitly asks you to include them.`;
 
+  const promptBuilderDatasetBlock = hasRealDataset
+    ? `\n\nDATASET PROVIDED — this is real data, not background reading. ${datasetBlock}\n\nWhenever the work requires statistics, counts, percentages, correlations, or any other computed figure, you must derive it from the RAW ROWS/dataset above${useCodeExecution ? " by writing and running actual code in your sandbox (pandas/numpy/scipy/statsmodels) — never estimate, approximate, or claim you lack the means to compute it" : " by hand, showing your work — note clearly that exact/verified computation requires the Max tier"}. Never source statistics from the uploaded chapters/reports background context below; that is for subject-matter understanding only.`
+    : "";
+
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
 
   // Plan-first prompt workflow — available under ANY selected template, using the same
@@ -321,7 +341,7 @@ so the user can simply tap an answer (they may also type their own). Keep this u
 
 SELECTED WRITING TEMPLATE TO ADAPT THE PROMPT TO:${presetBlock || "\nGeneral academic standards."}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${isMeta ? writingCodeExecutionBlock : ""}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${promptBuilderDatasetBlock}${isMeta ? writingCodeExecutionBlock : ""}
 
 CONVERSATION SO FAR
 ${history}
@@ -333,7 +353,7 @@ Respond to the latest USER message. Write your response directly as plain text/m
   if (data.promptMode === "execute") {
     prompt = `You earlier created a detailed executable prompt table in this conversation — that table is now the fixed specification for this work. EXECUTE it now: write the full, A+-grade work to that specification${presetBlock ? " and the selected template standards below" : ""}, in full and to the required depth, beginning immediately with the content itself. No preamble, and never restate or summarise the specification table.${presetBlock}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${promptBuilderDatasetBlock}${sourcesBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -348,7 +368,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
 
 ABSOLUTE OUTPUT RULE FOR THIS TURN: This response must contain ONLY the requested academic content — the actual section/chapter prose (with its own heading, tables of data/results if the section itself requires one as content, and figures), and nothing else. Specifically forbidden anywhere in this response: any markdown table that restates section breakdowns, word counts, learning outcomes, formatting standards, constraints, or marking criteria; any restatement or paraphrase of the specification; any preamble such as "Here is...", "Based on the prompt...", "I will now write...", or a summary of what you are about to do; any meta-commentary about the table, the task, or your process. Your very first character must be the start of the section's actual heading or opening sentence — go straight into the academic writing itself, exactly as if you were a writer who already has the brief memorised and is simply continuing the document.
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${sourcesBlock}${writingCodeExecutionBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${promptBuilderDatasetBlock}${sourcesBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -360,7 +380,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${multiWorkBlock}${instructionsBlock}${writingCodeExecutionBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${multiWorkBlock}${instructionsBlock}${promptBuilderDatasetBlock}${writingCodeExecutionBlock}
 
 CONVERSATION SO FAR
 ${history}
