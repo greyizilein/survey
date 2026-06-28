@@ -260,10 +260,30 @@ export const TableSpec = z.object({
   rows: z.array(z.array(z.union([z.string(), z.number()]))),
 });
 
+/** Every branch below places the literal "CONVERSATION SO FAR" header right before the
+ *  per-turn conversation history — everything ahead of it (templates, background docs,
+ *  the dataset's RAW ROWS, instructions) is identical on every turn of the same chat. Splitting
+ *  there lets the caller mark that prefix as an Anthropic prompt-cache breakpoint, so a
+ *  multi-turn conversation over the same large dataset/background only pays full input price
+ *  on the first turn instead of re-billing it every turn. */
+function splitForCache(prompt: string): { promptCached: string; promptDynamic: string } {
+  const marker = "CONVERSATION SO FAR";
+  const idx = prompt.indexOf(marker);
+  if (idx === -1) return { promptCached: "", promptDynamic: prompt };
+  return { promptCached: prompt.slice(0, idx), promptDynamic: prompt.slice(idx) };
+}
+
 export async function buildAnalyzePrompt(
   data: z.infer<typeof AnalyzeChatInput>,
   supabase: any,
-): Promise<{ model: string; prompt: string; useCodeExecution: boolean; useWebSearch: boolean }> {
+): Promise<{
+  model: string;
+  prompt: string;
+  promptCached: string;
+  promptDynamic: string;
+  useCodeExecution: boolean;
+  useWebSearch: boolean;
+}> {
   let datasetBlock =
     "No dataset has been provided yet. If the user asks for analysis, ask them to pick a project or upload a file first.";
   let hasRealDataset = false;
@@ -392,7 +412,7 @@ CONVERSATION SO FAR
 ${history}
 
 Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${noEmojiBlock}`;
-    return { model, prompt, useCodeExecution, useWebSearch };
+    return { model, prompt, ...splitForCache(prompt), useCodeExecution, useWebSearch };
   }
 
   if (data.promptMode === "execute") {
@@ -404,7 +424,7 @@ CONVERSATION SO FAR
 ${history}
 
 Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
-    return { model, prompt, useCodeExecution, useWebSearch };
+    return { model, prompt, ...splitForCache(prompt), useCodeExecution, useWebSearch };
   }
 
   if (data.instructionsPreset === "other-writing") {
@@ -465,5 +485,5 @@ Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.`
 Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
   }
 
-  return { model, prompt, useCodeExecution, useWebSearch };
+  return { model, prompt, ...splitForCache(prompt), useCodeExecution, useWebSearch };
 }
