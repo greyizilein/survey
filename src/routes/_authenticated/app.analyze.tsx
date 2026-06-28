@@ -62,11 +62,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  listAnalyzeProjects,
-  summarizeAnalysisDocuments,
-  suggestWritingPreset,
-} from "@/lib/analyze.functions";
+import { listAnalyzeProjects, summarizeAnalysisDocuments } from "@/lib/analyze.functions";
 import { extractDocumentText } from "@/lib/document-extract.functions";
 import { generateFigureImage } from "@/lib/image-gen.server";
 import {
@@ -90,6 +86,14 @@ import {
 import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
 import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
+import { useModelTier } from "@/lib/use-model-tier";
+import { Logo } from "@/components/logo";
+import {
+  Tooltip as UiTooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/_authenticated/app/analyze")({
   head: () => ({ meta: [{ title: "Writing · Paperstudio" }] }),
@@ -389,7 +393,6 @@ function AnalyzePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const projectsFn = useServerFn(listAnalyzeProjects);
   const summarizeDocsFn = useServerFn(summarizeAnalysisDocuments);
-  const suggestPresetFn = useServerFn(suggestWritingPreset);
   const extractDocTextFn = useServerFn(extractDocumentText);
   const generateFigureImageFn = useServerFn(generateFigureImage);
   const saveConversationFn = useServerFn(saveChatConversation);
@@ -423,9 +426,9 @@ function AnalyzePage() {
       : "basic-academia",
   );
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
-  // "Build a tailored prompt first?" offer — driven by a lightweight classifier on the
-  // user's first message / brief. Stays out of the way once the user has acted on it.
-  const [offerPrompt, setOfferPrompt] = useState(false);
+  const [modelTier] = useModelTier();
+  // Manual prompt-builder flow — triggered by the toolbar's "Create Prompt"/"Meta Prompt"
+  // buttons, never offered automatically.
   const [promptMode, setPromptMode] = useState(false);
   const [promptExecuted, setPromptExecuted] = useState(false);
   const [presetTouched, setPresetTouched] = useState(false);
@@ -625,7 +628,6 @@ function AnalyzePage() {
     setDocSummary("");
     setInstructionsPreset("basic-academia");
     setInstructions("");
-    setOfferPrompt(false);
     setPromptMode(false);
     setPromptExecuted(false);
     setPresetTouched(false);
@@ -651,8 +653,6 @@ function AnalyzePage() {
       setFileRows(state.fileRows ?? []);
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
-      // An existing chat already has its setup; don't nag with the offer.
-      setOfferPrompt(false);
       setPromptMode(false);
       setPromptExecuted(false);
       setPresetTouched(true);
@@ -717,37 +717,22 @@ function AnalyzePage() {
   function applyPreset(p: InstructionsPreset) {
     setInstructionsPreset(p);
     setPresetTouched(true);
-    setOfferPrompt(false);
   }
 
-  // Decide whether to offer building a tailored prompt — only when the classifier judges
-  // this to be real, substantial work (anything but "none"), and the user hasn't acted yet.
-  async function maybeOfferPrompt(text: string) {
-    if (presetTouched || promptMode || !text.trim()) return;
-    try {
-      const { preset } = await suggestPresetFn({ data: { text: text.slice(0, 40000) } });
-      if (preset !== "none") setOfferPrompt(true);
-    } catch (e) {
-      console.error("[analyze] prompt-offer check failed:", e);
-    }
-  }
-
-  // User accepted the offer: kick off the plan-first conversation under their CURRENT
-  // template — the AI adapts that template's standards into a tailored prompt for this work.
-  function acceptPromptBuild() {
-    setOfferPrompt(false);
+  // Manual trigger for the plan-first conversation under the user's CURRENT template — the
+  // AI adapts that template's standards into a tailored prompt for this work.
+  // v1 "Create Prompt" (Pro+) asks clarifying questions; v2 "Meta Prompt" (Max only) instead
+  // mines the uploaded brief/files itself and only asks when something essential is missing.
+  function startPromptBuild(mode: "build" | "meta") {
     setPresetTouched(true);
     setPromptMode(true);
     setPromptExecuted(false);
     send(
-      "Yes — before writing anything, build a tailored prompt for this work. Ask me any clarifying questions you need first, then show me the finished prompt and wait for my go-ahead.",
-      "build",
+      mode === "meta"
+        ? "Build a meta prompt for this work — pull everything you can straight from the brief and uploaded material, and only ask me about what's genuinely missing. Then show me the finished prompt and wait for my go-ahead."
+        : "Before writing anything, build a tailored prompt for this work. Ask me any clarifying questions you need first, then show me the finished prompt and wait for my go-ahead.",
+      mode,
     );
-  }
-
-  function declinePromptBuild() {
-    setOfferPrompt(false);
-    setPresetTouched(true);
   }
 
   function executePrompt() {
@@ -784,7 +769,6 @@ function AnalyzePage() {
 
       const res = await summarizeDocsFn({ data: { files: payload } });
       setDocSummary(res.summary);
-      maybeOfferPrompt(res.summary);
       if (failed.length) {
         toast.warning(
           `Read ${payload.length} of ${files.length} documents — couldn't read: ${failed.join(", ")}`,
@@ -834,11 +818,9 @@ function AnalyzePage() {
     return { type: "none" as const };
   }
 
-  async function send(overrideText?: string, promptModeArg?: "build" | "execute") {
+  async function send(overrideText?: string, promptModeArg?: "build" | "execute" | "meta") {
     const text = (overrideText ?? input).trim();
     if (!text || sending) return;
-    // On the very first message (no brief uploaded), consider offering a tailored prompt.
-    if (!overrideText && messages.length === 0 && !docSummary.trim()) maybeOfferPrompt(text);
     // While the prompt is still being built (no prompt table yet), keep typed turns in
     // build mode so the AI keeps clarifying instead of reverting to "just write it".
     const tableReadyNow = /\|\s*:?-{2,}:?\s*\|/.test(
@@ -1249,28 +1231,6 @@ function AnalyzePage() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* "Build a tailored prompt first?" offer */}
-              {offerPrompt && !promptMode && (
-                <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
-                  <Sparkles className="size-3.5 shrink-0 text-primary" />
-                  <span className="min-w-0 flex-1">
-                    Want me to build a tailored prompt for this first? It plans the work before
-                    writing — higher chance of a great result and less back-and-forth.
-                  </span>
-                  <Button size="sm" className="h-6 px-2 text-xs" onClick={acceptPromptBuild}>
-                    Yes
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2 text-xs"
-                    onClick={declinePromptBuild}
-                  >
-                    No
-                  </Button>
-                </div>
-              )}
-
               {/* "Execute the prompt?" — shown once the builder has drafted a prompt table */}
               {promptMode && !promptExecuted && !sending && promptTableReady && (
                 <div className="mx-2 mb-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs sm:mx-0">
@@ -1495,6 +1455,48 @@ function AnalyzePage() {
                       )}
                     </PopoverContent>
                   </Popover>
+
+                  {(modelTier === "pro" || modelTier === "max") && (
+                    <TooltipProvider delayDuration={200}>
+                      <UiTooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 relative shrink-0"
+                            onClick={() => startPromptBuild("build")}
+                            disabled={sending}
+                          >
+                            <Logo className="size-4" />
+                            <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none">
+                              🔨
+                            </span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Create prompt</TooltipContent>
+                      </UiTooltip>
+                    </TooltipProvider>
+                  )}
+
+                  {modelTier === "max" && (
+                    <TooltipProvider delayDuration={200}>
+                      <UiTooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 relative shrink-0"
+                            onClick={() => startPromptBuild("meta")}
+                            disabled={sending}
+                          >
+                            <Logo className="size-4" />
+                            <Sparkles className="absolute -bottom-1 -right-1 size-3 text-primary" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Meta prompt</TooltipContent>
+                      </UiTooltip>
+                    </TooltipProvider>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>

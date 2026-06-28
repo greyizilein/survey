@@ -33,75 +33,14 @@ export const AnalyzeChatInput = z.object({
   instructions: z.string().max(4000).optional(),
   folderContext: z.string().max(200000).optional(),
   // Plan-first prompt workflow, layered on top of whichever template is selected:
-  // "build" = ask questions + draft a tailored prompt (don't write yet); "execute" = write it.
-  promptMode: z.enum(["build", "execute"]).optional(),
+  // "build" = ask questions + draft a tailored prompt (don't write yet); "execute" = write it;
+  // "meta" = Max-tier deep builder that extracts everything it can straight from the uploaded
+  // work/brief instead of asking, then drafts the same kind of executable prompt table.
+  promptMode: z.enum(["build", "execute", "meta"]).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), text: z.string() });
 const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
-
-const PRESET_KEYS = [
-  "chapter4-quant",
-  "chapter4-qual",
-  "chapter4-mixed",
-  "other-writing",
-  "basic-academia",
-  "dissertations",
-  "none",
-] as const;
-const SuggestPresetInput = z.object({ text: z.string().max(40000) });
-
-/**
- * Classifies the user's first request (and any uploaded brief) into the best-fitting
- * writing template, so the UI can offer a one-tap suggestion. Returns "none" when nothing
- * clearly fits. Uses the fast tier — this runs once per new chat and must be cheap/quick.
- */
-export const suggestWritingPreset = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => SuggestPresetInput.parse(d))
-  .handler(async ({ data }) => {
-    const text = data.text.trim();
-    if (text.length < 12) return { preset: "none" as const };
-
-    const { createAi, textModelForTier } = await import("./ai-gateway.server");
-    const { generateText } = await import("ai");
-    const ai = createAi();
-
-    const prompt = `You route an academic writing request to the single best-fitting template, or "none".
-
-Templates:
-- chapter4-quant: a results/findings chapter (Chapter Four) for a QUANTITATIVE study — survey stats, tables, hypothesis tests.
-- chapter4-qual: a results/findings chapter for a QUALITATIVE study — interview themes, codes, quotes.
-- chapter4-mixed: a results/findings chapter for a MIXED-METHODS study.
-- dissertations: a full multi-chapter dissertation/thesis (intro → literature → methodology → results → discussion), not a single chapter.
-- basic-academia: a general academic piece — an essay, report, assignment, or article with standard structure and citations.
-- other-writing: a bespoke/complex brief or rubric that doesn't fit the above and needs a custom plan built from it.
-- none: casual, unclear, or non-academic.
-
-Request (and any attached brief):
-"""
-${text.slice(0, 12000)}
-"""
-
-Reply with ONLY one token: the exact template id, or none.`;
-
-    let raw = "";
-    try {
-      const { text: out } = await generateText({
-        model: ai(textModelForTier("fast")),
-        prompt,
-        temperature: 0,
-        maxOutputTokens: 12,
-      });
-      raw = out.trim().toLowerCase();
-    } catch (e) {
-      console.error("[analyze] preset suggestion failed:", e);
-      return { preset: "none" as const };
-    }
-
-    const match = PRESET_KEYS.find((k) => raw.includes(k)) ?? "none";
-    return { preset: match };
-  });
 
 export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -360,17 +299,27 @@ export async function buildAnalyzePrompt(
 
   // Plan-first prompt workflow — available under ANY selected template, using the same
   // superior "Exe.Prompt" builder that Advanced Writing uses, adapted to the user's preset.
-  if (data.promptMode === "build") {
+  // "meta" is the Max-tier variant: it leans on code execution and a far more exhaustive
+  // read of the uploaded material to extract specifics itself instead of asking for them,
+  // only falling back to a question when something critical truly cannot be inferred.
+  if (data.promptMode === "build" || data.promptMode === "meta") {
+    const isMeta = data.promptMode === "meta" && useCodeExecution;
     const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
     prompt = `${OTHER_WRITING_TEMPLATE}
 
-You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+${
+  isMeta
+    ? `You are in META-PROMPT MODE, the deepest version of this builder. Before writing anything, exhaustively mine every piece of uploaded material below — the brief, rubric, instructions, and any files — for every concrete detail an executable prompt needs: exact scope and deliverables, section-by-section breakdown, word counts, formatting/citation style, required terminology, marking criteria phrased in the rubric's own language, and any numeric or structural constraints. Cross-reference the rubric against the brief so nothing it implies is missed. Pull exact phrasing/keywords from the source material into the prompt table itself rather than paraphrasing generically. Only ask the user a clarifying question if something genuinely essential is missing AND cannot be reasonably inferred from the material provided — and if you do, keep it to the single most important gap, using a line containing ONLY:
 @@OPTIONS@@{"options":["First option","Second option","Third option"]}
-so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.
+when the sensible answers are a small set. Otherwise, skip the back-and-forth entirely and go straight to producing the single executable prompt table, made as specific and domain-accurate as the source material allows, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in this mode.`
+    : `You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+@@OPTIONS@@{"options":["First option","Second option","Third option"]}
+so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.`
+}
 
 SELECTED WRITING TEMPLATE TO ADAPT THE PROMPT TO:${presetBlock || "\nGeneral academic standards."}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${isMeta ? writingCodeExecutionBlock : ""}
 
 CONVERSATION SO FAR
 ${history}
