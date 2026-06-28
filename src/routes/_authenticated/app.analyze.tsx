@@ -189,19 +189,6 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   dissertations: "Dissertations",
 };
 
-const PRESET_DESCRIPTIONS: Record<InstructionsPreset, string> = {
-  "chapter4-quant":
-    "A results/findings chapter for a quantitative study — stats, tables, hypothesis tests.",
-  "chapter4-qual": "A results/findings chapter for a qualitative study — themes, codes, quotes.",
-  "chapter4-mixed": "A results/findings chapter for a mixed-methods study.",
-  "other-writing":
-    "Bespoke briefs/rubrics — builds a custom executable plan from your uploaded documents.",
-  "basic-academia":
-    "General academic writing — essays, reports, assignments with standard structure & citations.",
-  dissertations:
-    "A full multi-chapter dissertation — intro, literature, methodology, results, discussion.",
-};
-
 const STORAGE_KEY = "analyze-chat-state-v1";
 
 type PersistedState = {
@@ -1463,7 +1450,7 @@ function AnalyzePage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8 relative shrink-0"
+                            className="hidden sm:inline-flex size-8 relative shrink-0"
                             onClick={() => startPromptBuild("build")}
                             disabled={sending}
                           >
@@ -1485,7 +1472,7 @@ function AnalyzePage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-8 relative shrink-0"
+                            className="hidden sm:inline-flex size-8 relative shrink-0"
                             onClick={() => startPromptBuild("meta")}
                             disabled={sending}
                           >
@@ -1496,6 +1483,32 @@ function AnalyzePage() {
                         <TooltipContent>Meta prompt</TooltipContent>
                       </UiTooltip>
                     </TooltipProvider>
+                  )}
+
+                  {(modelTier === "pro" || modelTier === "max") && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="sm:hidden size-8 shrink-0"
+                          disabled={sending}
+                          title="Build a prompt"
+                        >
+                          <span className="text-base leading-none">🔨</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" side="top">
+                        <DropdownMenuItem onClick={() => startPromptBuild("build")}>
+                          Create Prompt
+                        </DropdownMenuItem>
+                        {modelTier === "max" && (
+                          <DropdownMenuItem onClick={() => startPromptBuild("meta")}>
+                            Meta Prompt
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
 
                   <Popover>
@@ -1514,13 +1527,7 @@ function AnalyzePage() {
                     </PopoverTrigger>
                     <PopoverContent className="w-80" align="start" side="top">
                       <Label className="text-sm font-semibold">Writing template</Label>
-                      <p className="text-xs text-muted-foreground mt-1 mb-2">
-                        Built-in structure, formatting, depth, and word-count rules — applied
-                        automatically, no upload needed. "Advanced Writing" builds an executable
-                        prompt table for any other kind of academic writing from your uploaded
-                        documents.
-                      </p>
-                      <div className="grid gap-1.5">
+                      <div className="grid gap-1.5 mt-2">
                         {(
                           [
                             "chapter4-quant",
@@ -1535,36 +1542,17 @@ function AnalyzePage() {
                             key={p}
                             onClick={() => applyPreset(p)}
                             className={cn(
-                              "rounded border px-3 py-2 text-left transition-colors",
+                              "flex items-center justify-between gap-2 rounded border px-3 py-2 text-left text-sm font-medium transition-colors",
                               instructionsPreset === p
                                 ? "border-primary bg-primary/5"
                                 : "hover:bg-muted/40",
                             )}
                           >
-                            <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                              {PRESET_FULL_LABELS[p]}
-                              {instructionsPreset === p && <Check className="size-3.5 shrink-0" />}
-                            </span>
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              {PRESET_DESCRIPTIONS[p]}
-                            </span>
+                            {PRESET_FULL_LABELS[p]}
+                            {instructionsPreset === p && <Check className="size-3.5 shrink-0" />}
                           </button>
                         ))}
                       </div>
-
-                      <Label className="text-sm font-semibold mt-4 block">
-                        Additional instructions
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1 mb-2">
-                        Anything extra to steer the AI — a lens to apply, terminology to use, what
-                        to prioritize.
-                      </p>
-                      <Textarea
-                        rows={3}
-                        placeholder="e.g. Focus on differences by region."
-                        value={instructions}
-                        onChange={(e) => setInstructions(e.target.value)}
-                      />
                     </PopoverContent>
                   </Popover>
 
