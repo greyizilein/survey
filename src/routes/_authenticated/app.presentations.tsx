@@ -735,29 +735,41 @@ function PresentationsPage() {
     savePersistedState({ messages, instructions, docSummary, deck });
   }, [messages, instructions, docSummary, deck]);
 
+  const pendingIdRef = useRef<Promise<string> | null>(null);
   useEffect(() => {
     if (messages.length === 0) return;
     const handle = setTimeout(() => {
-      const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
-      const title = firstUserMsg.slice(0, 80);
-      saveConversationFn({
-        data: {
-          id: conversationId ?? undefined,
-          tool: "presentations",
-          title,
-          state: { messages, instructions, docSummary, deck },
-          folderId: conversationId ? undefined : folderId,
-        },
-      })
-        .then(({ id }: { id: string }) => {
-          if (!conversationId) setConversationId(id);
-        })
-        .catch((err) => {
+      const state = { messages, instructions, docSummary, deck };
+      const runSave = async () => {
+        try {
+          if (conversationId) {
+            await saveConversationFn({
+              data: { id: conversationId, tool: "presentations", state },
+            });
+            return;
+          }
+          if (pendingIdRef.current) {
+            const id = await pendingIdRef.current;
+            await saveConversationFn({ data: { id, tool: "presentations", state } });
+            return;
+          }
+          const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
+          const title = firstUserMsg.slice(0, 80);
+          const p = saveConversationFn({
+            data: { tool: "presentations", title, state, folderId },
+          }).then(({ id }: { id: string }) => id);
+          pendingIdRef.current = p;
+          const id = await p;
+          setConversationId(id);
+        } catch (err) {
+          pendingIdRef.current = null;
           console.error("[chat-history] save failed:", err);
           toast.error(
             `Couldn't save chat history: ${err instanceof Error ? err.message : "unknown error"}`,
           );
-        });
+        }
+      };
+      runSave();
     }, 1000);
     return () => clearTimeout(handle);
   }, [messages, instructions, docSummary, deck, conversationId, folderId, saveConversationFn]);
