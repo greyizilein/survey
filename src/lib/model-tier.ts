@@ -9,15 +9,15 @@ export const MODEL_TIER_LABELS: Record<ModelTier, string> = {
 };
 
 export const MODEL_TIER_DESCRIPTIONS: Record<ModelTier, string> = {
-  fast: "Cheap, quick models for planning, writing, and drawing.",
-  pro: "High-quality non-Claude models (Kimi K2, GPT) for better results.",
+  fast: "GPT-5.1 Thinking — quick reasoning model for planning, writing, and drawing.",
+  pro: "GPT-5.2 Pro — higher-effort reasoning for precise, detailed results.",
   max: "Claude orchestrating tools and sub-models — today's full-power mode.",
 };
 
 /** Text-generation model id per tier, resolved through the AI Gateway. */
 export const TEXT_MODEL_BY_TIER: Record<ModelTier, string> = {
-  fast: "google/gemini-2.5-flash-lite",
-  pro: "moonshotai/kimi-k2",
+  fast: "openai/gpt-5.1-thinking",
+  pro: "openai/gpt-5.2-pro",
   max: "anthropic/claude-sonnet-4.6",
 };
 

@@ -33,75 +33,14 @@ export const AnalyzeChatInput = z.object({
   instructions: z.string().max(4000).optional(),
   folderContext: z.string().max(200000).optional(),
   // Plan-first prompt workflow, layered on top of whichever template is selected:
-  // "build" = ask questions + draft a tailored prompt (don't write yet); "execute" = write it.
-  promptMode: z.enum(["build", "execute"]).optional(),
+  // "build" = ask questions + draft a tailored prompt (don't write yet); "execute" = write it;
+  // "meta" = Max-tier deep builder that extracts everything it can straight from the uploaded
+  // work/brief instead of asking, then drafts the same kind of executable prompt table.
+  promptMode: z.enum(["build", "execute", "meta"]).optional(),
 });
 
 const DocFile = z.object({ name: z.string().max(200), text: z.string() });
 const SummarizeDocsInput = z.object({ files: z.array(DocFile).min(1).max(20) });
-
-const PRESET_KEYS = [
-  "chapter4-quant",
-  "chapter4-qual",
-  "chapter4-mixed",
-  "other-writing",
-  "basic-academia",
-  "dissertations",
-  "none",
-] as const;
-const SuggestPresetInput = z.object({ text: z.string().max(40000) });
-
-/**
- * Classifies the user's first request (and any uploaded brief) into the best-fitting
- * writing template, so the UI can offer a one-tap suggestion. Returns "none" when nothing
- * clearly fits. Uses the fast tier — this runs once per new chat and must be cheap/quick.
- */
-export const suggestWritingPreset = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => SuggestPresetInput.parse(d))
-  .handler(async ({ data }) => {
-    const text = data.text.trim();
-    if (text.length < 12) return { preset: "none" as const };
-
-    const { createAi, textModelForTier } = await import("./ai-gateway.server");
-    const { generateText } = await import("ai");
-    const ai = createAi();
-
-    const prompt = `You route an academic writing request to the single best-fitting template, or "none".
-
-Templates:
-- chapter4-quant: a results/findings chapter (Chapter Four) for a QUANTITATIVE study — survey stats, tables, hypothesis tests.
-- chapter4-qual: a results/findings chapter for a QUALITATIVE study — interview themes, codes, quotes.
-- chapter4-mixed: a results/findings chapter for a MIXED-METHODS study.
-- dissertations: a full multi-chapter dissertation/thesis (intro → literature → methodology → results → discussion), not a single chapter.
-- basic-academia: a general academic piece — an essay, report, assignment, or article with standard structure and citations.
-- other-writing: a bespoke/complex brief or rubric that doesn't fit the above and needs a custom plan built from it.
-- none: casual, unclear, or non-academic.
-
-Request (and any attached brief):
-"""
-${text.slice(0, 12000)}
-"""
-
-Reply with ONLY one token: the exact template id, or none.`;
-
-    let raw = "";
-    try {
-      const { text: out } = await generateText({
-        model: ai(textModelForTier("fast")),
-        prompt,
-        temperature: 0,
-        maxOutputTokens: 12,
-      });
-      raw = out.trim().toLowerCase();
-    } catch (e) {
-      console.error("[analyze] preset suggestion failed:", e);
-      return { preset: "none" as const };
-    }
-
-    const match = PRESET_KEYS.find((k) => raw.includes(k)) ?? "none";
-    return { preset: match };
-  });
 
 export const summarizeAnalysisDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -356,26 +295,38 @@ export async function buildAnalyzePrompt(
     ? `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy/statsmodels). If this piece of writing requires any computation — sample size or power calculations, statistical tests, descriptive stats from numbers given in the brief or chat, citation/word counts, unit conversions, or any other math — write and run actual code to get the exact figure rather than estimating it by eye. Only the final correct figures belong in the written output; never paste code or raw sandbox output into the document itself.`
     : `\n\nYou do NOT have a code execution tool in this mode. Never fabricate computed figures (statistics, calculations, derived numbers) — work them out carefully by hand and show your reasoning, or flag clearly that exact computation requires the Max tier.`;
 
+  const noEmojiBlock = `\n\nNever use emojis anywhere in your response, under any circumstances, unless the user explicitly asks you to include them.`;
+
   const figureMarkerBlock = `\n\nYou CAN draw/generate real images, full stop — treat it exactly like any other capability you have. Never say or imply you "can't" draw, illustrate, or generate images, never add a disclaimer about image generation not being something you can do, and never frame the figure mechanism below as a fallback or workaround for a missing ability — to the user this should read as you simply drawing it. (Mechanically, you describe it precisely and a dedicated image model renders it, but that is an implementation detail you never surface or apologize for.) If an illustrative figure would genuinely strengthen this piece of writing — a conceptual diagram, process/flowchart, labelled schematic, model, or other illustration (NOT a chart of numeric data, which uses @@CHART@@/@@CHARTIMAGE@@ instead) — or whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something, just do it: add a line containing ONLY:\n@@FIGURE@@{"prompt":"a detailed description of exactly what the figure should depict, including any labels, node names, or captions it must contain, spelled exactly as they should appear","caption":"the figure caption to print beneath it"}\nPlace each @@FIGURE@@ line immediately after the paragraph it illustrates; use several if several distinct figures are warranted. Omit this entirely when no figure is needed and the user hasn't asked for one — do not add one just to decorate the page.`;
 
   // Plan-first prompt workflow — available under ANY selected template, using the same
   // superior "Exe.Prompt" builder that Advanced Writing uses, adapted to the user's preset.
-  if (data.promptMode === "build") {
+  // "meta" is the Max-tier variant: it leans on code execution and a far more exhaustive
+  // read of the uploaded material to extract specifics itself instead of asking for them,
+  // only falling back to a question when something critical truly cannot be inferred.
+  if (data.promptMode === "build" || data.promptMode === "meta") {
+    const isMeta = data.promptMode === "meta" && useCodeExecution;
     const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
     prompt = `${OTHER_WRITING_TEMPLATE}
 
-You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+${
+  isMeta
+    ? `You are in META-PROMPT MODE, the deepest version of this builder. Before writing anything, exhaustively mine every piece of uploaded material below — the brief, rubric, instructions, and any files — for every concrete detail an executable prompt needs: exact scope and deliverables, section-by-section breakdown, word counts, formatting/citation style, required terminology, marking criteria phrased in the rubric's own language, and any numeric or structural constraints. Cross-reference the rubric against the brief so nothing it implies is missed. Pull exact phrasing/keywords from the source material into the prompt table itself rather than paraphrasing generically. Only ask the user a clarifying question if something genuinely essential is missing AND cannot be reasonably inferred from the material provided — and if you do, keep it to the single most important gap, using a line containing ONLY:
 @@OPTIONS@@{"options":["First option","Second option","Third option"]}
-so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.
+when the sensible answers are a small set. Otherwise, skip the back-and-forth entirely and go straight to producing the single executable prompt table, made as specific and domain-accurate as the source material allows, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in this mode.`
+    : `You are in PROMPT-BUILD MODE. Before producing the executable prompt table, FIRST have a brief clarifying conversation with the user. Ask the essential questions you need (exact task, scope, total and per-section word count, citation/referencing style, required sections, audience, marking criteria, and which uploaded material to use). Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
+@@OPTIONS@@{"options":["First option","Second option","Third option"]}
+so the user can simply tap an answer (they may also type their own). Keep this up across turns until you genuinely have enough. THEN produce the single executable prompt table exactly as instructed above, adapted to the user's selected writing template below, and STOP — invite the user to review it and give the go-ahead before any writing begins. Do not write the actual work in build mode.`
+}
 
 SELECTED WRITING TEMPLATE TO ADAPT THE PROMPT TO:${presetBlock || "\nGeneral academic standards."}
 
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}
+UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${isMeta ? writingCodeExecutionBlock : ""}
 
 CONVERSATION SO FAR
 ${history}
 
-Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON.`;
+Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${noEmojiBlock}`;
     return { model, prompt, useCodeExecution, useWebSearch };
   }
 
@@ -387,7 +338,7 @@ UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}$
 CONVERSATION SO FAR
 ${history}
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
     return { model, prompt, useCodeExecution, useWebSearch };
   }
 
@@ -404,7 +355,7 @@ ${history}
 
 Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard, beginning immediately with the section's heading and prose per the ABSOLUTE OUTPUT RULE above.
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
     } else {
       const { OTHER_WRITING_TEMPLATE } = await import("./analyze-templates.server");
       prompt = `${OTHER_WRITING_TEMPLATE}
@@ -416,7 +367,7 @@ ${history}
 
 Respond to the latest USER message. Follow the MULTI-WORK CHECK above if it applies — otherwise produce the executable prompt table as instructed above.
 
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.`;
+Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.${noEmojiBlock}`;
     }
   } else {
     const codeExecutionBlock = `\n\nYou have a code execution tool (a real Python sandbox with pandas/numpy/scipy). Use it: write and run actual code against the RAW ROWS / dataset above to compute every statistic you report — counts, percentages, means, correlations, significance tests, etc. Never state a number you have not derived by running code. Show your work only as the final reported figures and any chart/table markers below; do not paste raw code or sandbox output into the chat answer itself.`;
@@ -444,7 +395,7 @@ If the data calls for a chart type the simple bar/line/pie format above can't ex
 Use at most one of @@CHART@@ or @@CHARTIMAGE@@ per response, never both.`
     : ""
 }
-Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}`;
+Omit any marker line entirely when not needed. The @@CHART@@/@@CHARTIMAGE@@/@@TABLE@@ marker lines must be the very last lines of your response, valid single-line content, and never appear anywhere else in your answer.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${noEmojiBlock}`;
   }
 
   return { model, prompt, useCodeExecution, useWebSearch };
