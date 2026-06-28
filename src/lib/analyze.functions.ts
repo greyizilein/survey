@@ -8,7 +8,7 @@ const ChatMessage = z.object({
 });
 
 export const AnalyzeChatInput = z.object({
-  messages: z.array(ChatMessage).min(1).max(40),
+  messages: z.array(ChatMessage).min(1).max(400),
   source: z.union([
     z.object({ type: z.literal("project"), project_id: z.string().uuid() }),
     z.object({
@@ -299,9 +299,21 @@ export async function buildAnalyzePrompt(
     hasRealDataset = summary.rowCount > 0;
   }
 
-  const history = data.messages
-    .map((m) => `${m.role === "user" ? "USER" : "ASSISTANT"}: ${m.content}`)
-    .join("\n\n");
+  // Long-running chats (e.g. writing a whole dissertation chapter by chapter) can build up
+  // hundreds of turns. Sending all of them every time would blow up prompt size and cost, so
+  // once a conversation gets long we keep only the most recent turns in full and note that
+  // earlier history was dropped, instead of silently truncating mid-conversation or rejecting
+  // the request outright.
+  const RECENT_TURNS = 40;
+  const trimmedCount = Math.max(0, data.messages.length - RECENT_TURNS);
+  const recentMessages = trimmedCount > 0 ? data.messages.slice(-RECENT_TURNS) : data.messages;
+  const history =
+    (trimmedCount > 0
+      ? `[${trimmedCount} earlier message(s) from this conversation have been omitted to save space — continue naturally from the recent messages below.]\n\n`
+      : "") +
+    recentMessages
+      .map((m) => `${m.role === "user" ? "USER" : "ASSISTANT"}: ${m.content}`)
+      .join("\n\n");
 
   const backgroundBlock = data.background?.trim()
     ? `\n\nBACKGROUND CONTEXT (from uploaded chapters/reports — use this to understand the subject matter, never as a source of statistics):\n${data.background.trim()}`

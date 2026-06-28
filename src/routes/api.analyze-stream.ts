@@ -39,7 +39,16 @@ export const Route = createFileRoute("/api/analyze-stream")({
 
         const parsed = AnalyzeChatInput.safeParse(body);
         if (!parsed.success) {
-          return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
+          const tooManyMessages = parsed.error.issues.some(
+            (i) => i.path[0] === "messages" && i.code === "too_big",
+          );
+          if (tooManyMessages) {
+            return new Response(
+              "This conversation has gotten very long. Please start a new chat to continue — your existing work is still saved.",
+              { status: 400 },
+            );
+          }
+          return new Response("Invalid input. Please try again or start a new chat.", { status: 400 });
         }
 
         const { createAi, createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool, gatewaySearchTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
