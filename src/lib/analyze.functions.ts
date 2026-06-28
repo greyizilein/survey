@@ -21,6 +21,13 @@ export const AnalyzeChatInput = z.object({
       filename: z.string().max(200),
       text: z.string().max(400000),
     }),
+    z.object({
+      type: z.literal("transcripts"),
+      files: z
+        .array(z.object({ filename: z.string().max(200), text: z.string().max(400000) }))
+        .min(1)
+        .max(30),
+    }),
     z.object({ type: z.literal("none") }),
   ]),
   background: z.string().max(60000).optional(),
@@ -306,8 +313,37 @@ export async function buildAnalyzePrompt(
     const transcriptText = data.source.text.trim();
     datasetBlock = `QUALITATIVE DATASET — full transcript "${data.source.filename}" (this is the complete, real transcript, not a preview or sample; treat every line as authoritative source material for coding/theming and never invent or paraphrase what wasn't actually said):\n${transcriptText}`;
     hasRealDataset = transcriptText.length > 0;
+  } else if (data.source.type === "transcripts") {
+    const files = data.source.files.filter((f) => f.text.trim().length > 0);
+    hasRealDataset = files.length > 0;
+    if (files.length === 1) {
+      datasetBlock = `QUALITATIVE DATASET — full transcript "${files[0].filename}" (this is the complete, real transcript, not a preview or sample; treat every line as authoritative source material for coding/theming and never invent or paraphrase what wasn't actually said):\n${files[0].text.trim()}`;
+    } else if (files.length > 1) {
+      // Many interview transcripts together can be huge — give each one a proportional
+      // share of a total character budget rather than sending every file in full and
+      // blowing up prompt size, truncating on line boundaries so a cut never lands mid-word.
+      const TOTAL_BUDGET = 350_000;
+      const perFileBudget = Math.max(3000, Math.floor(TOTAL_BUDGET / files.length));
+      const blocks = files.map((f) => {
+        const text = f.text.trim();
+        if (text.length <= perFileBudget) return { filename: f.filename, text, truncated: false };
+        const lines = text.split("\n");
+        let out = "";
+        for (const line of lines) {
+          if (out.length + 1 + line.length > perFileBudget) break;
+          out += (out ? "\n" : "") + line;
+        }
+        return { filename: f.filename, text: out, truncated: true };
+      });
+      datasetBlock = `QUALITATIVE DATASET — ${files.length} full interview transcripts (each is complete, real source material; treat every line as authoritative for coding/theming and never invent or paraphrase what wasn't actually said). Always cite which interview a quote/theme came from by its filename.\n\n${blocks
+        .map(
+          (b) =>
+            `===== TRANSCRIPT: ${b.filename} =====\n${b.text}${b.truncated ? "\n…[truncated for length — this transcript was longer than fit the per-file budget]" : ""}`,
+        )
+        .join("\n\n")}`;
+    }
   }
-  const isQualitativeTranscript = data.source.type === "transcript";
+  const isQualitativeTranscript = data.source.type === "transcript" || data.source.type === "transcripts";
 
   // Long-running chats (e.g. writing a whole dissertation chapter by chapter) can build up
   // hundreds of turns. Sending all of them every time would blow up prompt size and cost, so

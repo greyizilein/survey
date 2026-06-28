@@ -261,7 +261,7 @@ type PersistedState = {
   projectId: string;
   fileName: string;
   fileRows: Record<string, unknown>[];
-  fileTranscript: string;
+  fileTranscripts: { name: string; text: string }[];
 };
 
 function loadPersistedState(): Partial<PersistedState> {
@@ -279,7 +279,7 @@ function savePersistedState(state: PersistedState) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, fileRows: [], fileTranscript: "" }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, fileRows: [], fileTranscripts: [] }));
     } catch {
       // localStorage unavailable or still too large — fail silently, nothing else we can do
     }
@@ -463,7 +463,10 @@ function AnalyzePage() {
   const [projectId, setProjectId] = useState<string>(initial.projectId ?? "");
   const [fileName, setFileName] = useState<string>(initial.fileName ?? "");
   const [fileRows, setFileRows] = useState<Record<string, unknown>[]>(initial.fileRows ?? []);
-  const [fileTranscript, setFileTranscript] = useState<string>(initial.fileTranscript ?? "");
+  const [fileTranscripts, setFileTranscripts] = useState<{ name: string; text: string }[]>(
+    initial.fileTranscripts ?? [],
+  );
+  const MAX_TRANSCRIPTS = 30;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docFileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -609,7 +612,7 @@ function AnalyzePage() {
       projectId,
       fileName,
       fileRows,
-      fileTranscript,
+      fileTranscripts,
     });
   }, [
     messages,
@@ -620,7 +623,7 @@ function AnalyzePage() {
     projectId,
     fileName,
     fileRows,
-    fileTranscript,
+    fileTranscripts,
   ]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
@@ -636,7 +639,7 @@ function AnalyzePage() {
         projectId,
         fileName,
         fileRows,
-        fileTranscript,
+        fileTranscripts,
       };
       const runSave = async () => {
         try {
@@ -681,7 +684,7 @@ function AnalyzePage() {
     projectId,
     fileName,
     fileRows,
-    fileTranscript,
+    fileTranscripts,
     conversationId,
     folderId,
     saveConversationFn,
@@ -696,7 +699,7 @@ function AnalyzePage() {
     setProjectId("");
     setFileName("");
     setFileRows([]);
-    setFileTranscript("");
+    setFileTranscripts([]);
     setDocFiles([]);
     setDocSummary("");
     setInstructionsPreset("basic-academia");
@@ -724,7 +727,7 @@ function AnalyzePage() {
       setProjectId(state.projectId ?? "");
       setFileName(state.fileName ?? "");
       setFileRows(state.fileRows ?? []);
-      setFileTranscript(state.fileTranscript ?? "");
+      setFileTranscripts(state.fileTranscripts ?? []);
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
       setPromptMode(false);
@@ -869,66 +872,90 @@ function AnalyzePage() {
     setProjectId("");
     setFileName("");
     setFileRows([]);
-    setFileTranscript("");
+    setFileTranscripts([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function handleFile(file: File) {
-    if (isTranscriptFile(file.name)) {
-      const text = await file.text();
-      const cleaned = parseTranscript(text);
-      if (!cleaned) {
-        toast.error("Couldn't read any dialogue from that transcript file.");
-        return;
-      }
-      setFileName(file.name);
-      setFileRows([]);
-      setFileTranscript(cleaned);
-      toast.success(`Loaded transcript "${file.name}" as data`);
-      return;
-    }
-    const text = await file.text();
-    const rows = parseCsv(text);
-    if (!rows.length) {
-      // Not tabular (e.g. a plain .txt transcript or notes file) — fall back to treating
-      // the raw text itself as qualitative data rather than rejecting the upload.
-      const cleaned = parseTranscript(text);
-      if (!cleaned) {
-        toast.error("Couldn't read any data from that file.");
-        return;
-      }
-      setFileName(file.name);
-      setFileRows([]);
-      setFileTranscript(cleaned);
-      toast.success(`Loaded "${file.name}" as data`);
-      return;
-    }
-    setFileName(file.name);
-    setFileTranscript("");
-    setFileRows(rows);
-    toast.success(`Loaded ${rows.length} rows from ${file.name}`);
+  function removeTranscript(index: number) {
+    setFileTranscripts((prev) => prev.filter((_, i) => i !== index));
   }
 
-  /** Routes dropped/attached files: a .csv or transcript (.vtt/.srt) becomes the data source
-   *  (so it's usable as real data — computed statistics for csv, full-fidelity quotes for
-   *  transcripts) even when it arrives bundled with other documents in the same drop — a
+  /** Loads one or more files as the "data" source. Transcripts (.vtt/.srt/plain-text
+   *  interviews) accumulate into fileTranscripts (up to MAX_TRANSCRIPTS), since a single
+   *  interview study is rarely just one file. A CSV always replaces any existing tabular
+   *  data — only one dataset table is supported at a time. */
+  async function handleFiles(files: File[]) {
+    if (!files.length) return;
+    const transcriptFiles: { name: string; text: string }[] = [];
+    let csvHandled = false;
+    for (const file of files) {
+      if (isTranscriptFile(file.name)) {
+        const text = await file.text();
+        const cleaned = parseTranscript(text);
+        if (!cleaned) {
+          toast.error(`Couldn't read any dialogue from "${file.name}".`);
+          continue;
+        }
+        transcriptFiles.push({ name: file.name, text: cleaned });
+        continue;
+      }
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (!rows.length) {
+        // Not tabular (e.g. a plain .txt transcript or notes file) — fall back to treating
+        // the raw text itself as qualitative data rather than rejecting the upload.
+        const cleaned = parseTranscript(text);
+        if (!cleaned) {
+          toast.error(`Couldn't read any data from "${file.name}".`);
+          continue;
+        }
+        transcriptFiles.push({ name: file.name, text: cleaned });
+        continue;
+      }
+      if (!csvHandled) {
+        setFileName(file.name);
+        setFileRows(rows);
+        csvHandled = true;
+        toast.success(`Loaded ${rows.length} rows from ${file.name}`);
+      } else {
+        toast.error(`Skipped "${file.name}" — only one CSV dataset can be loaded at a time.`);
+      }
+    }
+    if (transcriptFiles.length) {
+      setFileTranscripts((prev) => {
+        const combined = [...prev, ...transcriptFiles];
+        if (combined.length > MAX_TRANSCRIPTS) {
+          toast.error(`Only the first ${MAX_TRANSCRIPTS} transcript files were kept (limit reached).`);
+          return combined.slice(0, MAX_TRANSCRIPTS);
+        }
+        toast.success(
+          transcriptFiles.length === 1
+            ? `Loaded transcript "${transcriptFiles[0].name}" as data`
+            : `Loaded ${transcriptFiles.length} transcripts as data`,
+        );
+        return combined;
+      });
+      if (!csvHandled) setFileName(transcriptFiles[0].name);
+    }
+  }
+
+  /** Routes dropped/attached files: .csv or transcript (.vtt/.srt) files become the data
+   *  source (so they're usable as real data — computed statistics for csv, full-fidelity
+   *  quotes for transcripts) even when bundled with other documents in the same drop — a
    *  dataset file mixed in with a brief/report used to fall through to the lossy
    *  background-text path just because it wasn't dropped alone, which is exactly the case
-   *  that matters most. Everything else (and any dataset file beyond the first, once one is
-   *  already loaded) is added as a background document. */
+   *  that matters most. Everything else is added as a background document. */
   function handleIncomingFiles(files: File[]) {
     if (!files.length) return;
-    if (!fileRows.length && !fileTranscript) {
-      const dataIndex = files.findIndex(
-        (f) => f.name.toLowerCase().endsWith(".csv") || isTranscriptFile(f.name),
-      );
-      if (dataIndex !== -1) {
-        setSourceTab("file");
-        handleFile(files[dataIndex]);
-        const rest = files.filter((_, i) => i !== dataIndex);
-        if (rest.length) addDocFiles(rest);
-        return;
-      }
+    const dataFiles = files.filter(
+      (f) => f.name.toLowerCase().endsWith(".csv") || isTranscriptFile(f.name),
+    );
+    if (dataFiles.length) {
+      setSourceTab("file");
+      handleFiles(dataFiles);
+      const rest = files.filter((f) => !dataFiles.includes(f));
+      if (rest.length) addDocFiles(rest);
+      return;
     }
     addDocFiles(files);
   }
@@ -938,8 +965,11 @@ function AnalyzePage() {
       return { type: "project" as const, project_id: projectId };
     if (sourceTab === "file" && fileRows.length)
       return { type: "file" as const, filename: fileName, rows: fileRows };
-    if (sourceTab === "file" && fileTranscript)
-      return { type: "transcript" as const, filename: fileName, text: fileTranscript };
+    if (sourceTab === "file" && fileTranscripts.length)
+      return {
+        type: "transcripts" as const,
+        files: fileTranscripts.map((t) => ({ filename: t.name, text: t.text })),
+      };
     return { type: "none" as const };
   }
 
@@ -1582,36 +1612,53 @@ function AnalyzePage() {
                               ref={fileInputRef}
                               type="file"
                               accept=".csv,.txt,.vtt,.srt"
+                              multiple
                               className="hidden"
                               onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) handleFile(f);
+                                const fs = Array.from(e.target.files ?? []);
+                                if (fs.length) handleFiles(fs);
                               }}
                             />
                           </label>
-                          {fileName && (
+                          {fileRows.length > 0 && fileName && (
                             <div className="flex items-center justify-between rounded border px-3 py-2 text-sm">
                               <span className="flex items-center gap-2 truncate">
                                 <FileText className="size-4 text-muted-foreground shrink-0" />{" "}
-                                {fileName}{" "}
-                                {fileRows.length > 0
-                                  ? `(${fileRows.length} rows)`
-                                  : fileTranscript
-                                    ? "(transcript)"
-                                    : ""}
+                                {fileName} ({fileRows.length} rows)
                               </span>
                               <button
-                                onClick={clearSource}
+                                onClick={() => {
+                                  setFileName(fileTranscripts.length ? fileTranscripts[0].name : "");
+                                  setFileRows([]);
+                                }}
                                 className="text-muted-foreground hover:text-destructive"
                               >
                                 <Trash2 className="size-4" />
                               </button>
                             </div>
                           )}
+                          {fileTranscripts.map((t, i) => (
+                            <div
+                              key={`${t.name}-${i}`}
+                              className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                            >
+                              <span className="flex items-center gap-2 truncate">
+                                <FileText className="size-4 text-muted-foreground shrink-0" />{" "}
+                                {t.name} (transcript)
+                              </span>
+                              <button
+                                onClick={() => removeTranscript(i)}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                              </button>
+                            </div>
+                          ))}
                           <p className="text-xs text-muted-foreground">
-                            CSV with a header row for quantitative data, or a transcript
-                            (.vtt/.srt/.txt) for qualitative analysis — either way it's used as
-                            real data, not summarized.
+                            CSV with a header row for quantitative data, or up to{" "}
+                            {MAX_TRANSCRIPTS} transcripts (.vtt/.srt/.txt) for qualitative
+                            analysis (e.g. interviews) — either way it's used as real data, not
+                            summarized.
                           </p>
                         </TabsContent>
                       </Tabs>
