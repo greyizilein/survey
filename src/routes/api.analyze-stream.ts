@@ -51,20 +51,26 @@ export const Route = createFileRoute("/api/analyze-stream")({
           return new Response("Invalid input. Please try again or start a new chat.", { status: 400 });
         }
 
-        const { createAi, createCodeExecutionAi, codeExecutionTool, webSearchTool, webFetchTool, gatewaySearchTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
+        const { createCodeExecutionAi, getModelTier, codeExecutionTool, webSearchTool, webFetchTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         try {
           const { model, prompt, promptCached, promptDynamic, useCodeExecution, useWebSearch } =
             await buildAnalyzePrompt(parsed.data, supabase);
-          // On Max tier (direct Anthropic), split the prompt at a cache breakpoint so the large,
-          // per-turn-identical prefix (templates, background docs, dataset rows) is billed once
-          // per ~5 minutes instead of in full on every single chat turn — same content reaches
-          // the model either way, this only changes how Anthropic prices repeat input tokens.
-          const useCachedPrompt = useCodeExecution && promptCached.length > 0;
+          const tier = getModelTier();
+
+          // All tiers now use direct Anthropic so prompt caching applies across Fast/Pro/Max —
+          // the large per-turn-identical prefix is billed once per ~5 min instead of every turn.
+          const useCachedPrompt = promptCached.length > 0;
+
+          // Max tier: adaptive extended thinking with high effort — temperature must be 1.
+          // Pro tier: standard Sonnet with code execution, no thinking — temperature 0.2.
+          // Fast tier: Haiku with web search only, no code execution — temperature 0.2.
+          const isMax = tier === "max";
+
           const makeResult = (withTools: boolean) =>
             streamText({
-              model: useCodeExecution ? createCodeExecutionAi()(model) : createAi()(model),
+              model: createCodeExecutionAi()(model),
               ...(useCachedPrompt
                 ? {
                     messages: [
@@ -82,18 +88,18 @@ export const Route = createFileRoute("/api/analyze-stream")({
                     ],
                   }
                 : { prompt }),
-              temperature: 0.2,
+              temperature: isMax ? 1 : 0.2,
               maxOutputTokens: 16000,
-              ...(withTools && useCodeExecution
+              ...(isMax
+                ? { providerOptions: { anthropic: { thinking: { type: "adaptive", effort: "high" } } } }
+                : {}),
+              ...(withTools && (useCodeExecution || useWebSearch)
                 ? {
                     tools: {
-                      code_execution: codeExecutionTool(),
+                      ...(useCodeExecution ? { code_execution: codeExecutionTool() } : {}),
                       ...(useWebSearch ? { web_search: webSearchTool(), web_fetch: webFetchTool() } : {}),
                     },
                   }
-                : {}),
-              ...(withTools && !useCodeExecution && useWebSearch
-                ? { tools: { web_search: gatewaySearchTool() } }
                 : {}),
               onError: ({ error }) => {
                 console.error("[analyze-stream] generation error:", error);

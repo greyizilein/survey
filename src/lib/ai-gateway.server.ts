@@ -47,6 +47,12 @@ export function createCodeExecutionAi() {
 export const CODE_EXECUTION_MODEL = "claude-sonnet-4-6";
 
 /**
+ * Direct Anthropic model string for Fast tier (Haiku). No provider prefix — used with
+ * createCodeExecutionAi(), not the gateway, so native tools (webSearch, webFetch) work.
+ */
+export const FAST_MODEL = "claude-haiku-3-5";
+
+/**
  * Fixed cheap model for mechanical reading/extraction tasks (e.g. scanning a brief for
  * required submission fields) that don't need writing quality and shouldn't be tied to
  * the user's selected tier. Independent of ModelTier on purpose.
@@ -63,11 +69,6 @@ export function webSearchTool() {
 
 export function webFetchTool() {
   return anthropic.tools.webFetch_20260209({ maxUses: 6 });
-}
-
-/** Provider-agnostic web search, for Fast/Pro tiers that aren't on Anthropic models. */
-export function gatewaySearchTool() {
-  return createAi().tools.perplexitySearch();
 }
 
 /**
