@@ -278,6 +278,7 @@ function AgentPage() {
 
   function handleNewChat() {
     setConversationId(null);
+    pendingIdRef.current = null;
     setSessionId(null);
     setMessages([]);
     setInput("");
