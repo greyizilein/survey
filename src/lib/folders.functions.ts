@@ -206,13 +206,35 @@ export const getFolderContext = createServerFn({ method: "GET" })
         `FOLDER INSTRUCTIONS (apply to this whole conversation):\n${folder.instructions.trim()}`,
       );
     }
-    for (const f of files ?? []) {
-      if (f.extracted_text?.trim())
-        parts.push(`FOLDER REFERENCE FILE — ${f.name}:\n${f.extracted_text.trim()}`);
+
+    const refFiles = (files ?? []).filter((f) => f.extracted_text?.trim());
+    const MAX = 200_000;
+    const instructionsLen = parts.join("\n\n").length;
+    const filesBudget = Math.max(0, MAX - instructionsLen);
+    if (refFiles.length > 0) {
+      const { isTabular, truncateRows } = await import("./analyze.functions");
+      const baseBudget = Math.max(2000, Math.floor(filesBudget / refFiles.length));
+      const tabularCount = refFiles.filter((f) => isTabular(f.name, f.extracted_text!)).length;
+      const tabularBudget = tabularCount > 0 ? Math.floor((filesBudget * 0.6) / tabularCount) : 0;
+      const narrativeCount = refFiles.length - tabularCount;
+      const narrativeBudget =
+        narrativeCount > 0
+          ? Math.max(2000, Math.floor((filesBudget * (tabularCount > 0 ? 0.4 : 1)) / narrativeCount))
+          : baseBudget;
+
+      for (const f of refFiles) {
+        const text = f.extracted_text!.trim();
+        const tabular = isTabular(f.name, text);
+        const budget = tabular ? Math.max(baseBudget, tabularBudget) : narrativeBudget;
+        const truncated =
+          text.length <= budget
+            ? text
+            : tabular
+              ? truncateRows(text, budget)
+              : text.slice(0, budget) + "\n…[truncated]";
+        parts.push(`FOLDER REFERENCE FILE — ${f.name}:\n${truncated}`);
+      }
     }
 
-    let combined = parts.join("\n\n");
-    const MAX = 200_000;
-    if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[folder context truncated]";
-    return { context: combined, name: folder.name };
+    return { context: parts.join("\n\n"), name: folder.name };
   });

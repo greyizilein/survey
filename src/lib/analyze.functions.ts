@@ -106,16 +106,19 @@ Output ONLY the condensed summary as plain text, no markdown headers, no comment
     return { summary: summaries.join("\n\n").slice(0, 60_000) };
   });
 
-function isTabular(filename: string, text: string): boolean {
+export function isTabular(filename: string, text: string): boolean {
   const ext = filename.toLowerCase().split(".").pop() ?? "";
-  if (ext === "csv" || ext === "tsv") return true;
-  // xlsx/xls go through extractText as "Sheet: <name>\n<csv>" blocks — still tabular.
+  // Detect by extension regardless of which extractor produced the text — xlsx/xls go
+  // through extractText as "Sheet: <name>\n<csv>" blocks, but through the sandbox extractor
+  // as a markdown table instead, so content-sniffing alone misses sandboxed spreadsheets.
+  if (ext === "csv" || ext === "tsv" || ext === "xlsx" || ext === "xls") return true;
   return /^Sheet: /m.test(text);
 }
 
+
 /** Truncates on whole-line boundaries, keeping the header row, so a cut never splits a row
  *  mid-record and misaligns columns for everything that follows. */
-function truncateRows(text: string, budget: number): string {
+export function truncateRows(text: string, budget: number): string {
   if (text.length <= budget) return text;
   const lines = text.split("\n");
   const header = lines[0] ?? "";

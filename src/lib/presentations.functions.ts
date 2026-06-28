@@ -75,30 +75,59 @@ export const summarizePresentationDocuments = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SummarizeDocsInput.parse(d))
   .handler(async ({ data }) => {
-    const texts = data.files.map((f) => `===== FILE: ${f.name} =====\n${f.text}`);
-    let combined = texts.join("\n\n");
-    const MAX = 300_000;
-    if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";
+    const { isTabular, truncateRows } = await import("./analyze.functions");
 
     const RAW_PASSTHROUGH_LIMIT = 23_000;
-    if (combined.length <= RAW_PASSTHROUGH_LIMIT) {
+    const texts = data.files.map((f) => `===== FILE: ${f.name} =====\n${f.text}`);
+    const combinedLength = texts.join("\n\n").length;
+    if (combinedLength <= RAW_PASSTHROUGH_LIMIT) {
+      let combined = texts.join("\n\n");
+      const MAX = 300_000;
+      if (combined.length > MAX) combined = combined.slice(0, MAX) + "\n…[truncated]";
       return { summary: combined.trim() };
     }
 
+    // Same tabular-vs-narrative split as analyze.functions.ts: a csv/xlsx file run through
+    // narrative condensation loses row fidelity, so it gets truncated on row boundaries
+    // and a bigger budget share instead of being summarized.
     const { createAi, textModelForTier } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
     const ai = createAi();
+    const model = ai(textModelForTier());
 
-    const prompt = `Condense the following material (a brief, rubric, brand guide, report, or reference document) into background context for building a presentation deck from it, in no more than 22,000 characters. Preserve every distinct requirement, fact, theme, deadline, audience note, and structural constraint — if the source describes a rubric or marking criteria, preserve every criterion exactly; if it describes several distinct briefs or decks, enumerate all of them separately rather than merging them.
+    const TOTAL_BUDGET = 22_000;
+    const baseBudget = Math.max(1500, Math.floor(TOTAL_BUDGET / data.files.length));
+    const tabularCount = data.files.filter((f) => isTabular(f.name, f.text)).length;
+    const tabularBudget = tabularCount > 0 ? Math.floor((TOTAL_BUDGET * 0.6) / tabularCount) : 0;
+    const narrativeBudget =
+      tabularCount < data.files.length
+        ? Math.max(1500, Math.floor((TOTAL_BUDGET * (tabularCount > 0 ? 0.4 : 1)) / (data.files.length - tabularCount)))
+        : baseBudget;
 
-Source content:
+    const summaries = await Promise.all(
+      data.files.map(async (f) => {
+        const tabular = isTabular(f.name, f.text);
+        const perFileBudget = tabular ? Math.max(baseBudget, tabularBudget) : narrativeBudget;
+        if (f.text.length <= perFileBudget) {
+          return `===== FILE: ${f.name} =====\n${f.text.trim()}`;
+        }
+        if (tabular) {
+          return `===== FILE: ${f.name} =====\n${truncateRows(f.text, perFileBudget)}`;
+        }
+        const prompt = `Condense the following material (a brief, rubric, brand guide, report, or reference document) into background context for building a presentation deck from it, in no more than ${perFileBudget} characters. Preserve every distinct requirement, fact, theme, deadline, audience note, and structural constraint — if the source describes a rubric or marking criteria, preserve every criterion exactly; if it describes several distinct briefs or decks, enumerate all of them separately rather than merging them.
+
+Source content (file "${f.name}"):
 """
-${combined}
+${f.text}
 """
 
 Output ONLY the condensed summary as plain text, no markdown headers, no commentary.`;
-    const { text } = await generateText({ model: ai(textModelForTier()), prompt, temperature: 0 });
-    return { summary: text.trim().slice(0, 24000) };
+        const { text } = await generateText({ model, prompt, temperature: 0 });
+        return `===== FILE: ${f.name} =====\n${text.trim().slice(0, perFileBudget)}`;
+      }),
+    );
+
+    return { summary: summaries.join("\n\n").slice(0, 60_000) };
   });
 
 export async function buildPresentationPrompt(

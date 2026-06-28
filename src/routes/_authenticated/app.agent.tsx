@@ -85,7 +85,10 @@ function splitFileMarkers(raw: string): { display: string; files: AgentFile[] } 
 
 function isTabularDoc(filename: string, text: string): boolean {
   const ext = filename.toLowerCase().split(".").pop() ?? "";
-  if (ext === "csv" || ext === "tsv") return true;
+  // Detect by extension regardless of extractor — sandboxed xlsx/xls comes back as a
+  // markdown table, not the "Sheet: " text-extractor format, so content-sniffing alone
+  // would miss it.
+  if (ext === "csv" || ext === "tsv" || ext === "xlsx" || ext === "xls") return true;
   return /^Sheet: /m.test(text);
 }
 
