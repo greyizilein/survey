@@ -111,8 +111,14 @@ export function ChatHistoryMenu({
     const title = renameValue.trim();
     setRenamingId(null);
     if (!title) return;
+    // Optimistically update local list; roll back to the original title on failure.
+    const previous = conversations.find((c) => c.id === id)?.title ?? title;
     setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title } : c)));
-    await renameFn({ data: { id, title } });
+    try {
+      await renameFn({ data: { id, title } });
+    } catch {
+      setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title: previous } : c)));
+    }
   }
 
   async function moveToFolder(chatId: string, targetFolderId: string | null) {

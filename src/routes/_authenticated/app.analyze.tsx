@@ -627,8 +627,21 @@ function AnalyzePage() {
   ]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
+  // Set to the snapshot of conversationId at the moment handleNewChat or handleSelectConversation
+  // is called. The autosave effect compares against this to detect stale renders where React
+  // has not yet flushed the new conversationId into the closure.
+  const expectedConversationIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      // A new-chat reset has fully propagated — allow saves again.
+      expectedConversationIdRef.current = null;
+      pendingIdRef.current = null;
+      return;
+    }
+    // If the expected id doesn't match what's in state yet, React hasn't finished
+    // flushing all state updates from handleNewChat/handleSelectConversation — skip.
+    if (expectedConversationIdRef.current !== conversationId) return;
     const handle = setTimeout(() => {
       const state = {
         messages,
@@ -656,6 +669,7 @@ function AnalyzePage() {
             await saveConversationFn({ data: { id, tool: "analyze", state } });
             return;
           }
+          // Guard against double-insert from concurrent effect firings.
           const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
           const title = firstUserMsg.slice(0, 80);
           const p = saveConversationFn({
@@ -663,6 +677,7 @@ function AnalyzePage() {
           }).then(({ id }: { id: string }) => id);
           pendingIdRef.current = p;
           const id = await p;
+          expectedConversationIdRef.current = id;
           setConversationId(id);
         } catch (err) {
           pendingIdRef.current = null;
@@ -691,8 +706,11 @@ function AnalyzePage() {
   ]);
 
   function handleNewChat() {
-    setConversationId(null);
     pendingIdRef.current = null;
+    // Setting expected to undefined means the effect will only unblock once
+    // conversationId and messages both settle to null/[] (detected in the effect above).
+    expectedConversationIdRef.current = undefined as unknown as null;
+    setConversationId(null);
     setMessages([]);
     setInput("");
     setSourceTab("project");
@@ -710,10 +728,14 @@ function AnalyzePage() {
   }
 
   async function handleSelectConversation(id: string): Promise<Msg[] | null> {
+    pendingIdRef.current = null;
+    // Block saves until we've set conversationId from the loaded conversation.
+    expectedConversationIdRef.current = undefined as unknown as null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
       const loadedMessages = state.messages ?? [];
+      expectedConversationIdRef.current = conversation.id;
       setConversationId(conversation.id);
       setMessages(loadedMessages);
       setInstructionsPreset(

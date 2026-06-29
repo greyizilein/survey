@@ -281,8 +281,15 @@ function AgentPage() {
   }, [messages, sending]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
+  const expectedConversationIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (messages.length === 0) {
+      expectedConversationIdRef.current = null;
+      pendingIdRef.current = null;
+      return;
+    }
+    if (expectedConversationIdRef.current !== conversationId) return;
     const handle = setTimeout(() => {
       const state = { messages };
       const runSave = async () => {
@@ -318,6 +325,7 @@ function AgentPage() {
           }).then(({ id }: { id: string }) => id);
           pendingIdRef.current = p;
           const id = await p;
+          expectedConversationIdRef.current = id;
           setConversationId(id);
         } catch (err) {
           pendingIdRef.current = null;
@@ -333,9 +341,10 @@ function AgentPage() {
   }, [messages, sessionId, conversationId, folderId, saveConversationFn]);
 
   function handleNewChat() {
-    setConversationId(null);
     pendingIdRef.current = null;
+    expectedConversationIdRef.current = undefined as unknown as null;
     preWarmRef.current = null;
+    setConversationId(null);
     setSessionId(null);
     setMessages([]);
     setInput("");
@@ -343,9 +352,12 @@ function AgentPage() {
   }
 
   async function handleSelectConversation(id: string) {
+    pendingIdRef.current = null;
+    expectedConversationIdRef.current = undefined as unknown as null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as { messages?: Msg[] };
+      expectedConversationIdRef.current = conversation.id;
       setConversationId(conversation.id);
       setSessionId(conversation.agent_session_id ?? null);
       setMessages(state.messages ?? []);
