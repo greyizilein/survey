@@ -357,6 +357,7 @@ function AgentPage() {
   async function handleSelectConversation(id: string) {
     pendingIdRef.current = null;
     expectedConversationIdRef.current = undefined as unknown as null;
+    const previousConversationId = conversationId;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as { messages?: Msg[] };
@@ -367,7 +368,8 @@ function AgentPage() {
       setFolderId(conversation.folder_id ?? null);
       setHistoryReady(true);
     } catch {
-      expectedConversationIdRef.current = null;
+      expectedConversationIdRef.current = previousConversationId;
+      if (!previousConversationId) setMessages([]);
       setHistoryReady(true);
       toast.error("Couldn't load that chat");
     }
@@ -380,7 +382,7 @@ function AgentPage() {
       return;
     }
     if (search.folder) {
-      setHistoryReady(true);
+      handleNewChat();
       return;
     } // new chat in folder — don't auto-open the latest
     listConversationsFn({ data: { tool: "agent" } })
