@@ -37,8 +37,6 @@ export const AnalyzeChatInput = z.object({
       "chapter4-quant",
       "chapter4-qual",
       "chapter4-mixed",
-      "other-writing",
-      "basic-academia",
       "dissertations",
       "writer",
     ])
@@ -376,79 +374,130 @@ export async function buildAnalyzePrompt(
   const PRESET_SPECS: Record<string, string> = {
     "chapter4-quant": `CHAPTER FOUR — QUANTITATIVE DATA ANALYSIS AND FINDINGS
 
-STRUCTURE (4,000 words total):
-- Introduction (~150 words): Restate the research questions/hypotheses being addressed. Explain how the data will be analyzed and why this chapter matters.
-- Data Screening and Preparation (~300 words): Describe sample composition, handling of missing data, data entry checks, assumptions testing (normality, homogeneity of variance), and any transformations applied. Include sample size after cleaning.
-- Descriptive Statistics (~400 words): Present demographic/characteristic summaries. Include one formatted table of key descriptive statistics (means, SDs, ranges, frequencies). Interpret the table — don't just report it.
-- Inferential Statistics — one sub-section per research question/hypothesis (~400 words each): For each RQ/hypothesis, report the statistical test used, the rationale, assumptions checked, exact results (F, t, r, χ², p, effect size), and interpretation. Every statistic MUST be computed from the real dataset via the code execution tool — never estimate or guess.
-- Key Findings Summary (~300 words): Synthesize what the data revealed in relation to the original research questions. Highlight unexpected findings or limitations.
+WORD COUNT: The user sets the total chapter word count. Ask the user for it if not already stated. Distribute proportionally across sections as follows (adjust all section allocations proportionally to the total requested):
+- Introduction: ~4% of total
+- Data Preparation, Cleaning, and Screening: ~9%
+- Demographic/Contextual Profile of Respondents: ~9%
+- Descriptive Analysis (per research question, equal split): ~37% total
+- Inferential Analysis (per research question, equal split): ~37% total
+- Reliability and Assumption Checks: included within inferential sections
+- Discussion of Findings: ~600–650 words (fixed regardless of total)
+- Chapter Summary: ~100 words (fixed)
+Do not impose any word count not derived from the user's stated total.
 
-CORE PRINCIPLES:
-- This chapter proves the study was analyzed properly. It is NOT exported software output with commentary — it is an argument built from data.
-- Write section by section. After each section, STOP and await explicit go-ahead before continuing.
-- Every table must be introduced before it appears. Every figure must have a clear purpose. Every result must be interpreted conceptually.
-- Use APA 7th edition in-text citations. All numbers must be written as numerals (1, 2, 3…), never words (one, two, three).
-- No section may exceed its word count allocation by more than 1%.
+PACING: Write section by section. After each section stop immediately and wait for explicit instruction. Do not preview later sections.
 
-TECHNICAL REQUIREMENTS:
-- All statistics must be computed from the actual dataset using the code execution tool. Do not approximate, estimate, or fabricate any numerical result.
-- Report exact p-values and effect sizes for all statistical tests.`,
+CORE PRINCIPLE: This chapter must prove the evidence was analysed properly. It must not read like exported software output with commentary — it must read like an argument built from data. Every table must be introduced before it appears. Every figure must have a clear purpose. Every result must be interpreted conceptually and linked to a research question.
+
+HUMAN WRITING STANDARD: Academic formality, UK English, no first-person, no contractions. Vary sentence length sharply. Avoid stock AI phrases, repetitive transitions, and mechanical rhythm.
+
+ANALYTICAL STANDARD: Reporting a mean is not analysis. Reporting a p-value is not analysis. Every result must be explained in terms of direction, magnitude, certainty, model contribution, practical relevance, and caution. Distinguish statistical significance from substantive importance. Distinguish descriptive patterns from inferential conclusions.
+
+CHAPTER STRUCTURE (execute in this order):
+
+1. INTRODUCTION
+Establish scope, purpose, and logic. State the final valid sample size, instrument used, key variables, and statistical software. Explain the chapter sequence. Cite relevant methodological framework briefly.
+
+2. DATA PREPARATION, CLEANING, AND SCREENING
+Explain how raw data was prepared: completeness screening, duplicate/careless response checks, out-of-range values, missing data handling (state method and justify it — listwise, pairwise, imputation, etc.). Address outliers (z-scores, boxplots, Mahalanobis distance). Where relevant, assess normality, linearity, homoscedasticity, multicollinearity. Include one compact data screening summary table (valid cases, missing cases, treatment method, key diagnostics). Precede with explanatory paragraph, follow with interpretive paragraph. Methodological citations appropriate.
+
+3. DEMOGRAPHIC/CONTEXTUAL PROFILE OF RESPONDENTS
+Each demographic examined individually in its own table — never one combined table. For each variable (age, gender, education, role, experience, etc.) present a frequency and percentage table. All percentage columns must total 100%. Use numerals and % symbol throughout. Introduce each table with a paragraph explaining why that variable matters analytically; follow with a paragraph interpreting the pattern — not restating frequencies. Explain what the distribution suggests about composition, representativeness, possible bias, and contextual relevance. No literature citations in this section.
+
+4. DESCRIPTIVE ANALYSIS BY RESEARCH QUESTION
+Write one research question at a time, stop after each. Use the topic as subheading, not the question itself. Present full Likert-scale distribution table: frequencies and percentages for SA, A, N, D, SD (written in full before abbreviating), item mean and SD. All item-level percentages must total 100%. Interpret beyond highest/lowest means — examine concentration, dispersion, response skewness, convergence/divergence across items, anomalies (polarised items, unexpectedly neutral items, high variation). Figures only where they clarify structure: grouped bar charts for item mean comparison, stacked Likert charts for response distribution, boxplots for spread. Avoid pie charts. Every figure introduced analytically before and interpreted after.
+
+5. INFERENTIAL ANALYSIS BY RESEARCH QUESTION
+Write one research question at a time, stop after each. State variables and hypothesis/analytical expectation. State and justify the inferential test chosen (must match scale, hypothesis structure, and Chapter Three design). Present the statistical model/equation and explain each component — do not insert equations ceremonially. Mandatory table content by test type: regression → model summary, ANOVA, coefficients table; correlation → full matrix with significance and n; group comparison → group statistics and test results; moderation/mediation → path coefficients, interaction term, indirect effect, confidence intervals. One paragraph before each table (what is being tested and why), one paragraph after (critical interpretation of result). Report exact values: coefficients, SEs, t-values, F-statistics, df, R², adjusted R², CIs, exact p-values, effect sizes. Classify and interpret effect sizes. Do not treat p-value alone as sufficient — explain direction, magnitude, certainty, model contribution, and caution. Where null, explain what the null result does and does not mean.
+
+6. RELIABILITY AND ASSUMPTION CHECKS
+Explain what reliability means in this study context. Present a reliability table: construct, number of items, Cronbach's alpha, interpretation. State and justify threshold with citation. If any construct falls below threshold, explain implications. Where relevant: composite reliability, item-total correlations, VIF, tolerance, KMO, Bartlett's test, factor loadings, AVE. Only include diagnostics specified in the methodology and actually used. Report relevant assumptions per test (normality, linearity, homoscedasticity, independence, multicollinearity). One compact assumptions table: assumption, test/diagnostic used, threshold/criterion, outcome. Follow with interpretation. Where minor violations occurred, explain whether analysis remained robust. Citations to methodological standards appropriate.
+
+7. DISCUSSION OF FINDINGS
+600–650 words. This is discussion of the data — link to literature review and cite to synthesise results across all research questions. Do not merely repeat section-level findings. Ask what the full set of descriptive and inferential results reveals together. Which predictors were strongest? Which relationships were weak, unstable, or non-significant? Did descriptive patterns align with inferential patterns? Were any findings surprising? Were some constructs reliable but weakly predictive? Distinguish statistical strength, consistency of pattern, explanatory contribution, and interpretive caution.
+
+8. CHAPTER SUMMARY
+~100 words. Summarise main statistical insights and how they address research objectives. Consolidate core quantitative findings. Provide clear transition to Chapter Five. No new citations.
+
+TABLE RULES: Every table must have a specific title. Every table preceded by an explanatory paragraph and followed by an analytical paragraph — no exceptions. Likert tables: SA, A, N, D, SD with frequencies and percentages, plus mean and SD per item. Demographic tables: frequencies and percentages. Inferential tables: all statistics necessary for proper interpretation.
+
+FIGURE RULES: Analytically justified figures only. Types: grouped bar charts or stacked Likert charts (descriptive); scatterplots with fitted lines (bivariate inferential); interaction plots (moderation); path diagrams (mediation); coefficient plots (regression); diagnostic plots (residuals, Q-Q). Clean academic style — white background, labelled axes, readable font, minimal palette, no chartjunk, no 3D effects. Every figure introduced and interpreted.
+
+NUMBER REPORTING: Numerals for all numbers. % symbol for percentages. Exact p-values (p = .032 not p < .05). Consistent decimal places (2–3 dp for means, SDs, coefficients, test statistics). Report CIs where relevant.
+
+CITATIONS: Selective and methodological only (chapters 1 and 2 sources). Sections 2 and 3 need none. Sections 4–7 may cite methodological sources for test justification, thresholds, reliability standards, effect-size conventions. Harvard format, "and" not "&", no comma between author and date.
+
+DISTINCTION-LEVEL STANDARD: Strong analysis does not stop at "significant" or "not significant." It explains direction, size, certainty, model contribution, practical relevance, and caution. It notices when descriptive and inferential findings diverge. It identifies when a statistically significant result is weak in explanatory power. It interprets R² properly. It distinguishes individual predictor significance from overall model significance. It identifies whether reliability supports confidence in the constructs. It recognises implications of violated assumptions or weak diagnostics.`,
 
     "chapter4-qual": `CHAPTER FOUR — QUALITATIVE DATA ANALYSIS AND FINDINGS
 
-STRUCTURE (4,000 words total):
-- Introduction (~150 words): Restate the research questions/phenomena being explored. Explain the analysis approach and why this chapter is critical to the dissertation.
-- Analytical Approach and Positionality (~300 words): Describe the chosen qualitative method (thematic analysis, IPA, grounded theory, framework analysis, etc.). Explain reflexivity — how the researcher's background, assumptions, and position may have shaped data collection and interpretation. Be honest about potential biases.
-- Theme Presentation (3–5 major themes, ~500–700 words each): For each theme: provide a descriptive title, explain what the theme represents conceptually, present 2–4 direct participant quotes that exemplify the theme (quote only what the transcript actually contains — never paraphrase as verbatim quotation), interpret what these quotes reveal, and link to the research question. Use participant pseudonyms or codes (e.g., P1, P2) consistently.
-- Cross-Cutting Discussion (~400 words): Identify patterns, tensions, or relationships across themes. Discuss how themes connect to each other and to the literature/conceptual framework. Address any surprising findings or contradictions.
-- Key Findings Summary (~300 words): Synthesize the themes in relation to the original research questions. State what the data reveals about the phenomenon.
+WORD COUNT: The user sets the total chapter word count. Ask the user for it if not already stated. Distribute proportionally across sections as follows (adjust all allocations proportionally to the total requested):
+- Introduction: ~4% of total
+- Profile of Participants: ~12%
+- Data Familiarisation, Coding Process, and Analytic Development: ~17%
+- Main Research Findings per research question: equal split across RQs, ~37% total
+- Advanced Qualitative Analysis per research question: equal split across RQs, ~17% total
+- Discussion of Themes: ~550 words (fixed)
+- Chapter Summary: ~150–180 words (fixed)
+Do not impose any word count not derived from the user's stated total.
 
-CORE PRINCIPLES:
-- This chapter demonstrates that the researcher can interpret qualitative evidence rigorously and meaningfully. It is NOT a list of themes with quotes attached.
-- Write section by section. After each section, STOP and await explicit instruction before continuing.
-- Participant quotes must be verbatim from the actual transcript. Never paraphrase, condense, or smooth grammatically. Indicate omissions with […].
-- Use consistent participant references (P1, P2, pseudonyms, or codes as established).
-- Link every theme explicitly back to the research questions and the theoretical/conceptual framework.
-- Use Harvard in-text citations unless specified otherwise.`,
+PACING: Write section by section. After each section stop immediately and wait for explicit instruction. Do not write multiple sections in one response. Do not preview later sections.
+
+CORE PRINCIPLE: This is the most important chapter in the dissertation. It must do more than show that data was collected and arranged into themes. It must demonstrate that the researcher can interpret qualitative evidence with authority, discipline, sensitivity, and depth. It must read as a controlled analytical argument grounded in data — not a sequence of quotations with labels attached.
+
+HUMAN WRITING STANDARD: Academic register throughout, UK English, no first-person, no contractions. Vary sentence length sharply. Avoid repetitive openings, predictable transitions, generic filler, and stock AI expressions. The writing must feel authored, not assembled.
+
+ANALYTICAL STANDARD: Description identifies what participants said. Analysis explains what those utterances mean, how they relate, what assumptions underpin them, and what broader pattern they reveal. Interpretation must work at multiple levels: manifest meanings, latent meanings, recurring mechanisms, patterned distinctions across participants, and significance of contradictions. Show whether themes dominate because they are widely experienced, institutionally reinforced, socially expected, emotionally charged, or structurally embedded. Show where accounts resist the dominant pattern and why that matters.
+
+CHAPTER STRUCTURE (execute in this order):
+
+1. INTRODUCTION
+Establish scope, purpose, and logic. Identify the qualitative dataset: total number of participants, nature of data collected, preparation process (transcription, cleaning, anonymisation, organisation). State the analytical method and justify it in relation to the research questions and philosophical stance from Chapter Three. If QDA software was used, identify it and explain how it supported organisation — without implying the software performed the analysis. Explain chapter structure: participant profile → familiarisation and coding → findings by research question → higher-order analysis → synthesis. Cite methodological sources where relevant.
+
+2. PROFILE OF PARTICIPANTS
+More than demographic summary — show who contributed and why their range matters analytically. Short introductory paragraph explaining purpose. Present a participant profile matrix table: Participant ID, Role, Experience, Key Context. Add additional columns only where analytically useful (department, length of service, gender, sector). After the table: interpretive discussion identifying diversity and commonality across participants, explaining what range of perspectives the sample captures, how role/experience/institutional location may shape what participants say, identifying clusters within the sample and how they may influence theme formation, and noting any interpretive limitations from the sample profile (overrepresentation, underrepresentation). No literature citations in this section.
+
+3. DATA FAMILIARISATION, CODING PROCESS, AND ANALYTIC DEVELOPMENT
+Make the analytic process visible and credible. Begin by explaining how the researcher became familiar with the data (transcription where relevant, repeated reading, annotation, memo-writing, early interpretive noticing, recording analytic impressions). Familiarisation was not passive reading — it was the first stage of interpretation. Explain initial coding approach (line-by-line, segment-based, semantic, latent, descriptive, process-oriented, or concept-led — depending on the method). Explain how codes were refined, merged, split, discarded, or elevated into categories, and how categories became final themes. Show the judgement exercised: criteria used to decide whether a code survived, whether a category had internal coherence, whether a theme was distinct from neighbouring themes. For methods involving recursion (e.g. reflexive thematic analysis), show themes were developed iteratively, not mechanically extracted. Address researcher reflexivity and positionality seriously — explain how the researcher's assumptions, disciplinary background, institutional proximity, social position, or prior expectations may have shaped interpretation, and what practices managed this influence (memoing, critical self-questioning, peer challenge, audit trail, repeated return to data). No empty declarations of neutrality. Include a coding tree diagram figure showing progression from initial codes to categories to final themes. Introduce it with a paragraph explaining why this progression matters; follow with a paragraph interpreting what the diagram reveals. Cite sources on coding, reflexivity, and trustworthiness. Harvard format.
+
+4. MAIN RESEARCH FINDINGS (ANALYSIS BY RESEARCH QUESTION)
+Write one research question at a time, stop after each. Treat each RQ as a serious analytical unit — not just a heading under which quotations are arranged. Begin by reintroducing the RQ and clarifying constructs or dimensions under examination. Explain briefly why this question matters analytically. Identify 2–4 major themes emerging from the data in response to this RQ. Themes must be conceptually meaningful and analytically distinct — not obvious paraphrases of interview questions. For each theme, provide carefully selected participant excerpts using anonymised participant IDs only. Quotes must be verbatim, concise where possible, chosen for analytic value not emotional force alone. After each quote, explain what it reveals — not paraphrase, but interpretation. Show whether the quote represents a dominant pattern, qualified pattern, contested view, defensive narrative, emotionally charged interpretation, structurally conditioned response, or deviant case. Where several quotations are used under one theme, synthesise them rather than discussing as isolated fragments. Explicitly address contradictions, minority voices, and deviant cases — explain what may account for divergence (role differences, experience levels, institutional position, exposure to different constraints, personal values, divergent interpretations). Contradictions are findings, not noise. Include a theme and illustrative quotes table: Theme, Subtheme, Participant ID, Verbatim Quote, Analytical Interpretation. Precede with analytical paragraph explaining why the table is being used; follow with paragraph interpreting the broader pattern. The table is not a replacement for analysis.
+
+5. ADVANCED QUALITATIVE ANALYSIS (BY RESEARCH QUESTION)
+Write one research question at a time, stop after each. This is where the chapter demonstrates mature analytic power. Do not restate themes — move beyond thematic presentation into higher-order interpretation. Begin by restating the RQ briefly and identifying the advanced analytic lens being applied (axial coding, theoretical coding, framework analysis, narrative ordering, discourse framing, pattern coding, or another method appropriate to the chosen approach). Justify why this second-order analytic move is necessary and what it reveals that initial thematic analysis alone cannot. Examine relationships between themes: show whether some function as causes, conditions, consequences, coping responses, legitimating narratives, or institutional mechanisms in relation to others. Identify central and peripheral themes, enabling and constraining conditions, or patterned sequences. Build an interpretive model, not just named links. Show how participant context shapes relationships (e.g. senior vs junior, experienced vs less experienced, institutional subgroups). Include 1–2 visual aids only where they genuinely deepen interpretation (thematic network diagram, cluster map, concept model). Do not use a word cloud unless the analytic logic genuinely justifies it — frequency alone rarely captures interpretive significance. For each visual, provide a clear figure prompt: "High-resolution academic thematic network diagram with labelled nodes, directional arrows, and clustered subthemes on a white background, suitable for dissertation submission." Every figure must be introduced analytically before and interpreted analytically after.
+
+6. DISCUSSION OF THEMES
+~550 words. Synthesise findings across all research questions into one coherent analytical narrative. Compare findings to literature and cite. Ask what the dataset as a whole reveals. Identify overarching patterns cutting across RQs (recurring constraints, repeated mechanisms, common tensions, structural influences, contradictory expectations, identity-related issues, institutional dynamics). Identify convergence, divergence, and surprise. Show which findings reinforce one another across questions, which complicate one another, and which unexpected themes surfaced. Distinguish frequency, intensity, structural significance, and explanatory value when deciding what to foreground. Show what the themes mean together, not just separately — mechanisms, tensions, conditional relationships, interpretive structures not visible at the descriptive level.
+
+7. CHAPTER SUMMARY
+~150–180 words. Consolidate the chapter's main qualitative findings and show clearly how they address research objectives. Summarise principal themes and higher-order patterns without repeating the full analysis. Make clear what has been established through the data. Prepare transition to Chapter Five. No new citations.
+
+QUOTATION RULES: All participant quotations verbatim and anonymised using participant ID codes only. Every quotation followed by analytical interpretation — no exceptions. No quotation without explanation of its significance. Quotes must be embedded strategically: to illustrate a theme, sharpen a distinction, reveal tension, expose nuance. Quotes without interpretation are evidence of avoided analysis.
+
+THEME QUALITY: Themes must not be obvious paraphrases of interview questions or thin categories that restate what participants mentioned. A strong theme captures a meaningful pattern that helps answer the research question. It must have internal coherence, analytical distinctiveness, and evidential support across the dataset — including dominant views, variant forms, and contradictory or anomalous instances.
+
+VISUAL INTEGRATION: Figures, thematic maps, coding trees, cluster diagrams must not be added for appearance. A visual should be included only if it clarifies structure, relationships, progression, hierarchy, or interpretive synthesis better than prose alone. Every visual introduced analytically before and interpreted analytically after.
+
+CITATIONS: Selective. Section 1 should cite sources on the analysis approach. Section 3 should cite sources on coding, reflexivity, and trustworthiness. Section 6 should cite literature to synthesise with findings. Chapter Four is an analysis chapter, not a literature review — substantive comparisons belong in Chapter Five. Harvard format, "and" not "&", no comma between author and date.
+
+DISTINCTION-LEVEL STANDARD: A distinction-level Chapter Four must demonstrate transparent and credible analytic procedure, interpretive depth beyond surface reporting, serious engagement with participant voice, explicit treatment of contradiction and deviant cases, and higher-order analysis that moves beyond basic theme naming. It must show that the researcher understands how to convert qualitative material into persuasive analytical findings. It must exhibit interpretive intelligence — preserve participant richness without losing analytical control, identify patterns without oversimplifying them, show methodological transparency without becoming procedural, reveal something non-obvious about the phenomenon under study.`,
 
     "chapter4-mixed": `CHAPTER FOUR — MIXED METHODS DATA ANALYSIS AND FINDINGS
 
-STRUCTURE (7,000 words total):
-- Introduction (~200 words): State the research questions and explain why a mixed methods approach was chosen. Clarify the integration point (whether at analysis, interpretation, or joint display stage).
-- QUANTITATIVE STRAND (~3,000 words): Follow the Quantitative Chapter Four structure exactly: data screening, descriptive statistics with a formatted table, inferential statistics per research question (one sub-section each), interpretation. Every statistic computed via code execution tool.
-- QUALITATIVE STRAND (~2,400 words): Follow the Qualitative Chapter Four structure exactly: analytical approach, 2–4 themes with direct participant quotes (verbatim from transcript, never paraphrased), cross-cutting discussion, connection to RQs.
-- INTEGRATION SECTION (~1,100 words): Bring both strands together at the interpretation stage. Show how quantitative findings and qualitative themes converge, diverge, or complement each other. Discuss what the combined evidence reveals that neither strand alone could show. Address unexpected discrepancies.
-- Summary (~300 words): Synthesize both strands in relation to the original research questions.
+WORD COUNT: The user sets the total chapter word count. Ask the user for it if not already stated. Split approximately 45% to the quantitative strand, 40% to the qualitative strand, and 15% to the integration section and summary. Distribute each strand's allocation using the respective quant and qual section proportions above. Do not impose any fixed word count.
 
-CORE PRINCIPLES:
-- The strength of mixed methods is the integration. Neither strand should stand alone — explicitly connect quantitative patterns to qualitative meaning.
-- Write section by section. After each section, STOP and await go-ahead.
-- Quantitative statistics: all computed from the real dataset via code execution tool; exact p-values and effect sizes reported.
-- Qualitative quotes: verbatim from transcript only; use pseudonyms or codes consistently.
-- No section may exceed its word count by more than 1%.`,
+PACING: Write section by section. After each section stop immediately and wait for explicit instruction.
 
-    "basic-academia": `LEVEL 7 ACADEMIC WRITING — RIGOROUS SCHOLARLY RESPONSE
+CORE PRINCIPLE: The strength of mixed methods is the integration. Neither strand stands alone — the integration section must explicitly bring both strands together at the interpretation stage and show what the combined evidence reveals that neither strand alone could show.
 
-STYLE AND VOICE:
-- Formal UK English throughout. Third-person voice only — no first or second person, no contractions (do not, cannot, etc.).
-- Sophisticated critical evaluation, theoretical integration, and precise disciplinary terminology. Synthesize complex ideas rather than describe events.
-- Argument must be coherent, analytically robust, and grounded in high-quality contemporary research. Include empirical data and relevant statistics to support discussion.
+CHAPTER STRUCTURE:
+1. Introduction: State the research questions and explain why a mixed methods approach was chosen. Clarify the integration point (analysis, interpretation, or joint display stage).
+2. Quantitative Strand: Follow the Chapter Four Quantitative specification above exactly, scaled to the allocated word count proportion.
+3. Qualitative Strand: Follow the Chapter Four Qualitative specification above exactly, scaled to the allocated word count proportion.
+4. Integration Section: Bring both strands together at the interpretation stage. Show how quantitative findings and qualitative themes converge, diverge, or complement each other. Address unexpected discrepancies. Build a model of what the combined evidence reveals.
+5. Chapter Summary: Synthesise both strands in relation to the original research questions.
 
-CONTENT REQUIREMENTS:
-- Every sentence must be supported analytically by a cited academic source. Minimum citation density: at least one citation per sentence in most paragraphs. Citations must be genuine, verifiable, and searchable via Google — no fictional or fabricated references.
-- Each source cited must be distinct — no repetition of the same source across multiple paragraphs unless essential for direct comparison.
-- Key concepts must be clearly and precisely defined. Differences and similarities between theoretical perspectives must be examined to provide deeper insight.
-- Frameworks and theories must be critically appraised regarding their strengths, limitations, assumptions, practical applicability, and relevance to professional practice.
-- Evidence must be interrogated rather than accepted uncritically. Explicit connections must be drawn between theory, research, and practice to demonstrate mature scholarly engagement.
-
-STRUCTURE:
-- Introduction: ~10% of total word count. Establish the topic, signal the argument structure, and justify why the topic matters.
-- Body: Organized around analytical themes or critical questions, not just description. Each paragraph should contain one main idea supported by evidence.
-- Conclusion: ~10% of total word count (combined with introduction). Synthesize key arguments; do not introduce new content.
-
-CITATIONS:
-- Use Harvard referencing style unless specified otherwise. In-text citations must be varied: (Author, Year), "Author (Year) argued that…", "According to Author (Year)…", etc.
-- All sources must be contemporary and authoritative. Balance different perspectives.`,
+All quant and qual rules above apply to their respective strands in full.`,
 
     "writer": `WRITER — WORLD-CLASS WRITING PROCESS
 
@@ -536,9 +585,7 @@ CORE PRINCIPLES:
     data.instructionsPreset === "chapter4-quant" ||
     data.instructionsPreset === "chapter4-qual" ||
     data.instructionsPreset === "chapter4-mixed" ||
-    data.instructionsPreset === "basic-academia" ||
     data.instructionsPreset === "dissertations" ||
-    (data.instructionsPreset === "other-writing" && promptAlreadyCreated) ||
     (data.instructionsPreset === "writer" && promptAlreadyCreated);
 
   const { CODE_EXECUTION_MODEL, FAST_MODEL, textModelForTier, getModelTier } =
@@ -621,37 +668,7 @@ Write your response directly as plain text/markdown prose. Do not wrap it in JSO
     return { model, prompt, ...splitForCache(prompt), useCodeExecution, useWebSearch };
   }
 
-  if (data.instructionsPreset === "other-writing") {
-    if (promptAlreadyCreated) {
-      prompt = `You previously created an executable prompt table earlier in this conversation (a structured table defining section breakdown, learning outcomes, word counts, required inputs, formatting standards, non-negotiable constraints, and A+ marking criteria). That table is now the fixed specification for this work — it has already been created and confirmed. Never recreate, restate, regenerate, summarise, preview, or modify that table again for the rest of this conversation, no matter what the user asks next, unless they explicitly ask you to revise the prompt/specification itself.
-
-ABSOLUTE OUTPUT RULE FOR THIS TURN: This response must contain ONLY the requested academic content — the actual section/chapter prose (with its own heading, tables of data/results if the section itself requires one as content, and figures), and nothing else. Specifically forbidden anywhere in this response: any markdown table that restates section breakdowns, word counts, learning outcomes, formatting standards, constraints, or marking criteria; any restatement or paraphrase of the specification; any preamble such as "Here is...", "Based on the prompt...", "I will now write...", or a summary of what you are about to do; any meta-commentary about the table, the task, or your process. Your very first character must be the start of the section's actual heading or opening sentence — go straight into the academic writing itself, exactly as if you were a writer who already has the brief memorised and is simply continuing the document.
-
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${instructionsBlock}${promptBuilderDatasetBlock}${sourcesBlock}${writingCodeExecutionBlock}
-
-CONVERSATION SO FAR
-${history}
-
-Respond to the latest USER message by EXECUTING the previously created prompt table: write the actual academic work it specifies — the section, chapter, or full piece the user is now asking for — following every constraint in that table exactly (word counts, formatting, citation style, structure, headings, A+ marking criteria, "write section by section and pause until I say next", etc). Write the real content itself, in full, to the required depth and standard, beginning immediately with the section's heading and prose per the ABSOLUTE OUTPUT RULE above.
-
-Write your response directly as plain text/markdown prose. Do not wrap it in JSON.${figureMarkerBlock}${referencesBlock}${sourcesMarkerBlock}${wordCountDisciplineBlock}${noEmojiBlock}`;
-    } else {
-      prompt = `You are a specialist academic and professional writing assistant. The user has selected the Advanced Writing mode for work that falls outside the standard chapter/dissertation presets — business reports, executive briefs, proposals, white papers, articles, consultancy deliverables, or academic writing with a bespoke structure from an uploaded brief or rubric.
-
-Your job right now is to have a brief intake conversation to gather what you need, then produce a compact writing specification (200–350 words) that captures only the specifics of this particular piece: document type, section breakdown with word counts, citation style, audience, and hard constraints from the brief. Do NOT produce generic writing advice — only the specifics for this piece. Once the specification is agreed, STOP and invite the user to give the go-ahead before writing begins.
-
-Ask ONE focused question per turn. Whenever the sensible answers are a small set, end that turn with a line containing ONLY:
-@@OPTIONS@@{"options":["First option","Second option","Third option"]}
-so the user can tap an answer.
-
-UPLOADED DOCUMENT CONTEXT${backgroundBlock || "\nNone provided."}${folderBlock}${multiWorkBlock}${instructionsBlock}${promptBuilderDatasetBlock}${writingCodeExecutionBlock}
-
-CONVERSATION SO FAR
-${history}
-
-Respond to the latest USER message. Write your response directly as plain text/markdown prose. Do not wrap it in JSON. Do not add any preamble about what you're about to do — just write the response itself.${noEmojiBlock}`;
-    }
-  } else if (data.instructionsPreset === "writer") {
+  if (data.instructionsPreset === "writer") {
     if (promptAlreadyCreated) {
       // Prompt table exists — execute it as pure writing, no meta-commentary.
       prompt = `You are a world-class writer executing a Superior Prompt that was built and agreed in this conversation. That prompt table is the fixed specification for this work — it has been reviewed and confirmed. Never recreate, restate, or summarise it again. Do not add any preamble about what you are about to do.
