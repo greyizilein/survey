@@ -144,8 +144,6 @@ type InstructionsPreset =
   | "chapter4-quant"
   | "chapter4-qual"
   | "chapter4-mixed"
-  | "other-writing"
-  | "basic-academia"
   | "dissertations"
   | "writer";
 
@@ -237,8 +235,6 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-quant": "Ch.4 Quant",
   "chapter4-qual": "Ch.4 Qual",
   "chapter4-mixed": "Ch.4 Mixed",
-  "other-writing": "Advanced Writing",
-  "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
   writer: "Writer",
 };
@@ -247,8 +243,6 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "chapter4-quant": "Data Analysis (Quantitative)",
   "chapter4-qual": "Data Analysis (Qualitative)",
   "chapter4-mixed": "Data Analysis (Mixed-Methods)",
-  "other-writing": "Advanced Writing",
-  "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
   writer: "Writer",
 };
@@ -482,7 +476,7 @@ function AnalyzePage() {
   const [instructionsPreset, setInstructionsPreset] = useState<InstructionsPreset>(
     initial.instructionsPreset && initial.instructionsPreset in PRESET_LABELS
       ? initial.instructionsPreset
-      : "basic-academia",
+      : "chapter4-quant",
   );
   const [instructions, setInstructions] = useState(initial.instructions ?? "");
   const [modelTier] = useModelTier();
@@ -723,7 +717,7 @@ function AnalyzePage() {
     setFileTranscripts([]);
     setDocFiles([]);
     setDocSummary("");
-    setInstructionsPreset("basic-academia");
+    setInstructionsPreset("chapter4-quant");
     setInstructions("");
     setPromptMode(false);
     setPromptExecuted(false);
@@ -744,7 +738,7 @@ function AnalyzePage() {
       setInstructionsPreset(
         state.instructionsPreset && state.instructionsPreset in PRESET_LABELS
           ? state.instructionsPreset
-          : "basic-academia",
+          : "chapter4-quant",
       );
       setInstructions(state.instructions ?? "");
       setDocSummary(state.docSummary ?? "");
@@ -1875,8 +1869,6 @@ function AnalyzePage() {
                             "chapter4-quant",
                             "chapter4-qual",
                             "chapter4-mixed",
-                            "other-writing",
-                            "basic-academia",
                             "dissertations",
                             "writer",
                           ] as InstructionsPreset[]
