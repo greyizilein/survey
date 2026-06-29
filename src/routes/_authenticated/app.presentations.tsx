@@ -804,6 +804,7 @@ function PresentationsPage() {
   async function handleSelectConversation(id: string) {
     pendingIdRef.current = null;
     expectedConversationIdRef.current = undefined as unknown as null;
+    const previousConversationId = conversationId;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
@@ -817,7 +818,8 @@ function PresentationsPage() {
       setFolderId(conversation.folder_id ?? null);
       setHistoryReady(true);
     } catch {
-      expectedConversationIdRef.current = null;
+      expectedConversationIdRef.current = previousConversationId;
+      if (!previousConversationId) setMessages([]);
       setHistoryReady(true);
       toast.error("Couldn't load that chat");
     }
@@ -844,7 +846,7 @@ function PresentationsPage() {
       return;
     }
     if (search.folder) {
-      setHistoryReady(true);
+      handleNewChat();
       return;
     }
     listConversationsFn({ data: { tool: "presentations" } })
