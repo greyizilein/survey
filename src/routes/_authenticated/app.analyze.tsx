@@ -627,14 +627,21 @@ function AnalyzePage() {
   ]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
-  // Cleared by handleNewChat; stays true until the first real message arrives so the
-  // autosave effect never fires an insert during a mid-reset render cycle.
-  const isClearingRef = useRef(false);
+  // Set to the snapshot of conversationId at the moment handleNewChat or handleSelectConversation
+  // is called. The autosave effect compares against this to detect stale renders where React
+  // has not yet flushed the new conversationId into the closure.
+  const expectedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (messages.length === 0) return;
-    // A new-chat reset is still propagating — don't save yet.
-    if (isClearingRef.current) return;
+    if (messages.length === 0) {
+      // A new-chat reset has fully propagated — allow saves again.
+      expectedConversationIdRef.current = null;
+      pendingIdRef.current = null;
+      return;
+    }
+    // If the expected id doesn't match what's in state yet, React hasn't finished
+    // flushing all state updates from handleNewChat/handleSelectConversation — skip.
+    if (expectedConversationIdRef.current !== conversationId) return;
     const handle = setTimeout(() => {
       const state = {
         messages,
@@ -670,6 +677,7 @@ function AnalyzePage() {
           }).then(({ id }: { id: string }) => id);
           pendingIdRef.current = p;
           const id = await p;
+          expectedConversationIdRef.current = id;
           setConversationId(id);
         } catch (err) {
           pendingIdRef.current = null;
@@ -698,9 +706,11 @@ function AnalyzePage() {
   ]);
 
   function handleNewChat() {
-    isClearingRef.current = true;
-    setConversationId(null);
     pendingIdRef.current = null;
+    // Setting expected to undefined means the effect will only unblock once
+    // conversationId and messages both settle to null/[] (detected in the effect above).
+    expectedConversationIdRef.current = undefined as unknown as null;
+    setConversationId(null);
     setMessages([]);
     setInput("");
     setSourceTab("project");
@@ -715,18 +725,17 @@ function AnalyzePage() {
     setPromptMode(false);
     setPromptExecuted(false);
     setPresetTouched(false);
-    // Allow the autosave effect to fire again once the user sends their first message.
-    setTimeout(() => { isClearingRef.current = false; }, 0);
   }
 
   async function handleSelectConversation(id: string): Promise<Msg[] | null> {
-    // Cancel any pending insert from the previous chat before loading a new one.
-    isClearingRef.current = false;
     pendingIdRef.current = null;
+    // Block saves until we've set conversationId from the loaded conversation.
+    expectedConversationIdRef.current = undefined as unknown as null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
       const loadedMessages = state.messages ?? [];
+      expectedConversationIdRef.current = conversation.id;
       setConversationId(conversation.id);
       setMessages(loadedMessages);
       setInstructionsPreset(

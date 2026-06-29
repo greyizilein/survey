@@ -740,11 +740,15 @@ function PresentationsPage() {
   }, [messages, instructions, docSummary, deck]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
-  const isClearingRef = useRef(false);
+  const expectedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (messages.length === 0) return;
-    if (isClearingRef.current) return;
+    if (messages.length === 0) {
+      expectedConversationIdRef.current = null;
+      pendingIdRef.current = null;
+      return;
+    }
+    if (expectedConversationIdRef.current !== conversationId) return;
     const handle = setTimeout(() => {
       const state = { messages, instructions, docSummary, deck };
       const runSave = async () => {
@@ -767,6 +771,7 @@ function PresentationsPage() {
           }).then(({ id }: { id: string }) => id);
           pendingIdRef.current = p;
           const id = await p;
+          expectedConversationIdRef.current = id;
           setConversationId(id);
         } catch (err) {
           pendingIdRef.current = null;
@@ -782,24 +787,24 @@ function PresentationsPage() {
   }, [messages, instructions, docSummary, deck, conversationId, folderId, saveConversationFn]);
 
   function handleNewChat() {
-    isClearingRef.current = true;
-    setConversationId(null);
     pendingIdRef.current = null;
+    expectedConversationIdRef.current = undefined as unknown as null;
+    setConversationId(null);
     setMessages([]);
     setDeck(null);
     setInput("");
     setDocFiles([]);
     setDocSummary("");
     setInstructions("");
-    setTimeout(() => { isClearingRef.current = false; }, 0);
   }
 
   async function handleSelectConversation(id: string) {
-    isClearingRef.current = false;
     pendingIdRef.current = null;
+    expectedConversationIdRef.current = undefined as unknown as null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
+      expectedConversationIdRef.current = conversation.id;
       setConversationId(conversation.id);
       setMessages(state.messages ?? []);
       setInstructions(state.instructions ?? "");
