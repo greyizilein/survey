@@ -128,26 +128,14 @@ async function getOrCreateWritingSkillId(
   const body = await spec.template();
   const markdown = buildSkillMarkdown(spec.id, spec.description, body);
   const hash = skillContentHash(markdown);
+  // Embed hash in display_title so we can detect template changes (SDK no longer exposes update()).
+  const titleWithHash = `${spec.title} [${hash}]`;
 
-  const existing = await findCustomSkillByTitle(client, spec.title);
-  if (existing) {
-    // The description field is repurposed to store the content hash so we can detect staleness
-    // without fetching the full skill file — cheap to check, avoids an extra download on every boot.
-    const storedHash = existing.description ?? "";
-    if (storedHash === hash) return existing.id;
-
-    // Content has changed — update the skill so the agent picks up the new template body.
-    await client.beta.skills.update(existing.id, {
-      display_title: spec.title,
-      description: hash,
-      files: [await toFile(Buffer.from(markdown, "utf-8"), `${spec.id}/SKILL.md`, { type: "text/markdown" })],
-    });
-    return existing.id;
-  }
+  const existing = await findCustomSkillByTitle(client, titleWithHash);
+  if (existing) return existing.id;
 
   const skill = await client.beta.skills.create({
-    display_title: spec.title,
-    description: hash,
+    display_title: titleWithHash,
     files: [await toFile(Buffer.from(markdown, "utf-8"), `${spec.id}/SKILL.md`, { type: "text/markdown" })],
   });
   return skill.id;
