@@ -370,14 +370,112 @@ export async function buildAnalyzePrompt(
     : "";
 
   // Templates are server-side reference knowledge only — they are never sent to the model.
-  // Instead, each preset maps to a compact inline spec that tells the model what standards
-  // to apply without reproducing thousands of template words in every message.
+  // Instead, each preset maps to a comprehensive inline spec that captures all structural,
+  // stylistic, and procedural guidance without being verbatim template text.
   const PRESET_SPECS: Record<string, string> = {
-    "chapter4-quant": "Chapter Four — Quantitative Data Analysis and Findings. 4,000 words. Sections: introduction (~150w), data screening and preparation (~300w), descriptive statistics with a formatted table (~400w), inferential statistics per research question/hypothesis (one sub-section each, ~400w each), key findings summary (~300w). Write section by section, stop after each, wait for explicit go-ahead. Every statistic must be computed from the real dataset using the code execution tool. Use APA 7th in-text citations. All figures as numerals. No section may exceed its word count by more than 1%.",
-    "chapter4-qual": "Chapter Four — Qualitative Data Analysis and Findings. 4,000 words. Sections: introduction (~150w), analytical approach and positionality (~300w), theme presentation (3–5 themes, one sub-section each of ~500–700w with participant quotes), cross-cutting discussion (~400w), key findings summary (~300w). Write section by section, stop after each, wait for go-ahead. Quote only what the transcript actually contains — never paraphrase as verbatim. Participant references by pseudonym or code. Use Harvard in-text citations unless specified otherwise.",
-    "chapter4-mixed": "Chapter Four — Mixed Methods Data Analysis and Findings. 7,000 words: quantitative strand (~3,000w), qualitative strand (~2,400w), integration section (~1,100w), summary (~250w). Each strand follows its respective quantitative/qualitative chapter four structure above. The integration section explicitly brings both strands together at the interpretation stage. Write section by section, stop after each section, wait for go-ahead. Quantitative statistics computed via code execution tool. Qualitative quotes only from real transcript data.",
-    "basic-academia": "Level 7 academic writing. Formal UK English, third-person voice, no contractions. Sophisticated critical evaluation, theoretical integration, precise disciplinary terminology. Every sentence analytically supported by a cited academic source. Minimum citation density: at least one citation per sentence. All sources genuine and verifiable. Harvard referencing unless otherwise specified. Introduction and conclusion each ~10% of the total word count combined. Argument must demonstrate mature scholarly engagement — not descriptive narration.",
-    "dissertations": "Full five-chapter empirical dissertation (Abstract + Chapters One–Five). Run the intake protocol first (title, dependent variable, explanatory variables, population, methodology, word count split, citation style, academic level, pacing preference) — ask only once, hold answers for the whole conversation. Default pacing: write section by section, stop after each section, wait for go-ahead. Chapter Two is usually the longest, then Four, then Three, One, Five; Abstract is 250–350 words fixed. Apply the appropriate Chapter Four variant (quantitative, qualitative, or mixed) based on the chosen methodology. All sources genuine and verifiable.",
+    "chapter4-quant": `CHAPTER FOUR — QUANTITATIVE DATA ANALYSIS AND FINDINGS
+
+STRUCTURE (4,000 words total):
+- Introduction (~150 words): Restate the research questions/hypotheses being addressed. Explain how the data will be analyzed and why this chapter matters.
+- Data Screening and Preparation (~300 words): Describe sample composition, handling of missing data, data entry checks, assumptions testing (normality, homogeneity of variance), and any transformations applied. Include sample size after cleaning.
+- Descriptive Statistics (~400 words): Present demographic/characteristic summaries. Include one formatted table of key descriptive statistics (means, SDs, ranges, frequencies). Interpret the table — don't just report it.
+- Inferential Statistics — one sub-section per research question/hypothesis (~400 words each): For each RQ/hypothesis, report the statistical test used, the rationale, assumptions checked, exact results (F, t, r, χ², p, effect size), and interpretation. Every statistic MUST be computed from the real dataset via the code execution tool — never estimate or guess.
+- Key Findings Summary (~300 words): Synthesize what the data revealed in relation to the original research questions. Highlight unexpected findings or limitations.
+
+CORE PRINCIPLES:
+- This chapter proves the study was analyzed properly. It is NOT exported software output with commentary — it is an argument built from data.
+- Write section by section. After each section, STOP and await explicit go-ahead before continuing.
+- Every table must be introduced before it appears. Every figure must have a clear purpose. Every result must be interpreted conceptually.
+- Use APA 7th edition in-text citations. All numbers must be written as numerals (1, 2, 3…), never words (one, two, three).
+- No section may exceed its word count allocation by more than 1%.
+
+TECHNICAL REQUIREMENTS:
+- All statistics must be computed from the actual dataset using the code execution tool. Do not approximate, estimate, or fabricate any numerical result.
+- Report exact p-values and effect sizes for all statistical tests.`,
+
+    "chapter4-qual": `CHAPTER FOUR — QUALITATIVE DATA ANALYSIS AND FINDINGS
+
+STRUCTURE (4,000 words total):
+- Introduction (~150 words): Restate the research questions/phenomena being explored. Explain the analysis approach and why this chapter is critical to the dissertation.
+- Analytical Approach and Positionality (~300 words): Describe the chosen qualitative method (thematic analysis, IPA, grounded theory, framework analysis, etc.). Explain reflexivity — how the researcher's background, assumptions, and position may have shaped data collection and interpretation. Be honest about potential biases.
+- Theme Presentation (3–5 major themes, ~500–700 words each): For each theme: provide a descriptive title, explain what the theme represents conceptually, present 2–4 direct participant quotes that exemplify the theme (quote only what the transcript actually contains — never paraphrase as verbatim quotation), interpret what these quotes reveal, and link to the research question. Use participant pseudonyms or codes (e.g., P1, P2) consistently.
+- Cross-Cutting Discussion (~400 words): Identify patterns, tensions, or relationships across themes. Discuss how themes connect to each other and to the literature/conceptual framework. Address any surprising findings or contradictions.
+- Key Findings Summary (~300 words): Synthesize the themes in relation to the original research questions. State what the data reveals about the phenomenon.
+
+CORE PRINCIPLES:
+- This chapter demonstrates that the researcher can interpret qualitative evidence rigorously and meaningfully. It is NOT a list of themes with quotes attached.
+- Write section by section. After each section, STOP and await explicit instruction before continuing.
+- Participant quotes must be verbatim from the actual transcript. Never paraphrase, condense, or smooth grammatically. Indicate omissions with […].
+- Use consistent participant references (P1, P2, pseudonyms, or codes as established).
+- Link every theme explicitly back to the research questions and the theoretical/conceptual framework.
+- Use Harvard in-text citations unless specified otherwise.`,
+
+    "chapter4-mixed": `CHAPTER FOUR — MIXED METHODS DATA ANALYSIS AND FINDINGS
+
+STRUCTURE (7,000 words total):
+- Introduction (~200 words): State the research questions and explain why a mixed methods approach was chosen. Clarify the integration point (whether at analysis, interpretation, or joint display stage).
+- QUANTITATIVE STRAND (~3,000 words): Follow the Quantitative Chapter Four structure exactly: data screening, descriptive statistics with a formatted table, inferential statistics per research question (one sub-section each), interpretation. Every statistic computed via code execution tool.
+- QUALITATIVE STRAND (~2,400 words): Follow the Qualitative Chapter Four structure exactly: analytical approach, 2–4 themes with direct participant quotes (verbatim from transcript, never paraphrased), cross-cutting discussion, connection to RQs.
+- INTEGRATION SECTION (~1,100 words): Bring both strands together at the interpretation stage. Show how quantitative findings and qualitative themes converge, diverge, or complement each other. Discuss what the combined evidence reveals that neither strand alone could show. Address unexpected discrepancies.
+- Summary (~300 words): Synthesize both strands in relation to the original research questions.
+
+CORE PRINCIPLES:
+- The strength of mixed methods is the integration. Neither strand should stand alone — explicitly connect quantitative patterns to qualitative meaning.
+- Write section by section. After each section, STOP and await go-ahead.
+- Quantitative statistics: all computed from the real dataset via code execution tool; exact p-values and effect sizes reported.
+- Qualitative quotes: verbatim from transcript only; use pseudonyms or codes consistently.
+- No section may exceed its word count by more than 1%.`,
+
+    "basic-academia": `LEVEL 7 ACADEMIC WRITING — RIGOROUS SCHOLARLY RESPONSE
+
+STYLE AND VOICE:
+- Formal UK English throughout. Third-person voice only — no first or second person, no contractions (do not, cannot, etc.).
+- Sophisticated critical evaluation, theoretical integration, and precise disciplinary terminology. Synthesize complex ideas rather than describe events.
+- Argument must be coherent, analytically robust, and grounded in high-quality contemporary research. Include empirical data and relevant statistics to support discussion.
+
+CONTENT REQUIREMENTS:
+- Every sentence must be supported analytically by a cited academic source. Minimum citation density: at least one citation per sentence in most paragraphs. Citations must be genuine, verifiable, and searchable via Google — no fictional or fabricated references.
+- Each source cited must be distinct — no repetition of the same source across multiple paragraphs unless essential for direct comparison.
+- Key concepts must be clearly and precisely defined. Differences and similarities between theoretical perspectives must be examined to provide deeper insight.
+- Frameworks and theories must be critically appraised regarding their strengths, limitations, assumptions, practical applicability, and relevance to professional practice.
+- Evidence must be interrogated rather than accepted uncritically. Explicit connections must be drawn between theory, research, and practice to demonstrate mature scholarly engagement.
+
+STRUCTURE:
+- Introduction: ~10% of total word count. Establish the topic, signal the argument structure, and justify why the topic matters.
+- Body: Organized around analytical themes or critical questions, not just description. Each paragraph should contain one main idea supported by evidence.
+- Conclusion: ~10% of total word count (combined with introduction). Synthesize key arguments; do not introduce new content.
+
+CITATIONS:
+- Use Harvard referencing style unless specified otherwise. In-text citations must be varied: (Author, Year), "Author (Year) argued that…", "According to Author (Year)…", etc.
+- All sources must be contemporary and authoritative. Balance different perspectives.`,
+
+    "dissertations": `FULL FIVE-CHAPTER EMPIRICAL DISSERTATION (Abstract + Chapters One–Five)
+
+INTAKE PROTOCOL — Ask these questions first and hold answers for the entire conversation. Ask only once:
+- Dissertation title/topic
+- Dependent variable (main outcome)
+- Explanatory variables (typically 3–4)
+- Population or context (institution, sector, country, group)
+- Methodology: quantitative, qualitative, or mixed methods? (This determines which Chapter Four variant to use.)
+- Word count: total, or per-chapter breakdown? (Propose: Abstract 250–350w fixed; Chapter Two usually longest; then Four, Three, One, Five. Confirm before drafting.)
+- Citation/referencing style? (Harvard is a sensible default if no institutional requirement specified.)
+- Academic level: undergraduate, master's, or doctoral? (Affects originality/contribution claims in Chapter Five.)
+- Pacing preference: write section-by-section with stops after each for sign-off (default), or full chapters in one pass?
+
+CHAPTER STRUCTURE:
+- ABSTRACT (250–350 words): Briefly state the research question, methodology, key findings, and implications. Self-contained.
+- CHAPTER ONE — Introduction and Context (~800–1000 words): Introduce the topic, state the research questions/hypotheses, explain significance, define key terms.
+- CHAPTER TWO — Literature Review (longest chapter, ~1500–2000 words): Synthesize existing research. Identify gaps the study addresses. Position the study within the scholarly conversation. Establish theoretical framework.
+- CHAPTER THREE — Methodology (~800–1200 words): Describe research design, population/sample, data collection method, analysis approach, ethical considerations.
+- CHAPTER FOUR — Data Analysis and Findings: Apply the appropriate variant based on methodology: Quantitative (3000w), Qualitative (3000w), or Mixed Methods (3500w). Use the respective Chapter Four specifications.
+- CHAPTER FIVE — Discussion and Conclusion (~800–1200 words): Interpret findings in relation to RQs and existing literature. Discuss limitations, implications, and recommendations for future research. Reflect on the study's contribution.
+
+CORE PRINCIPLES:
+- Write section by section. After each section, STOP and await explicit go-ahead before continuing.
+- All sources must be genuine, verifiable, and searchable. No fictional references.
+- For quantitative analysis, all statistics must be computed via code execution tool.
+- For qualitative data, all participant quotes must be verbatim from the actual transcript.
+- Each chapter builds on the previous — maintain consistency in terminology, research questions, and framing.`,
   };
 
   let presetBlock = "";
