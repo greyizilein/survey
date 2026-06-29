@@ -140,6 +140,7 @@ function AgentPage() {
   const search = Route.useSearch();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(search.folder ?? null);
   const [folderName, setFolderName] = useState<string | null>(null);
   const [folderContext, setFolderContext] = useState<string>("");
@@ -284,6 +285,7 @@ function AgentPage() {
   const expectedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!historyReady) return;
     if (messages.length === 0) {
       expectedConversationIdRef.current = null;
       pendingIdRef.current = null;
@@ -338,7 +340,7 @@ function AgentPage() {
       runSave();
     }, 1000);
     return () => clearTimeout(handle);
-  }, [messages, sessionId, conversationId, folderId, saveConversationFn]);
+  }, [messages, sessionId, conversationId, historyReady, folderId, saveConversationFn]);
 
   function handleNewChat() {
     pendingIdRef.current = null;
@@ -348,12 +350,14 @@ function AgentPage() {
     setSessionId(null);
     setMessages([]);
     setInput("");
+    setHistoryReady(true);
     // Keep the active folder so consecutive new chats stay in it.
   }
 
   async function handleSelectConversation(id: string) {
     pendingIdRef.current = null;
     expectedConversationIdRef.current = undefined as unknown as null;
+    const previousConversationId = conversationId;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as { messages?: Msg[] };
@@ -362,7 +366,11 @@ function AgentPage() {
       setSessionId(conversation.agent_session_id ?? null);
       setMessages(state.messages ?? []);
       setFolderId(conversation.folder_id ?? null);
+      setHistoryReady(true);
     } catch {
+      expectedConversationIdRef.current = previousConversationId;
+      if (!previousConversationId) setMessages([]);
+      setHistoryReady(true);
       toast.error("Couldn't load that chat");
     }
   }
@@ -373,12 +381,19 @@ function AgentPage() {
       handleSelectConversation(search.chat);
       return;
     }
-    if (search.folder) return; // new chat in folder — don't auto-open the latest
+    if (search.folder) {
+      handleNewChat();
+      return;
+    } // new chat in folder — don't auto-open the latest
     listConversationsFn({ data: { tool: "agent" } })
       .then(({ conversations }: { conversations: { id: string }[] }) => {
         if (conversations.length > 0) handleSelectConversation(conversations[0].id);
+        else setHistoryReady(true);
       })
-      .catch((err) => console.error("[chat-history] list failed:", err));
+      .catch((err) => {
+        console.error("[chat-history] list failed:", err);
+        setHistoryReady(true);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

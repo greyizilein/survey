@@ -1,35 +1,34 @@
-# Fix chat history bugs
+Yes — I can see the problem.
 
-Two bugs, same root cause area: the autosave effect in `app.analyze.tsx`, `app.presentations.tsx`, and `app.agent.tsx`.
+The reload duplication is coming from the autosave flow, especially on Analyze and Presentations:
 
-## Bug 1 — Same chat appears multiple times in history
+- The page starts with old messages restored from `localStorage`.
+- At that moment `conversationId` is still `null` because the real saved chat has not finished loading from the backend yet.
+- The autosave effect sees: “messages exist, but no conversation id”, so it creates a new chat row.
+- A moment later the app loads the actual saved chat, but the duplicate row has already been created.
 
-The autosave effect runs whenever `messages` (or related state) change. On the very first save, `conversationId` is still `null`, so the server inserts a new row. If state changes again before `setConversationId(id)` from the first insert resolves (very common — streaming a reply updates `messages` many times per second), the next run of the effect still sees `conversationId === null` and inserts **another** row. Result: one logical chat ends up as 2–4 rows in history.
+## Plan
 
-**Fix:** Add a `creatingRef` lock + `pendingIdPromiseRef`. While the first insert is in flight, subsequent autosaves `await` the same promise instead of starting a parallel insert, then run as updates against the resolved id.
+1. **Add a history hydration gate**
+   - Introduce a `historyReady` / `hasLoadedInitialConversation` guard in `app.analyze.tsx`, `app.presentations.tsx`, and `app.agent.tsx`.
+   - Autosave will not run until the route has finished deciding whether it is loading:
+     - a specific `?chat=` conversation,
+     - the latest saved conversation,
+     - a folder-scoped new chat,
+     - or a genuinely fresh chat.
 
-## Bug 2 — Renamed chats revert to the auto-generated title
+2. **Stop local draft state from creating backend duplicates on page load**
+   - Keep local draft persistence only as a fallback for unsaved work.
+   - Do not allow restored `localStorage` messages to immediately create a database chat before the backend history check completes.
 
-`renameChatConversation` writes the new title to the DB, but the autosave effect always sends `title: firstUserMsg.slice(0, 80)` on every update. The next state change (e.g. opening the chat, scrolling triggering a state update, sending another message) overwrites the user's rename with the derived title.
+3. **Clear stale local draft state after loading a real saved chat**
+   - When `handleSelectConversation` loads a backend conversation, sync/replace the local state with that conversation instead of letting stale local data compete with it.
 
-**Fix:** Only send `title` on the initial **insert**. On updates, omit `title` so the server-side patch leaves the existing title alone. `saveChatConversation` already accepts `title` as optional — change the update branch in `chat-history.functions.ts` to skip the `title` field when it's `undefined` (same pattern already used for `folder_id`).
+4. **Keep the existing protections**
+   - Preserve the `pendingIdRef` insert lock that prevents duplicate rows during streaming.
+   - Preserve the title fix so user-renamed chats do not revert.
 
-## Changes
-
-1. **`src/lib/chat-history.functions.ts`** — In `saveChatConversation`'s update branch, only include `title` in the patch when `data.title` is provided (mirror the existing `folder_id` conditional).
-
-2. **`src/routes/_authenticated/app.analyze.tsx`** (and identical pattern in `app.presentations.tsx`, `app.agent.tsx`):
-   - Add `creatingRef = useRef(false)` and `pendingIdRef = useRef<Promise<string> | null>(null)`.
-   - In the autosave effect:
-     - If `conversationId` exists → call save **without** `title`.
-     - Else if `pendingIdRef.current` exists → `await` it, then save as update without `title`.
-     - Else → start the insert (with `title`), store the promise in `pendingIdRef`, set `conversationId` when it resolves, clear the ref.
-   - Keep the 1s debounce; remove `conversationId` from the deps that retrigger title-changing saves (the ref-based guard makes it unnecessary).
-
-3. No DB migration, no UI changes, no changes to `ChatHistoryMenu` or rename function.
-
-## Verification
-
-- Send a fresh message → exactly one row in `chat_conversations` (check via SQL).
-- Stream a long reply → still one row, not multiple.
-- Rename a chat → send another message in it → title stays renamed.
+5. **Verify the fix**
+   - Reload Analyze, Presentations, and Agent with an existing saved chat.
+   - Confirm reload updates the same `chat_conversations.id` instead of inserting a new row.
+   - Confirm starting a truly new chat still creates exactly one row only after the user sends content.

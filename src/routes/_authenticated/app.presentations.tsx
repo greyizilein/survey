@@ -701,6 +701,7 @@ function PresentationsPage() {
   const folderContextFn = useServerFn(getFolderContext);
   const search = Route.useSearch();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(search.folder ?? null);
   const [folderName, setFolderName] = useState<string | null>(null);
   const [folderContext, setFolderContext] = useState<string>("");
@@ -743,6 +744,7 @@ function PresentationsPage() {
   const expectedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!historyReady) return;
     if (messages.length === 0) {
       expectedConversationIdRef.current = null;
       pendingIdRef.current = null;
@@ -784,7 +786,7 @@ function PresentationsPage() {
       runSave();
     }, 1000);
     return () => clearTimeout(handle);
-  }, [messages, instructions, docSummary, deck, conversationId, folderId, saveConversationFn]);
+  }, [messages, instructions, docSummary, deck, conversationId, historyReady, folderId, saveConversationFn]);
 
   function handleNewChat() {
     pendingIdRef.current = null;
@@ -796,11 +798,13 @@ function PresentationsPage() {
     setDocFiles([]);
     setDocSummary("");
     setInstructions("");
+    setHistoryReady(true);
   }
 
   async function handleSelectConversation(id: string) {
     pendingIdRef.current = null;
     expectedConversationIdRef.current = undefined as unknown as null;
+    const previousConversationId = conversationId;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
@@ -812,7 +816,11 @@ function PresentationsPage() {
       setDeck(state.deck ?? null);
       setDocFiles([]);
       setFolderId(conversation.folder_id ?? null);
+      setHistoryReady(true);
     } catch {
+      expectedConversationIdRef.current = previousConversationId;
+      if (!previousConversationId) setMessages([]);
+      setHistoryReady(true);
       toast.error("Couldn't load that chat");
     }
   }
@@ -837,12 +845,19 @@ function PresentationsPage() {
       handleSelectConversation(search.chat);
       return;
     }
-    if (search.folder) return;
+    if (search.folder) {
+      handleNewChat();
+      return;
+    }
     listConversationsFn({ data: { tool: "presentations" } })
       .then(({ conversations }: { conversations: { id: string }[] }) => {
         if (conversations.length > 0) handleSelectConversation(conversations[0].id);
+        else setHistoryReady(true);
       })
-      .catch((err) => console.error("[chat-history] list failed:", err));
+      .catch((err) => {
+        console.error("[chat-history] list failed:", err);
+        setHistoryReady(true);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
