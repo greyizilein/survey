@@ -281,8 +281,11 @@ function AgentPage() {
   }, [messages, sending]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
+  const isClearingRef = useRef(false);
+
   useEffect(() => {
     if (messages.length === 0) return;
+    if (isClearingRef.current) return;
     const handle = setTimeout(() => {
       const state = { messages };
       const runSave = async () => {
@@ -333,6 +336,7 @@ function AgentPage() {
   }, [messages, sessionId, conversationId, folderId, saveConversationFn]);
 
   function handleNewChat() {
+    isClearingRef.current = true;
     setConversationId(null);
     pendingIdRef.current = null;
     preWarmRef.current = null;
@@ -340,11 +344,11 @@ function AgentPage() {
     setMessages([]);
     setInput("");
     // Keep the active folder so consecutive new chats stay in it.
+    setTimeout(() => { isClearingRef.current = false; }, 0);
   }
 
   async function handleSelectConversation(id: string) {
-    // Reset the pending insert ref so any in-flight insert from a previous chat
-    // doesn't race against the newly loaded conversationId and save to the wrong row.
+    isClearingRef.current = false;
     pendingIdRef.current = null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });

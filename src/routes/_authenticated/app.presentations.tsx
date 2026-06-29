@@ -740,8 +740,11 @@ function PresentationsPage() {
   }, [messages, instructions, docSummary, deck]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
+  const isClearingRef = useRef(false);
+
   useEffect(() => {
     if (messages.length === 0) return;
+    if (isClearingRef.current) return;
     const handle = setTimeout(() => {
       const state = { messages, instructions, docSummary, deck };
       const runSave = async () => {
@@ -779,6 +782,7 @@ function PresentationsPage() {
   }, [messages, instructions, docSummary, deck, conversationId, folderId, saveConversationFn]);
 
   function handleNewChat() {
+    isClearingRef.current = true;
     setConversationId(null);
     pendingIdRef.current = null;
     setMessages([]);
@@ -787,11 +791,11 @@ function PresentationsPage() {
     setDocFiles([]);
     setDocSummary("");
     setInstructions("");
+    setTimeout(() => { isClearingRef.current = false; }, 0);
   }
 
   async function handleSelectConversation(id: string) {
-    // Reset the pending insert ref so any in-flight insert from a previous chat
-    // doesn't race against the newly loaded conversationId and save to the wrong row.
+    isClearingRef.current = false;
     pendingIdRef.current = null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });

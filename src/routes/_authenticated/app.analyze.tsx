@@ -627,8 +627,14 @@ function AnalyzePage() {
   ]);
 
   const pendingIdRef = useRef<Promise<string> | null>(null);
+  // Cleared by handleNewChat; stays true until the first real message arrives so the
+  // autosave effect never fires an insert during a mid-reset render cycle.
+  const isClearingRef = useRef(false);
+
   useEffect(() => {
     if (messages.length === 0) return;
+    // A new-chat reset is still propagating — don't save yet.
+    if (isClearingRef.current) return;
     const handle = setTimeout(() => {
       const state = {
         messages,
@@ -656,6 +662,7 @@ function AnalyzePage() {
             await saveConversationFn({ data: { id, tool: "analyze", state } });
             return;
           }
+          // Guard against double-insert from concurrent effect firings.
           const firstUserMsg = messages.find((m) => m.role === "user")?.content ?? "New chat";
           const title = firstUserMsg.slice(0, 80);
           const p = saveConversationFn({
@@ -691,6 +698,7 @@ function AnalyzePage() {
   ]);
 
   function handleNewChat() {
+    isClearingRef.current = true;
     setConversationId(null);
     pendingIdRef.current = null;
     setMessages([]);
@@ -707,11 +715,13 @@ function AnalyzePage() {
     setPromptMode(false);
     setPromptExecuted(false);
     setPresetTouched(false);
+    // Allow the autosave effect to fire again once the user sends their first message.
+    setTimeout(() => { isClearingRef.current = false; }, 0);
   }
 
   async function handleSelectConversation(id: string): Promise<Msg[] | null> {
-    // Reset the pending insert ref so any in-flight insert from a previous chat
-    // doesn't race against the newly loaded conversationId and save to the wrong row.
+    // Cancel any pending insert from the previous chat before loading a new one.
+    isClearingRef.current = false;
     pendingIdRef.current = null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
