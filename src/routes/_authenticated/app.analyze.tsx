@@ -732,6 +732,7 @@ function AnalyzePage() {
     pendingIdRef.current = null;
     // Block saves until we've set conversationId from the loaded conversation.
     expectedConversationIdRef.current = undefined as unknown as null;
+    const previousConversationId = conversationId;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as Partial<PersistedState>;
@@ -759,7 +760,8 @@ function AnalyzePage() {
       setHistoryReady(true);
       return loadedMessages;
     } catch {
-      expectedConversationIdRef.current = null;
+      expectedConversationIdRef.current = previousConversationId;
+      if (!previousConversationId) setMessages([]);
       setHistoryReady(true);
       toast.error("Couldn't load that chat");
       return null;
@@ -791,7 +793,7 @@ function AnalyzePage() {
       return;
     }
     if (search.folder) {
-      setHistoryReady(true);
+      handleNewChat();
       return;
     }
 
