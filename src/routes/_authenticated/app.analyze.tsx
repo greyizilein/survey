@@ -448,6 +448,7 @@ function AnalyzePage() {
   const search = Route.useSearch();
   const projectsQ = useQuery({ queryKey: ["analyze-projects"], queryFn: () => projectsFn() });
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
   const [folderId, setFolderId] = useState<string | null>(search.folder ?? null);
   const [folderName, setFolderName] = useState<string | null>(null);
   const [folderContext, setFolderContext] = useState<string>("");
@@ -630,6 +631,7 @@ function AnalyzePage() {
   const expectedConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!historyReady) return;
     if (messages.length === 0) {
       // A new-chat reset has fully propagated — allow saves again.
       expectedConversationIdRef.current = null;
@@ -698,6 +700,7 @@ function AnalyzePage() {
     fileRows,
     fileTranscripts,
     conversationId,
+    historyReady,
     folderId,
     saveConversationFn,
   ]);
@@ -719,6 +722,7 @@ function AnalyzePage() {
     setDocSummary("");
     setInstructionsPreset("chapter4-quant");
     setInstructions("");
+    setHistoryReady(true);
     setPromptMode(false);
     setPromptExecuted(false);
     setPresetTouched(false);
@@ -752,8 +756,11 @@ function AnalyzePage() {
       setPromptMode(false);
       setPromptExecuted(false);
       setPresetTouched(true);
+      setHistoryReady(true);
       return loadedMessages;
     } catch {
+      expectedConversationIdRef.current = null;
+      setHistoryReady(true);
       toast.error("Couldn't load that chat");
       return null;
     }
@@ -783,7 +790,10 @@ function AnalyzePage() {
       handleSelectConversation(search.chat);
       return;
     }
-    if (search.folder) return;
+    if (search.folder) {
+      setHistoryReady(true);
+      return;
+    }
 
     listConversationsFn({ data: { tool: "analyze" } })
       .then(async ({ conversations }: { conversations: { id: string }[] }) => {
@@ -791,6 +801,8 @@ function AnalyzePage() {
         if (conversations.length > 0) {
           const loaded = await handleSelectConversation(conversations[0].id);
           if (loaded) resolvedMessages = loaded;
+        } else {
+          setHistoryReady(true);
         }
         if (wantsCorrections) {
           if (resolvedMessages.length > 0) {
@@ -802,6 +814,7 @@ function AnalyzePage() {
       })
       .catch((err) => {
         console.error("[chat-history] list failed:", err);
+        setHistoryReady(true);
         if (wantsCorrections) {
           if (messages.length > 0) setFeedbackModalOpen(true);
           else toast.info("Start a draft first, then apply corrections from the menu.");
