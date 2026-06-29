@@ -146,7 +146,8 @@ type InstructionsPreset =
   | "chapter4-mixed"
   | "other-writing"
   | "basic-academia"
-  | "dissertations";
+  | "dissertations"
+  | "writer";
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -239,6 +240,7 @@ const PRESET_LABELS: Record<InstructionsPreset, string> = {
   "other-writing": "Advanced Writing",
   "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
+  writer: "Writer",
 };
 
 const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
@@ -248,6 +250,7 @@ const PRESET_FULL_LABELS: Record<InstructionsPreset, string> = {
   "other-writing": "Advanced Writing",
   "basic-academia": "Basic Academia",
   dissertations: "Dissertations",
+  writer: "Writer",
 };
 
 const STORAGE_KEY = "analyze-chat-state-v1";
@@ -1875,6 +1878,7 @@ function AnalyzePage() {
                             "other-writing",
                             "basic-academia",
                             "dissertations",
+                            "writer",
                           ] as InstructionsPreset[]
                         ).map((p) => (
                           <button
