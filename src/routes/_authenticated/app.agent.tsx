@@ -343,6 +343,9 @@ function AgentPage() {
   }
 
   async function handleSelectConversation(id: string) {
+    // Reset the pending insert ref so any in-flight insert from a previous chat
+    // doesn't race against the newly loaded conversationId and save to the wrong row.
+    pendingIdRef.current = null;
     try {
       const { conversation } = await getConversationFn({ data: { id } });
       const state = (conversation.state ?? {}) as { messages?: Msg[] };
