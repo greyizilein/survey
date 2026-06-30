@@ -1560,9 +1560,9 @@ function AnalyzePage() {
                       send();
                     }
                   }}
-                  className="resize-none min-h-0 max-h-40 border-0 focus-visible:ring-0 shadow-none px-3 py-2 text-base overflow-y-auto"
+                  className="resize-none min-h-[60px] max-h-40 border-0 focus-visible:ring-0 shadow-none px-3 pt-2 pb-1 text-base overflow-y-auto"
                 />
-                <div className="flex items-center gap-1 mt-1">
+                <div className="flex items-center gap-1 pt-1 border-t border-border/40 mt-1">
                   <ChatHistoryMenu
                     tool="analyze"
                     activeId={conversationId}
