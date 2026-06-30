@@ -210,7 +210,9 @@ export const FormattingRunInput = z.object({
  * tier — formatting/citation precision needs the best instruction-following available,
  * not whichever cheap/quality model the user happens to have picked for chat.
  */
-export function buildFormattingPrompt(data: z.infer<typeof FormattingRunInput>): { prompt: string } {
+export function buildFormattingPrompt(
+  data: z.infer<typeof FormattingRunInput>,
+): { prompt: string; promptCached: string; promptDynamic: string } {
   const fieldLines = Object.entries(data.fields)
     .filter(([, v]) => v?.trim())
     .map(([k, v]) => `- ${k}: ${v.trim()}`)
@@ -220,24 +222,24 @@ export function buildFormattingPrompt(data: z.infer<typeof FormattingRunInput>):
     ? data.requirements.map((r) => `- ${r}`).join("\n")
     : "- (none explicitly stated — use sound default academic formatting)";
 
-  const prompt = `You are a meticulous proofreader and publisher. Your only job is to turn the WORK below into a submission-ready document — you are not the writer/editor here, you do not change the substance of the writing, only its presentation, structure, completeness, and citation correctness.
+  const promptCached = `You are a meticulous proofreader and publisher. Your only job is to turn the WORK below into a submission-ready document — you are not the writer/editor here, you do not change the substance of the writing, only its presentation, structure, completeness, and citation correctness.
 
 DOCUMENT TYPE: ${data.documentType}
 STYLE GUIDE: ${data.styleGuide}
 
-SUBMISSION DETAILS PROVIDED BY THE USER (use these verbatim on the cover page — never invent or alter them):
-${fieldLines}
-
 FORMATTING REQUIREMENTS FROM THE BRIEF:
 ${requirementsLines}
-${data.instructions?.trim() ? `\nADDITIONAL USER INSTRUCTIONS:\n${data.instructions.trim()}` : ""}
 
-${data.briefText?.trim() ? `BRIEF / REQUIREMENTS DOCUMENT:\n"""\n${data.briefText.slice(0, 50000)}\n"""\n` : ""}
-WORK TO FORMAT:
+${data.briefText?.trim() ? `BRIEF / REQUIREMENTS DOCUMENT:\n"""\n${data.briefText.slice(0, 50000)}\n"""\n` : ""}WORK TO FORMAT:
 """
 ${data.documentText.slice(0, 100000)}
-"""
+"""`;
 
+  const promptDynamic = `
+
+SUBMISSION DETAILS PROVIDED BY THE USER (use these verbatim on the cover page — never invent or alter them):
+${fieldLines}
+${data.instructions?.trim() ? `\nADDITIONAL USER INSTRUCTIONS:\n${data.instructions.trim()}\n` : ""}
 Do the following, in order:
 
 1. Emit a single line, before anything else: \`@@COVERPAGE@@\` followed by a compact JSON object with exactly this shape: {"title": string, "documentType": string, "fields": [{"label": string, "value": string}, ...]}. The "fields" array should be the submission details above (label them naturally, e.g. "Student Number" not "student_number"), in a sensible cover-page order (name first, then identifiers, then course/institution, then date last). Pick a clear title for the work itself (infer it from the document if it has no explicit title).
@@ -252,5 +254,5 @@ Do the following, in order:
 
 Output nothing except the @@COVERPAGE@@ line followed by the reformatted body. No preamble, no commentary, no sign-off.`;
 
-  return { prompt };
+  return { prompt: promptCached + promptDynamic, promptCached, promptDynamic };
 }
