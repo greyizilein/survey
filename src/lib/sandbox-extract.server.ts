@@ -28,24 +28,32 @@ export async function extractWithSandbox(base64: string, filename: string): Prom
         ? "It's a PowerPoint deck. Use python-pptx to read every slide in order and print each slide's number, its title, all body/text-box content, and any speaker notes."
         : "It's an Excel workbook. Use openpyxl/pandas to read EVERY sheet and print each sheet's name followed by its full contents as a markdown table.";
 
-  const response = await client.beta.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8000,
-    betas: ["files-api-2025-04-14", "code-execution-2025-08-25"],
-    tools: [{ type: "code_execution_20250825", name: "code_execution" }],
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "container_upload", file_id: uploaded.id },
-          {
-            type: "text",
-            text: `Extract the complete content of the attached file "${filename}" for downstream analysis. ${instructions} Print ONLY the extracted content (no commentary, no code in your final answer) — that printed output is the only thing I'll use.`,
-          },
-        ],
-      },
-    ],
-  });
+  // Create a timeout promise to prevent hanging on large/complex files
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Extraction timeout: file ${filename} took longer than 60 seconds`)), 60000)
+  );
+
+  const response = await Promise.race([
+    client.beta.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8000,
+      betas: ["files-api-2025-04-14", "code-execution-2025-08-25"],
+      tools: [{ type: "code_execution_20250825", name: "code_execution" }],
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "container_upload", file_id: uploaded.id },
+            {
+              type: "text",
+              text: `Extract the complete content of the attached file "${filename}" for downstream analysis. ${instructions} Print ONLY the extracted content (no commentary, no code in your final answer) — that printed output is the only thing I'll use.`,
+            },
+          ],
+        },
+      ],
+    }),
+    timeoutPromise,
+  ]);
 
   const pieces: string[] = [];
   for (const block of response.content) {

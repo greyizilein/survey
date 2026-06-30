@@ -83,6 +83,72 @@ export async function extractText(base64: string, filename: string): Promise<str
     }
     return slides.join("\n\n");
   }
+  // Image formats: JPG, PNG, GIF, WEBP — use Claude's vision to extract/OCR
+  if (ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "gif" || ext === "webp") {
+    const { createAi, textModelForTier } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const ai = createAi();
+
+    const mediaType = 
+      ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
+      ext === "png" ? "image/png" :
+      ext === "gif" ? "image/gif" :
+      "image/webp";
+
+    const { text } = await generateText({
+      model: ai(textModelForTier()),
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              image: bytes,
+              mimeType: mediaType,
+            },
+            {
+              type: "text",
+              text: "Extract all visible text from this image. If it's a screenshot, diagram, chart, or document scan, transcribe the content exactly as shown. Include descriptions of any non-text elements relevant to understanding the content.",
+            },
+          ],
+        },
+      ],
+    });
+    return text;
+  }
+  // Audio formats: MP3, M4A, WAV, OGG — use Claude to transcribe
+  if (ext === "mp3" || ext === "m4a" || ext === "wav" || ext === "ogg") {
+    const { createAi } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const ai = createAi();
+
+    const mediaType =
+      ext === "mp3" ? "audio/mpeg" :
+      ext === "m4a" ? "audio/mp4" :
+      ext === "wav" ? "audio/wav" :
+      "audio/ogg";
+
+    const { text } = await generateText({
+      model: ai("claude-3-5-sonnet-20241022"),
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "audio",
+              audio: bytes,
+              mimeType: mediaType,
+            },
+            {
+              type: "text",
+              text: "Transcribe this audio completely and accurately. Include all dialogue, timestamps if relevant, and speaker labels if identifiable.",
+            },
+          ],
+        },
+      ],
+    });
+    return text;
+  }
   if (ext === "doc") {
     throw new Error("Legacy .doc files aren't supported. Please re-save as .docx or PDF and upload again.");
   }
@@ -92,7 +158,7 @@ export async function extractText(base64: string, filename: string): Promise<str
   const text = bytes.toString("utf-8");
   if (text.includes("\u0000")) {
     throw new Error(
-      `"${filename}" is a binary file type (.${ext}) that isn't supported yet. Supported types: .pdf, .docx, .pptx, .xlsx, .xls, .csv, .txt, .md.`,
+      `"${filename}" is a binary file type (.${ext}) that isn't supported yet. Supported types: .pdf, .docx, .pptx, .xlsx, .xls, .csv, .txt, .md, .jpg, .png, .gif, .webp, .mp3, .m4a, .wav, .ogg.`,
     );
   }
   return text;
