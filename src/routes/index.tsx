@@ -57,6 +57,12 @@ function Landing() {
             <span className="text-sm font-bold tracking-tight text-foreground">PAPERSTUDIO</span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              to="/pricing"
+              className="hidden sm:inline-flex border-2 border-foreground/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-foreground/70 hover:text-foreground transition-colors"
+            >
+              Pricing
+            </Link>
             {!authed && (
               <Link
                 to="/auth"
@@ -218,7 +224,7 @@ function Landing() {
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Resources</h4>
               <ul className="mt-4 space-y-2 text-sm">
-                <li><Link to="/" className="text-foreground/80 hover:text-foreground">Pricing</Link></li>
+                <li><Link to="/pricing" className="text-foreground/80 hover:text-foreground">Pricing</Link></li>
                 <li><Link to="/" className="text-foreground/80 hover:text-foreground">Help center</Link></li>
               </ul>
             </div>
