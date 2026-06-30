@@ -1237,7 +1237,7 @@ function PresentationsPage() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="border-t-2 p-2 sm:p-3 shrink-0 bg-background">
+            <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 shrink-0">
               {docFiles.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 px-1 pb-2">
                   {docFiles.map((f, i) => {
@@ -1292,9 +1292,9 @@ function PresentationsPage() {
                     send();
                   }
                 }}
-                className="resize-none min-h-0 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base"
+                className="resize-none min-h-[60px] border-0 focus-visible:ring-0 shadow-none px-3 pt-2 pb-1 text-base"
               />
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center gap-1 mt-1 pt-1 border-t border-border/40">
                 <ChatHistoryMenu
                   tool="presentations"
                   activeId={conversationId}
