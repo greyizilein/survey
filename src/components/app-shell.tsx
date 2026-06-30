@@ -308,11 +308,11 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-dvh flex bg-background overflow-x-hidden">
+    <div className="h-dvh flex bg-background overflow-hidden">
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden md:flex border-r-2 border-sidebar-border bg-sidebar flex-col transition-[width] duration-150 animate-in fade-in slide-in-from-left-4 duration-300",
+          "hidden md:flex border-r-2 border-sidebar-border bg-sidebar flex-col overflow-y-auto transition-[width] duration-150 animate-in fade-in slide-in-from-left-4 duration-300",
           collapsed ? "w-16" : "w-60",
         )}
       >
@@ -331,7 +331,7 @@ export function AppShell({
         </>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Mobile top bar */}
         {!fullScreenMobile && (
           <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b-2 bg-background/90 backdrop-blur px-4 h-14">
@@ -352,8 +352,8 @@ export function AppShell({
 
         <main
           className={cn(
-            "flex-1 overflow-y-auto overflow-x-hidden animate-in fade-in duration-300",
-            fullScreenMobile && "md:overflow-y-auto overflow-hidden",
+            "flex-1 overflow-x-hidden animate-in fade-in duration-300",
+            fullScreenMobile ? "overflow-hidden" : "overflow-y-auto",
           )}
         >
           {typeof children === "function" ? children(() => setOpen(true)) : children}
