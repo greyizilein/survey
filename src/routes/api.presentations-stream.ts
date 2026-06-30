@@ -42,17 +42,17 @@ export const Route = createFileRoute("/api/presentations-stream")({
           return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
         }
 
-        const { createAi, createCodeExecutionAi, codeExecutionTool, toTextStreamResponseWithToolFallback } = await import("@/lib/ai-gateway.server");
+        const { createAi, createCodeExecutionAi, codeExecutionTool, toTextStreamResponseWithToolFallback, buildCachedMessages } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         try {
-          const { model, prompt, useCodeExecution } = await buildPresentationPrompt(parsed.data);
+          const { model, prompt, promptCached, promptDynamic, useCodeExecution } = await buildPresentationPrompt(parsed.data);
 
           const makeResult = (withTools: boolean) =>
             useCodeExecution
               ? streamText({
                   model: createCodeExecutionAi()(model),
-                  prompt,
+                  messages: buildCachedMessages(promptCached, promptDynamic),
                   temperature: 0.3,
                   maxOutputTokens: 16000,
                   ...(withTools ? { tools: { code_execution: codeExecutionTool() } } : {}),
