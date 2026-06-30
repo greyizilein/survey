@@ -308,7 +308,7 @@ function FormattingPage() {
           </p>
 
           {step === "upload" && (
-            <Card className="p-4 sm:p-5 space-y-5">
+            <Card className="p-4 sm:p-5 space-y-5 overflow-hidden">
               <div
                 className={cn(
                   "space-y-2 rounded-md border-2 border-dashed p-2 transition-colors",
@@ -341,9 +341,10 @@ function FormattingPage() {
                 <Button
                   variant="outline"
                   onClick={() => workInputRef.current?.click()}
-                  className={cn("w-full justify-start gap-2 border-dashed", isDraggingWork && "border-primary bg-primary/5")}
+                  className={cn("w-full justify-start gap-2 border-dashed overflow-hidden", isDraggingWork && "border-primary bg-primary/5")}
                 >
-                  <Upload className="size-4" /> {isDraggingWork ? "Drop files here" : "Upload document(s) to submit, or drag and drop"}
+                  <Upload className="size-4 shrink-0" />
+                  <span className="truncate">{isDraggingWork ? "Drop files here" : "Upload document(s) to submit, or drag and drop"}</span>
                 </Button>
                 {workFiles.length > 0 && (
                   <ul className="text-sm space-y-1">
@@ -391,9 +392,10 @@ function FormattingPage() {
                 <Button
                   variant="outline"
                   onClick={() => briefInputRef.current?.click()}
-                  className={cn("w-full justify-start gap-2 border-dashed", isDraggingBrief && "border-primary bg-primary/5")}
+                  className={cn("w-full justify-start gap-2 border-dashed overflow-hidden", isDraggingBrief && "border-primary bg-primary/5")}
                 >
-                  <Upload className="size-4" /> {isDraggingBrief ? "Drop files here" : "Upload brief / rubric / submission instructions, or drag and drop"}
+                  <Upload className="size-4 shrink-0" />
+                  <span className="truncate">{isDraggingBrief ? "Drop files here" : "Upload brief / rubric / submission instructions, or drag and drop"}</span>
                 </Button>
                 {briefFiles.length > 0 && (
                   <ul className="text-sm space-y-1">
