@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/apply-corrections-stream")({
         }
         const { documentTitle, documentText, feedbackItems } = parsed.data;
 
-        const { createCodeExecutionAi, CODE_EXECUTION_MODEL, toTextStreamResponseWithErrors } = await import("@/lib/ai-gateway.server");
+        const { createCodeExecutionAi, CODE_EXECUTION_MODEL, toTextStreamResponseWithErrors, buildCachedMessages } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
 
         const itemsBlock = feedbackItems
@@ -69,12 +69,16 @@ export const Route = createFileRoute("/api/apply-corrections-stream")({
           })
           .join("\n");
 
-        const prompt = `You are revising a written document to apply a reviewer's/supervisor's corrections, surgically and precisely.
+        // Cached prefix: instructions + the full document (stable across reruns/iterations on
+        // the same draft). Dynamic tail: the specific corrections being applied this turn.
+        const promptCached = `You are revising a written document to apply a reviewer's/supervisor's corrections, surgically and precisely.
 
 DOCUMENT: "${documentTitle ?? "Untitled document"}"
 """
 ${documentText}
-"""
+"""`;
+
+        const promptDynamic = `
 
 CORRECTIONS TO APPLY
 ${itemsBlock}
@@ -92,7 +96,7 @@ Instructions:
         try {
           const result = streamText({
             model: createCodeExecutionAi()(CODE_EXECUTION_MODEL),
-            prompt,
+            messages: buildCachedMessages(promptCached, promptDynamic),
             temperature: 0.2,
             maxOutputTokens: 16000,
             onError: ({ error }) => {
