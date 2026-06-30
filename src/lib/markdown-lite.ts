@@ -6,6 +6,7 @@ export type MdBlock =
   | { type: "table"; header: string[]; rows: string[][] }
   | { type: "list"; ordered: boolean; items: string[] }
   | { type: "blockquote"; text: string }
+  | { type: "figureplaceholder"; index: number; caption?: string }
   | { type: "paragraph"; text: string };
 
 export function splitTableRow(line: string): string[] {
@@ -20,10 +21,11 @@ export const TABLE_SEPARATOR_RE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?
 const UNORDERED_LIST_RE = /^(\s*)[-*+]\s+(.*)$/;
 const ORDERED_LIST_RE = /^(\s*)\d+[.)]\s+(.*)$/;
 
-export function parseMarkdownLite(text: string): MdBlock[] {
+export function parseMarkdownLite(text: string, figureOffset = 0): MdBlock[] {
   const lines = text.split("\n");
   const blocks: MdBlock[] = [];
   let paragraphBuf: string[] = [];
+  let figureCount = figureOffset;
 
   function flushParagraph() {
     if (paragraphBuf.length) {
@@ -34,6 +36,21 @@ export function parseMarkdownLite(text: string): MdBlock[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Figure placeholder — @@FIGURE@@{json} becomes an inline figure slot
+    if (line.startsWith("@@FIGURE@@")) {
+      flushParagraph();
+      let caption: string | undefined;
+      try {
+        const parsed = JSON.parse(line.slice("@@FIGURE@@".length));
+        caption = parsed?.caption;
+      } catch {
+        /* still streaming or malformed */
+      }
+      blocks.push({ type: "figureplaceholder", index: figureCount, caption });
+      figureCount++;
+      continue;
+    }
 
     // Heading
     const headingMatch = /^(#{1,4})\s+(.*)$/.exec(line);
@@ -164,6 +181,11 @@ export function blocksToHtml(blocks: MdBlock[]): string {
       if (block.type === "blockquote") {
         return `<blockquote>${inlineToHtml(block.text).replace(/\n/g, "<br/>")}</blockquote>`;
       }
+      if (block.type === "figureplaceholder") {
+        // When exported to HTML without embedded image data, render a labelled placeholder
+        const label = block.caption ? escapeHtml(block.caption) : `Figure ${block.index + 1}`;
+        return `<p style="border:1px dashed #aaa;padding:8px;text-align:center">[${label}]</p>`;
+      }
       return `<p>${inlineToHtml(block.text).replace(/\n/g, "<br/>")}</p>`;
     })
     .join("");
@@ -185,6 +207,9 @@ export function blocksToPlainText(blocks: MdBlock[]): string {
       }
       if (block.type === "blockquote") {
         return stripInlineMarkdown(block.text);
+      }
+      if (block.type === "figureplaceholder") {
+        return block.caption ? `[Figure: ${block.caption}]` : `[Figure ${block.index + 1}]`;
       }
       return stripInlineMarkdown(block.text);
     })

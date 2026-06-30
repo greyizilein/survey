@@ -83,7 +83,7 @@ import {
   blocksToPlainText,
   splitInlineRuns,
 } from "@/lib/markdown-lite";
-import { compileWrittenSections, exportToDocx, downloadBlob } from "@/lib/writing-export";
+import { compileWrittenSections, exportToDocx, downloadBlob, type FigureMap } from "@/lib/writing-export";
 import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal";
 import { useModelTier } from "@/lib/use-model-tier";
@@ -125,8 +125,7 @@ type ChartSpec = {
 };
 type TableSpec = { columns: string[]; rows: (string | number)[][] };
 type SourceRef = { title: string; url: string; authors?: string[]; year?: number };
-type FigureRequest = { prompt: string; caption?: string };
-type FigureImage = { caption?: string; base64: string; mediaType: string };
+type FigureRequest = { index: number; prompt: string; caption?: string };
 type Msg = {
   role: "user" | "assistant";
   content: string;
@@ -134,8 +133,9 @@ type Msg = {
   table?: TableSpec | null;
   sources?: SourceRef[] | null;
   chartImage?: string | null;
-  figures?: FigureImage[] | null;
+  figures?: FigureMap;
   generatingFigures?: boolean;
+  generatingFigureIndex?: number;
   options?: string[] | null;
   truncated?: boolean;
 };
@@ -358,10 +358,14 @@ function splitMarkers(raw: string): {
     if (figureMatch) {
       try {
         const parsed = JSON.parse(figureMatch[1]);
-        if (parsed?.prompt) figureRequests.push({ prompt: parsed.prompt, caption: parsed.caption });
+        if (parsed?.prompt) {
+          figureRequests.push({ index: figureRequests.length, prompt: parsed.prompt, caption: parsed.caption });
+        }
       } catch {
         /* still streaming */
       }
+      // Keep the @@FIGURE@@ line in display so parseMarkdownLite renders a figureplaceholder
+      kept.push(line);
       continue;
     }
     const optionsMatch = /^@@OPTIONS@@(.*)$/.exec(line);
@@ -380,7 +384,12 @@ function splitMarkers(raw: string): {
   return { display: kept.join("\n"), chart, table, sources, chartImage, figureRequests, options };
 }
 
-function MarkdownLite({ text }: { text: string }) {
+function MarkdownLite({ text, figures, generatingFigures, generatingFigureIndex }: {
+  text: string;
+  figures?: FigureMap;
+  generatingFigures?: boolean;
+  generatingFigureIndex?: number;
+}) {
   const blocks = parseMarkdownLite(text);
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -457,6 +466,35 @@ function MarkdownLite({ text }: { text: string }) {
             >
               {renderInline(block.text)}
             </blockquote>
+          );
+        }
+        if (block.type === "figureplaceholder") {
+          const fig = figures?.[block.index];
+          const isGeneratingThis = generatingFigures && generatingFigureIndex === block.index;
+          if (fig) {
+            return (
+              <figure key={i} className="my-4 bg-background rounded-lg border overflow-hidden">
+                <img
+                  src={`data:${fig.mediaType};base64,${fig.base64}`}
+                  alt={block.caption || `Figure ${block.index + 1}`}
+                  className="w-full max-w-full rounded-t"
+                />
+                {block.caption && (
+                  <figcaption className="px-3 py-2 text-xs text-muted-foreground text-center italic border-t">
+                    {block.caption}
+                  </figcaption>
+                )}
+              </figure>
+            );
+          }
+          // Still generating this specific figure
+          return (
+            <div key={i} className="my-4 flex items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              {isGeneratingThis
+                ? `Generating Figure ${block.index + 1}${block.caption ? ` — ${block.caption}` : ""}…`
+                : `Figure ${block.index + 1} queued…`}
+            </div>
           );
         }
         return (
@@ -607,7 +645,8 @@ function AnalyzePage() {
   async function downloadMessage(index: number, content: string) {
     setDownloadingIndex(index);
     try {
-      const blob = await exportToDocx(content);
+      const msg = messages[index];
+      const blob = await exportToDocx(content, undefined, msg?.figures);
       downloadBlob(blob, fileNameFor(content));
     } catch {
       toast.error("Couldn't download that message");
@@ -617,15 +656,27 @@ function AnalyzePage() {
   }
 
   async function exportDocument() {
-    const sections = messages.filter((m) => m.role === "assistant").map((m) => m.content);
+    const assistantMessages = messages.filter((m) => m.role === "assistant");
+    const sections = assistantMessages.map((m) => m.content);
     const compiled = compileWrittenSections(sections);
     if (!compiled.trim()) {
       toast.error("No written content to export yet");
       return;
     }
+    // Merge all figure maps from all messages, re-indexing by position in compiled text
+    const mergedFigures: FigureMap = {};
+    let figureOffset = 0;
+    for (const m of assistantMessages) {
+      if (m.figures) {
+        for (const [idxStr, fig] of Object.entries(m.figures)) {
+          mergedFigures[figureOffset + Number(idxStr)] = fig;
+        }
+        figureOffset += Object.keys(m.figures).length;
+      }
+    }
     setExporting(true);
     try {
-      const blob = await exportToDocx(compiled);
+      const blob = await exportToDocx(compiled, undefined, mergedFigures);
       downloadBlob(blob, fileNameFor(compiled));
     } catch {
       toast.error("Couldn't export the document");
@@ -1120,31 +1171,51 @@ function AnalyzePage() {
       });
 
       if (figureRequests.length > 0) {
+        // Capture the index of the assistant message we just pushed
         const messageIndex = nextMessages.length;
-        const figures = await Promise.all(
-          figureRequests.map(async (req): Promise<FigureImage | null> => {
-            try {
-              const { base64, mediaType } = await generateFigureImageFn({
-                data: { prompt: req.prompt },
-              });
-              return { caption: req.caption, base64, mediaType };
-            } catch (err) {
-              console.error("[analyze] figure generation failed:", err);
-              toast.error(
-                `Couldn't render a figure: ${err instanceof Error ? err.message : "image generation failed"}`,
-              );
-              return null;
-            }
-          }),
-        );
+        const figureMap: FigureMap = {};
+
+        // Generate sequentially to avoid timeouts and ensure ALL figures are created
+        for (const req of figureRequests) {
+          // Update indicator to show which figure is being generated
+          setMessages((prev) => {
+            const copy = [...prev];
+            const current = copy[messageIndex];
+            if (current)
+              copy[messageIndex] = { ...current, generatingFigureIndex: req.index, generatingFigures: true };
+            return copy;
+          });
+          try {
+            const { base64, mediaType } = await generateFigureImageFn({
+              data: { prompt: req.prompt },
+            });
+            figureMap[req.index] = { base64, mediaType, caption: req.caption };
+            // Show each figure as soon as it arrives
+            setMessages((prev) => {
+              const copy = [...prev];
+              const current = copy[messageIndex];
+              if (current)
+                copy[messageIndex] = { ...current, figures: { ...figureMap } };
+              return copy;
+            });
+          } catch (err) {
+            console.error("[analyze] figure generation failed:", err);
+            toast.error(
+              `Figure ${req.index + 1} failed: ${err instanceof Error ? err.message : "image generation failed"}`,
+            );
+            // Continue to the next figure even if one fails
+          }
+        }
+
         setMessages((prev) => {
           const copy = [...prev];
           const current = copy[messageIndex];
           if (current)
             copy[messageIndex] = {
               ...current,
-              figures: figures.filter((f): f is FigureImage => f !== null),
+              figures: { ...figureMap },
               generatingFigures: false,
+              generatingFigureIndex: undefined,
             };
           return copy;
         });
@@ -1288,7 +1359,12 @@ function AnalyzePage() {
                       }
                     >
                       {m.role === "assistant" ? (
-                        <MarkdownLite text={m.content} />
+                        <MarkdownLite
+                          text={m.content}
+                          figures={m.figures}
+                          generatingFigures={m.generatingFigures}
+                          generatingFigureIndex={m.generatingFigureIndex}
+                        />
                       ) : (
                         <p className="whitespace-pre-wrap">{m.content}</p>
                       )}
@@ -1348,11 +1424,6 @@ function AnalyzePage() {
                           />
                         </div>
                       )}
-                      {m.generatingFigures && (
-                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                          <Loader2 className="size-3.5 animate-spin" /> Drawing figure…
-                        </div>
-                      )}
                       {m.truncated && i === messages.length - 1 && !sending && (
                         <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
                           <span className="flex-1 text-muted-foreground">
@@ -1369,24 +1440,6 @@ function AnalyzePage() {
                           >
                             Continue
                           </Button>
-                        </div>
-                      )}
-                      {m.figures && m.figures.length > 0 && (
-                        <div className="mt-3 space-y-3">
-                          {m.figures.map((fig, fi) => (
-                            <figure key={fi} className="bg-background rounded p-2 border">
-                              <img
-                                src={`data:${fig.mediaType};base64,${fig.base64}`}
-                                alt={fig.caption || "Generated figure"}
-                                className="max-w-full rounded"
-                              />
-                              {fig.caption && (
-                                <figcaption className="mt-1.5 text-xs text-muted-foreground text-center">
-                                  {fig.caption}
-                                </figcaption>
-                              )}
-                            </figure>
-                          ))}
                         </div>
                       )}
                       {m.table && m.table.rows?.length > 0 && (
