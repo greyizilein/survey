@@ -1,5 +1,8 @@
 import { parseMarkdownLite, splitInlineRuns, TABLE_SEPARATOR_RE } from "./markdown-lite";
 
+/** Map of figure index → { base64, mediaType } for inline image embedding */
+export type FigureMap = Record<number, { base64: string; mediaType: string; caption?: string }>;
+
 // Heuristic for "is this assistant message an actual written section, not
 // chat chatter" — excludes the executable prompt-table spec itself and short
 // clarifying-question turns, keeping only substantial written content.
@@ -15,7 +18,7 @@ export function compileWrittenSections(assistantMessages: string[]): string {
   return assistantMessages.filter(isWrittenSection).join("\n\n");
 }
 
-export async function exportToDocx(text: string, title?: string): Promise<Blob> {
+export async function exportToDocx(text: string, title?: string, figures?: FigureMap): Promise<Blob> {
   const {
     Document,
     Packer,
@@ -26,6 +29,8 @@ export async function exportToDocx(text: string, title?: string): Promise<Blob> 
     TableRow,
     TableCell,
     WidthType,
+    ImageRun,
+    AlignmentType,
   } = await import("docx");
   const blocks = parseMarkdownLite(text);
 
@@ -82,6 +87,56 @@ export async function exportToDocx(text: string, title?: string): Promise<Blob> 
       );
       continue;
     }
+    if (block.type === "figureplaceholder") {
+      const fig = figures?.[block.index];
+      if (fig) {
+        const imgData = Uint8Array.from(atob(fig.base64), (c) => c.charCodeAt(0));
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                data: imgData,
+                transformation: { width: 480, height: 360 },
+                type: fig.mediaType === "image/png" ? "png" : "jpg",
+              }),
+            ],
+          }),
+        );
+        if (block.caption) {
+          children.push(
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: block.caption, italics: true, size: 20 })],
+            }),
+          );
+        }
+        children.push(new Paragraph({ text: "" }));
+      } else {
+        // Still generating or failed — leave a labelled placeholder
+        const label = block.caption ? block.caption : `Figure ${block.index + 1}`;
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: `[${label}]`, italics: true, color: "888888" })],
+          }),
+          new Paragraph({ text: "" }),
+        );
+      }
+      continue;
+    }
+    if (block.type === "list") {
+      for (const item of block.items) {
+        children.push(
+          new Paragraph({
+            bullet: block.ordered ? undefined : { level: 0 },
+            children: runsFor(item),
+          }),
+        );
+      }
+      children.push(new Paragraph({ text: "" }));
+      continue;
+    }
     for (const line of block.text.split("\n")) {
       children.push(new Paragraph({ children: runsFor(line) }));
     }
@@ -122,6 +177,7 @@ export function splitCoverPage(raw: string): { body: string; cover: CoverPageSpe
 export async function exportFormattedDocx(
   bodyText: string,
   cover: CoverPageSpec | null,
+  figures?: FigureMap,
 ): Promise<Blob> {
   const {
     Document,
@@ -136,6 +192,7 @@ export async function exportFormattedDocx(
     TableCell,
     WidthType,
     TableOfContents,
+    ImageRun,
   } = await import("docx");
   const blocks = parseMarkdownLite(bodyText);
   const HEADING_LEVELS = [
@@ -222,6 +279,50 @@ export async function exportFormattedDocx(
       );
       continue;
     }
+    if (block.type === "figureplaceholder") {
+      const fig = figures?.[block.index];
+      if (fig) {
+        const imgData = Uint8Array.from(atob(fig.base64), (c) => c.charCodeAt(0));
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                data: imgData,
+                transformation: { width: 480, height: 360 },
+                type: fig.mediaType === "image/png" ? "png" : "jpg",
+              }),
+            ],
+          }),
+        );
+        if (block.caption) {
+          children.push(
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: block.caption, italics: true, size: 20 })],
+            }),
+          );
+        }
+        children.push(new Paragraph({ text: "" }));
+      } else {
+        const label = block.caption ? block.caption : `Figure ${block.index + 1}`;
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: `[${label}]`, italics: true, color: "888888" })],
+          }),
+          new Paragraph({ text: "" }),
+        );
+      }
+      continue;
+    }
+    if (block.type === "list") {
+      for (const item of block.items) {
+        children.push(new Paragraph({ bullet: { level: 0 }, children: runsFor(item) }));
+      }
+      children.push(new Paragraph({ text: "" }));
+      continue;
+    }
     for (const line of block.text.split("\n")) {
       children.push(new Paragraph({ children: runsFor(line) }));
     }
@@ -244,6 +345,7 @@ export async function exportFormattedDocx(
 export async function exportFormattedPdf(
   bodyText: string,
   cover: CoverPageSpec | null,
+  figures?: FigureMap,
 ): Promise<Blob> {
   // @ts-expect-error - subpath import to bypass jspdf exports map issue under Vite/Worker SSR
   const { jsPDF } = await import("jspdf/dist/jspdf.es.min.js");
@@ -323,14 +425,52 @@ export async function exportFormattedPdf(
       y += 10;
       continue;
     }
+    if (block.type === "figureplaceholder") {
+      const fig = figures?.[block.index];
+      if (fig) {
+        const imgH = 180;
+        ensure(imgH + 20);
+        const imgW = Math.min(width, 320);
+        const imgX = margin + (width - imgW) / 2;
+        doc.addImage(`data:${fig.mediaType};base64,${fig.base64}`, "JPEG", imgX, y, imgW, imgH);
+        y += imgH + 6;
+        if (block.caption) {
+          doc.setFont("times", "italic");
+          doc.setFontSize(10);
+          const capLines = doc.splitTextToSize(block.caption, width) as string[];
+          for (const line of capLines) {
+            ensure(14);
+            doc.text(line, doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
+            y += 14;
+          }
+        }
+        y += 10;
+      } else {
+        const label = block.caption ? block.caption : `Figure ${block.index + 1}`;
+        ensure(20);
+        doc.setFont("times", "italic");
+        doc.setFontSize(11);
+        doc.text(`[${label}]`, doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
+        y += 20;
+      }
+      continue;
+    }
     doc.setFont("times", "normal");
     doc.setFontSize(12);
-    for (const line of block.text.split("\n")) {
-      const wrapped = doc.splitTextToSize(line, width) as string[];
-      for (const w of wrapped) {
-        ensure(16);
-        doc.text(w, margin, y);
-        y += 16;
+    if (block.type === "list") {
+      for (const item of block.items) {
+        const prefix = block.ordered ? `${block.items.indexOf(item) + 1}. ` : "• ";
+        const wrapped = doc.splitTextToSize(prefix + item, width) as string[];
+        for (const w of wrapped) { ensure(16); doc.text(w, margin, y); y += 16; }
+      }
+    } else {
+      for (const line of block.text.split("\n")) {
+        const wrapped = doc.splitTextToSize(line, width) as string[];
+        for (const w of wrapped) {
+          ensure(16);
+          doc.text(w, margin, y);
+          y += 16;
+        }
       }
     }
     y += 8;
@@ -415,9 +555,22 @@ export async function exportFormattedPptx(
       y += h + 0.3;
       continue;
     }
-    newSlideIfNeeded(0.6);
-    slide.addText(block.text, { x: 0.5, y, w: 12.3, h: 1, fontSize: 12, valign: "top" });
-    y += Math.min(2.5, 0.3 + block.text.length / 200);
+    if (block.type === "list") {
+      const listText = block.items.map((item, idx) => (block.ordered ? `${idx + 1}. ${item}` : `• ${item}`)).join("\n");
+      newSlideIfNeeded(0.6);
+      slide.addText(listText, { x: 0.5, y, w: 12.3, h: 1, fontSize: 12, valign: "top" });
+      y += Math.min(2.5, 0.3 + listText.length / 200);
+    } else if (block.type === "figureplaceholder") {
+      // PPTX: skip image embedding for now, show caption label
+      const label = block.caption ? block.caption : `Figure ${block.index + 1}`;
+      newSlideIfNeeded(0.4);
+      slide.addText(`[${label}]`, { x: 0.5, y, w: 12.3, h: 0.4, fontSize: 11, italic: true, align: "center" });
+      y += 0.5;
+    } else {
+      newSlideIfNeeded(0.6);
+      slide.addText(block.text, { x: 0.5, y, w: 12.3, h: 1, fontSize: 12, valign: "top" });
+      y += Math.min(2.5, 0.3 + block.text.length / 200);
+    }
   }
 
   const blob = await pptx.write({ outputType: "blob" });
