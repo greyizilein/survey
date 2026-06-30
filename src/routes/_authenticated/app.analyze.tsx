@@ -383,14 +383,21 @@ function splitMarkers(raw: string): {
 function MarkdownLite({ text }: { text: string }) {
   const blocks = parseMarkdownLite(text);
   return (
-    <div className="space-y-2 min-w-0 max-w-full">
+    <div className="space-y-3 min-w-0 max-w-full">
       {blocks.map((block, i) => {
         if (block.type === "heading") {
-          const sizeClass = block.level <= 2 ? "text-sm font-semibold" : "text-sm font-medium";
+          const cls =
+            block.level === 1
+              ? "text-2xl font-bold mt-6 mb-2 leading-tight break-words"
+              : block.level === 2
+                ? "text-xl font-bold mt-5 mb-1.5 break-words"
+                : block.level === 3
+                  ? "text-base font-semibold mt-4 mb-1 break-words"
+                  : "text-sm font-semibold mt-3 mb-0.5 uppercase tracking-wide text-muted-foreground break-words";
           return (
-            <p key={i} className={cn(sizeClass, "mt-1 break-words")}>
+            <div key={i} className={cls}>
               {renderInline(block.text)}
-            </p>
+            </div>
           );
         }
         if (block.type === "table") {
@@ -424,8 +431,36 @@ function MarkdownLite({ text }: { text: string }) {
             </div>
           );
         }
+        if (block.type === "list") {
+          const Tag = block.ordered ? "ol" : "ul";
+          return (
+            <Tag
+              key={i}
+              className={cn(
+                "pl-5 space-y-1 break-words",
+                block.ordered ? "list-decimal" : "list-disc",
+              )}
+            >
+              {block.items.map((item, ii) => (
+                <li key={ii} className="leading-relaxed">
+                  {renderInline(item)}
+                </li>
+              ))}
+            </Tag>
+          );
+        }
+        if (block.type === "blockquote") {
+          return (
+            <blockquote
+              key={i}
+              className="border-l-4 border-muted-foreground/30 pl-4 italic text-muted-foreground leading-relaxed break-words"
+            >
+              {renderInline(block.text)}
+            </blockquote>
+          );
+        }
         return (
-          <p key={i} className="whitespace-pre-wrap break-words">
+          <p key={i} className="leading-relaxed break-words">
             {renderInline(block.text)}
           </p>
         );

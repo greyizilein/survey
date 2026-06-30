@@ -889,7 +889,17 @@ DISTINCTION STANDARD: A distinction-level Chapter Five extracts the intellectual
 
   const noEmojiBlock = `\n\nNever use emojis anywhere in your response, under any circumstances, unless the user explicitly asks you to include them.`;
 
-  const wordCountDisciplineBlock = `\n\nWORD COUNT DISCIPLINE: If a word count (total or per-section) is specified anywhere — in the latest user message, earlier in this conversation, an uploaded brief/rubric, or a template's per-section breakdown — treat it as a hard ceiling, not a floor or a suggestion. Before you start writing, decide how to allocate that count across the sections you're about to produce. While drafting, keep a running mental tally of words written so far and actively budget what's left as you approach the target; do not let any single section silently run long and crowd out the others. Aim to land within about 10% of the requested count (slightly under is fine; do not come in at double or more) by writing tighter, denser prose — never by cutting a section short or leaving it unfinished. Every section you start must be completed in full; if you are running over budget, compress earlier sections in your next draft rather than truncating the current one. The finished document must contain ONLY the actual requested content — never insert any note, caveat, disclaimer, or meta-commentary about word counts, length, or budgeting into the document itself, in any section, heading, or footnote. If the requested depth genuinely cannot fit the stated count, raise that as a normal conversational remark to the user before or after the piece — outside the document text — and keep writing the full piece regardless; do not let that concern shrink, flag, or interrupt the actual content.`;
+  const wordCountDisciplineBlock = `\n\nWORD COUNT DISCIPLINE: If a word count (total or per-section) is specified anywhere — in the latest user message, earlier in this conversation, an uploaded brief/rubric, or a template's per-section breakdown — treat it as a hard ceiling, not a floor or a suggestion.
+
+PRE-WRITING BUDGET ALLOCATION: Before writing a single word, list every section you will produce in this response and assign each one an explicit word-count target that sums to the total. Do this internally — never print the allocation table into the document itself.
+
+PER-SECTION RUNNING CHECK: Before starting each new section heading, briefly count the words you have written in this response so far, subtract from the total budget, and divide the remainder by the number of sections still to write. Use that figure as the hard cap for the section you are about to start. If a section is running over its cap, compress within the section by writing denser prose — do not spill into the next section's budget.
+
+COMPLETION RULE: Every section you start must be completed in full. Never truncate a section mid-thought to hit a number. If the prose for a section would exceed its cap, compress by removing redundant sentences, tightening transitions, and cutting throat-clearing — never by ending the section before its argument is complete.
+
+DOCUMENT PURITY: The finished document must contain ONLY the actual requested content — never insert any note, caveat, disclaimer, meta-commentary, or word-count annotation into the document itself, in any section, heading, or footnote.
+
+OFF-DOCUMENT ONLY: If the requested depth genuinely cannot fit the stated count, raise that as a normal conversational remark to the user before or after the piece — outside the document text — and still deliver the full piece. Do not let that concern shrink, flag, or interrupt the actual content.`;
 
   const promptBuilderDatasetBlock = !hasRealDataset
     ? ""

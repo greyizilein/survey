@@ -4,6 +4,8 @@
 export type MdBlock =
   | { type: "heading"; level: number; text: string }
   | { type: "table"; header: string[]; rows: string[][] }
+  | { type: "list"; ordered: boolean; items: string[] }
+  | { type: "blockquote"; text: string }
   | { type: "paragraph"; text: string };
 
 export function splitTableRow(line: string): string[] {
@@ -14,6 +16,9 @@ export function splitTableRow(line: string): string[] {
 }
 
 export const TABLE_SEPARATOR_RE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$/;
+
+const UNORDERED_LIST_RE = /^(\s*)[-*+]\s+(.*)$/;
+const ORDERED_LIST_RE = /^(\s*)\d+[.)]\s+(.*)$/;
 
 export function parseMarkdownLite(text: string): MdBlock[] {
   const lines = text.split("\n");
@@ -29,12 +34,16 @@ export function parseMarkdownLite(text: string): MdBlock[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // Heading
     const headingMatch = /^(#{1,4})\s+(.*)$/.exec(line);
     if (headingMatch) {
       flushParagraph();
       blocks.push({ type: "heading", level: headingMatch[1].length, text: headingMatch[2].trim() });
       continue;
     }
+
+    // Table
     if (line.includes("|") && i + 1 < lines.length && TABLE_SEPARATOR_RE.test(lines[i + 1])) {
       flushParagraph();
       const header = splitTableRow(line);
@@ -48,6 +57,49 @@ export function parseMarkdownLite(text: string): MdBlock[] {
       i = j - 1;
       continue;
     }
+
+    // Blockquote
+    if (/^>\s*/.test(line)) {
+      flushParagraph();
+      const bqText = line.replace(/^>\s*/, "");
+      // Collect consecutive blockquote lines
+      const bqLines = [bqText];
+      while (i + 1 < lines.length && /^>\s*/.test(lines[i + 1])) {
+        i++;
+        bqLines.push(lines[i].replace(/^>\s*/, ""));
+      }
+      blocks.push({ type: "blockquote", text: bqLines.join("\n") });
+      continue;
+    }
+
+    // Unordered list
+    const ulMatch = UNORDERED_LIST_RE.exec(line);
+    if (ulMatch) {
+      flushParagraph();
+      const items: string[] = [ulMatch[2]];
+      while (i + 1 < lines.length && UNORDERED_LIST_RE.test(lines[i + 1])) {
+        i++;
+        const m = UNORDERED_LIST_RE.exec(lines[i])!;
+        items.push(m[2]);
+      }
+      blocks.push({ type: "list", ordered: false, items });
+      continue;
+    }
+
+    // Ordered list
+    const olMatch = ORDERED_LIST_RE.exec(line);
+    if (olMatch) {
+      flushParagraph();
+      const items: string[] = [olMatch[2]];
+      while (i + 1 < lines.length && ORDERED_LIST_RE.test(lines[i + 1])) {
+        i++;
+        const m = ORDERED_LIST_RE.exec(lines[i])!;
+        items.push(m[2]);
+      }
+      blocks.push({ type: "list", ordered: true, items });
+      continue;
+    }
+
     if (line.trim() === "") {
       flushParagraph();
       continue;
@@ -104,6 +156,14 @@ export function blocksToHtml(blocks: MdBlock[]): string {
           .join("");
         return `<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse">${head}${rows}</table>`;
       }
+      if (block.type === "list") {
+        const tag = block.ordered ? "ol" : "ul";
+        const items = block.items.map((item) => `<li>${inlineToHtml(item)}</li>`).join("");
+        return `<${tag}>${items}</${tag}>`;
+      }
+      if (block.type === "blockquote") {
+        return `<blockquote>${inlineToHtml(block.text).replace(/\n/g, "<br/>")}</blockquote>`;
+      }
       return `<p>${inlineToHtml(block.text).replace(/\n/g, "<br/>")}</p>`;
     })
     .join("");
@@ -117,6 +177,14 @@ export function blocksToPlainText(blocks: MdBlock[]): string {
       if (block.type === "heading") return stripInlineMarkdown(block.text);
       if (block.type === "table") {
         return [block.header.join("\t"), ...block.rows.map((row) => row.join("\t"))].join("\n");
+      }
+      if (block.type === "list") {
+        return block.items
+          .map((item, i) => (block.ordered ? `${i + 1}. ${stripInlineMarkdown(item)}` : `• ${stripInlineMarkdown(item)}`))
+          .join("\n");
+      }
+      if (block.type === "blockquote") {
+        return stripInlineMarkdown(block.text);
       }
       return stripInlineMarkdown(block.text);
     })

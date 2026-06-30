@@ -613,7 +613,7 @@ function AgentPage() {
                 >
                   {m.content ? (
                     <div
-                      className="prose prose-sm max-w-none min-w-0 break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
+                      className="prose prose-sm max-w-none min-w-0 break-words [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-2 [&_h1]:leading-tight [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:uppercase [&_h4]:tracking-wide [&_h4]:text-muted-foreground [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:leading-relaxed [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
                       dangerouslySetInnerHTML={{
                         __html: blocksToHtml(parseMarkdownLite(m.content)),
                       }}
