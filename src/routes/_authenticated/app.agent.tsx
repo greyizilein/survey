@@ -743,7 +743,7 @@ function AgentPage() {
                 ref={docFileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.webp,.mp3,.m4a,.wav,.ogg"
                 className="hidden"
                 onChange={(e) => {
                   const fs = Array.from(e.target.files ?? []);
@@ -790,12 +790,12 @@ function AgentPage() {
                       {readingDocs ? "Reading documents���" : "Choose documents"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md
+                      PDF, Word, PowerPoint, Excel, CSV, TXT, images (JPG/PNG/WEBP), or audio (MP3/M4A/WAV)
                     </span>
                     <input
                       type="file"
                       multiple
-                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.webp,.mp3,.m4a,.wav,.ogg"
                       className="hidden"
                       onChange={(e) => {
                         const fs = Array.from(e.target.files ?? []);

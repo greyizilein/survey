@@ -166,12 +166,8 @@ export async function getOrCreateAgentId(tier: "fast" | "pro" | "max" = "max"): 
     ...mcpServers.map((s) => ({ type: "mcp_toolset" as const, mcp_server_name: s.name })),
   ];
 
-  // Max tier gets adaptive extended thinking at high effort for best analysis quality.
-  // Fast and Pro run in standard mode (no thinking tokens) to stay cost-effective.
-  const modelConfig =
-    tier === "max"
-      ? { model: "claude-sonnet-4-6", model_configuration: { thinking: { type: "adaptive", effort: "high" } } }
-      : { model: "claude-sonnet-4-6" };
+  // All tiers use the same model — model_configuration is not supported on the Agents API.
+  const modelConfig = { model: "claude-sonnet-4-6" };
 
   const existing = await findExisting(client.beta.agents.list(), AGENT_NAME);
   if (existing) {
