@@ -142,6 +142,11 @@ async function getOrCreateWritingSkillId(
 }
 
 export async function getOrCreateAgentId(tier: "fast" | "pro" | "max" = "max"): Promise<string> {
+  // Note on caching: the Anthropic Agents/Sessions API automatically applies prompt caching
+  // to the agent's `system`, tool, and skill definitions across turns in a session, so we do
+  // NOT add manual cache_control markers here — doing so would conflict with the managed
+  // caching the platform already does. Verify with `usage.cache_read_input_tokens` on session
+  // events if you suspect it's not engaging.
   const client = await createRawAnthropic();
 
   const writingSkillIds = await Promise.all(WRITING_SKILLS.map((spec) => getOrCreateWritingSkillId(client, spec)));

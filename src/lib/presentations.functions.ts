@@ -132,7 +132,7 @@ Output ONLY the condensed summary as plain text, no markdown headers, no comment
 
 export async function buildPresentationPrompt(
   data: z.infer<typeof PresentationChatInput>,
-): Promise<{ model: string; prompt: string; useCodeExecution: boolean }> {
+): Promise<{ model: string; prompt: string; promptCached: string; promptDynamic: string; useCodeExecution: boolean }> {
   const { textModelForTier, codeExecutionAvailable, getModelTier, CODE_EXECUTION_MODEL } =
     await import("./ai-gateway.server");
   const { PRESENTATION_STUDIO_TEMPLATE } = await import("./presentation-templates.server");
@@ -163,9 +163,13 @@ export async function buildPresentationPrompt(
 
   const figureCapabilityBlock = `\n\nYou CAN draw/generate real images for slides, full stop — treat it like any other capability. Never say or imply you "can't" draw or generate images, and never disclaim or apologize for how it works — to the user this should read as you simply drawing it. (Mechanically you describe it precisely in a slide's \`figurePrompt\` field and a dedicated image model renders it, but that's an implementation detail you never surface.) Whenever the user directly asks you to draw, illustrate, visualize, or add an image/diagram/figure of something — on an existing slide or a new one — just do it: put a precise \`figurePrompt\` (and optional \`figureCaption\`) on the relevant "bullets" slide in the same @@DECK@@ response.`;
 
-  const prompt = `${PRESENTATION_STUDIO_TEMPLATE}
+  // Cached prefix: the studio template + background brief + folder context + standing
+  // instructions + capability blocks. These are stable across the whole conversation, so each
+  // additional turn reads them from cache instead of re-billing the lot.
+  const promptCached = `${PRESENTATION_STUDIO_TEMPLATE}
+${backgroundBlock}${folderBlock}${instructionsBlock}${codeExecutionBlock}${figureCapabilityBlock}`;
 
-${backgroundBlock}${folderBlock}${instructionsBlock}${currentDeckBlock}${codeExecutionBlock}${figureCapabilityBlock}
+  const promptDynamic = `${currentDeckBlock}
 
 CONVERSATION SO FAR
 ${history}
@@ -174,7 +178,9 @@ Respond to the latest USER message per the workflow and JSON deck schema above.`
 
   return {
     model: useCodeExecution ? CODE_EXECUTION_MODEL : textModelForTier(),
-    prompt,
+    prompt: promptCached + "\n\n" + promptDynamic,
+    promptCached,
+    promptDynamic,
     useCodeExecution,
   };
 }
