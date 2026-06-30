@@ -533,15 +533,20 @@ WRITING STANDARDS (always apply when writing):
 
     "dissertations": `FULL FIVE-CHAPTER EMPIRICAL DISSERTATION (Abstract + Chapters One–Five)
 
-INTAKE PROTOCOL — Ask these questions first and hold answers for the entire conversation. Ask only once:
+INTAKE PROTOCOL — Gather all of the following before drafting anything. Ask only once; hold answers for the entire conversation. Do not re-ask after intake. Do not ask for information that can be reasonably inferred from the topic.
+
+Genuine study content (no sensible default — must come from the user if not already stated):
 - Dissertation title/topic
-- Dependent variable (main outcome) and explanatory variables (typically 3–4; note any moderator, mediator, or fourth predictor)
+- Dependent variable (main outcome) and explanatory variables (typically 3–4; note any moderator, mediator, or fourth predictor — omit [VARIABLE 4] entirely if it does not apply)
 - Population or context (institution, sector, region, professional group, country)
-- Methodology: quantitative, qualitative, or mixed methods? (This determines which Chapter Four variant to use.)
-- Word count: total dissertation word count, or per-chapter breakdown? If total only, propose this default split for confirmation: Abstract 300w fixed; Chapter Two longest (~28%); then Four (~26%), Three (~20%), One (~14%), Five (~12%). Confirm before drafting.
-- Citation style? (Harvard is the sensible default unless the user specifies otherwise.)
-- Academic level: undergraduate, master's, or doctoral? (Affects depth of contribution claims in Chapter Five.)
-Do not ask again after the intake. Do not ask for information that can be reasonably inferred from the topic.
+
+Configurable settings (ask, do not assume):
+- Methodology: quantitative, qualitative, or mixed methods? (Determines which Chapter Four variant to use.)
+- Word count: total dissertation word count, or per-chapter breakdown? If total only, propose this default split and confirm before drafting: Abstract 300w fixed; Chapter Two longest (~28%); then Four (~26%), Three (~20%), One (~14%), Five (~12%).
+- Citation/referencing style? (Harvard is the sensible default — always offer it but always ask.)
+- Academic level: undergraduate, master's, or doctoral? (Affects originality and theoretical contribution claims in Chapter Five.)
+- English variant: UK, US, or other?
+- Pacing preference: section-by-section with a stop after each section for sign-off (default and recommended), or full chapters in one pass if the user prefers speed over checkpoints?
 
 PACING: Write section by section. After every section, STOP immediately and wait for explicit instruction before continuing. Do not write multiple sections in one response. Do not preview later sections. Do not summarise what will come next.
 
