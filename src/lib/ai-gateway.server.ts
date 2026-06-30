@@ -104,6 +104,33 @@ export function figureImageModel(tier: ModelTier = getModelTier()) {
  */
 export { STREAM_ERROR_MARKER, STREAM_TRUNCATED_MARKER } from "./stream-error-marker";
 
+/**
+ * Build a two-part user message that enables Anthropic prompt caching: the first text block
+ * (the static prefix — instructions, briefs, source documents that stay byte-identical across
+ * calls) is marked with `cacheControl: "ephemeral"`, so Anthropic stores it for ~5 minutes and
+ * subsequent requests pay ~10% on the cached portion and read it free instead of re-billing
+ * the whole prefix. The second block is the per-request dynamic tail. Anything sized under the
+ * model's minimum (1024 tokens on Sonnet, 2048 on Haiku) is a no-op — safe to use anyway.
+ *
+ * Non-Anthropic providers ignore `providerOptions.anthropic.*`, so the same shape is safe to
+ * send through the AI Gateway when the resolved model may not be Claude.
+ */
+export function buildCachedMessages(staticPrefix: string, dynamicTail: string) {
+  return [
+    {
+      role: "user" as const,
+      content: [
+        {
+          type: "text" as const,
+          text: staticPrefix,
+          providerOptions: { anthropic: { cacheControl: { type: "ephemeral" as const } } },
+        },
+        { type: "text" as const, text: dynamicTail },
+      ],
+    },
+  ];
+}
+
 type StreamPart = {
   type: string;
   text?: string;
