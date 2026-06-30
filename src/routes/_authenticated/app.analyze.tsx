@@ -1491,7 +1491,7 @@ function AnalyzePage() {
               )}
 
               {/* Composer — textarea on top, tool icons + send in a single bar */}
-              <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-none sm:border-0 sm:border-t-2 sm:bg-background sm:shadow-none sm:p-3 shrink-0">
+              <div className="m-2 rounded-3xl border bg-card shadow-sm p-2.5 shrink-0">
                 {(docFiles.length > 0 || fileName) && (
                   <div className="flex flex-wrap gap-1.5 px-1 pb-2">
                     {fileName && (
