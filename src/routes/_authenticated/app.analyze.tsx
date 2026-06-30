@@ -1154,7 +1154,7 @@ function AnalyzePage() {
     <AppShell fullScreenMobile>
       {(openMobileMenu) => (
         <>
-          <div className="mx-auto max-w-[1400px] p-0 sm:p-6 flex flex-col h-dvh">
+          <div className="w-full p-0 sm:p-6 flex flex-col h-dvh">
             <div className="flex items-center justify-between gap-2 mb-2 shrink-0 px-3 pt-3 sm:px-0 sm:pt-0">
               <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2 truncate min-w-0">
                 <button
@@ -1199,7 +1199,7 @@ function AnalyzePage() {
             </div>
 
             <Card
-              className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden rounded-none border-0 shadow-none sm:rounded-lg sm:border-x-2 sm:shadow relative"
+              className="p-0 flex flex-col flex-1 min-h-0 overflow-hidden rounded-none border-0 shadow-none sm:rounded-lg sm:border-2 sm:shadow-sm relative"
               onDragEnter={(e) => {
                 e.preventDefault();
                 dragCounter.current += 1;
@@ -1560,7 +1560,7 @@ function AnalyzePage() {
                       send();
                     }
                   }}
-                  className="resize-none min-h-0 max-h-40 border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base overflow-y-auto"
+                  className="resize-none min-h-0 max-h-40 border-0 focus-visible:ring-0 shadow-none px-3 py-2 text-base overflow-y-auto"
                 />
                 <div className="flex items-center gap-1 mt-1">
                   <ChatHistoryMenu
