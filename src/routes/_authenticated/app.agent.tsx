@@ -40,6 +40,7 @@ import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { FolderBadge } from "@/components/folder-badge";
 import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
+import { SmartPromptButton } from "@/components/smart-prompt-button";
 import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 
 function readAsBase64(file: File): Promise<string> {
@@ -254,6 +255,88 @@ function AgentPage() {
 
   function stopGenerating() {
     abortRef.current?.abort();
+  }
+
+  /**
+   * Smart Prompt: reads all uploaded documents and background context, then either
+   * asks any questions it needs or — if it has everything — builds and executes the
+   * perfect prompt for the work immediately.
+   */
+  function sendSmartPrompt() {
+    const hasContext = docTexts.length > 0 || folderContext;
+    const instruction = hasContext
+      ? "Read everything I have uploaded and the background context carefully. If you have all the information you need, build and execute the perfect detailed prompt for this work right now — skip asking questions if the materials are sufficient. If something essential is genuinely missing, ask only those targeted questions first, then proceed."
+      : "I want to start a piece of work. Ask me any questions you need to understand exactly what's required — rubric, audience, length, format, constraints — then build and execute a detailed prompt that will produce a perfect result.";
+    setInput(instruction);
+    // Use setTimeout so setInput flushes before send reads it
+    setTimeout(() => {
+      setInput("");
+      setSending(true);
+      const syntheticText = instruction;
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: syntheticText },
+        { role: "assistant", content: "" },
+      ]);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      (async () => {
+        try {
+          const id = await ensureSession();
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (!token) throw new Error("Not authenticated");
+
+          const folderBlock = folderContext ? `${folderContext}\n\n` : "";
+          const docContext = docTexts.length
+            ? `${folderBlock}Uploaded document context:\n${budgetDocTexts(docTexts, 60000)}\n\nUSER REQUEST:\n${syntheticText}`
+            : folderBlock
+              ? `${folderBlock}USER REQUEST:\n${syntheticText}`
+              : syntheticText;
+
+          const res = await fetch("/api/agent-stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ sessionId: id, message: docContext }),
+            signal: controller.signal,
+          });
+          if (!res.ok || !res.body) {
+            const errText = await res.text().catch(() => "");
+            throw new Error(errText || "The agent didn't respond");
+          }
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let raw = "";
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            raw += decoder.decode(value, { stream: true });
+            const { display, files } = splitFileMarkers(raw);
+            setMessages((prev) => {
+              const copy = [...prev];
+              copy[copy.length - 1] = { role: "assistant", content: display, files };
+              return copy;
+            });
+          }
+        } catch (err) {
+          if ((err as Error)?.name === "AbortError") return;
+          console.error("[agent] smart prompt send failed:", err);
+          toast.error(err instanceof Error ? err.message : "Something went wrong");
+          setMessages((prev) => {
+            const copy = [...prev];
+            copy[copy.length - 1] = {
+              ...copy[copy.length - 1],
+              content: copy[copy.length - 1].content || "Something went wrong. Please try again.",
+            };
+            return copy;
+          });
+        } finally {
+          setSending(false);
+        }
+      })();
+    }, 0);
   }
 
   async function handleDownloadFile(fileId: string) {
@@ -848,6 +931,11 @@ function AgentPage() {
                   )}
                 </PopoverContent>
               </Popover>
+
+              <SmartPromptButton
+                onClick={sendSmartPrompt}
+                disabled={sending}
+              />
 
               <div className="ml-auto">
                 {sending ? (

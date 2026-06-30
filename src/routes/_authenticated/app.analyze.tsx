@@ -74,6 +74,7 @@ import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { FolderBadge } from "@/components/folder-badge";
 import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
+import { SmartPromptButton } from "@/components/smart-prompt-button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -1919,6 +1920,11 @@ function AnalyzePage() {
                       </div>
                     </PopoverContent>
                   </Popover>
+
+                  <SmartPromptButton
+                    onClick={() => startPromptBuild("meta")}
+                    disabled={sending}
+                  />
 
                   <div className="ml-auto">
                     {sending ? (
