@@ -149,7 +149,9 @@ export const FormattingEnhanceInput = z.object({
  * Editor role. Builds the trim/expand-and-improve prompt for the strong model — the
  * model never trusts itself to count words; the caller passes in a JS-computed count.
  */
-export function buildEnhancePrompt(data: z.infer<typeof FormattingEnhanceInput>): { prompt: string } {
+export function buildEnhancePrompt(
+  data: z.infer<typeof FormattingEnhanceInput>,
+): { prompt: string; promptCached: string; promptDynamic: string } {
   const hasTarget = data.targetWordCountMin != null && data.targetWordCountMax != null;
   let wordInstruction = "No explicit word count target was found — focus purely on quality, not length.";
   if (hasTarget) {
@@ -167,7 +169,16 @@ export function buildEnhancePrompt(data: z.infer<typeof FormattingEnhanceInput>)
   const weaknessLines = data.weaknesses.length ? data.weaknesses.map((w) => `- ${w}`).join("\n") : "- (none flagged)";
   const missingLines = data.missingRequirements.length ? data.missingRequirements.map((m) => `- ${m}`).join("\n") : "- (none flagged)";
 
-  const prompt = `You are an expert editor improving a piece of academic/professional writing before submission. You may rewrite, restructure, trim, or expand as needed — but you must preserve the author's voice, argument, and factual content. Never invent facts, sources, or data that weren't already in the work.
+  // Cached prefix: brief + the document body — these stay identical across re-runs on the same
+  // work, so the second pass reads the bulk for free instead of re-billing it.
+  const promptCached = `You are an expert editor improving a piece of academic/professional writing before submission. You may rewrite, restructure, trim, or expand as needed — but you must preserve the author's voice, argument, and factual content. Never invent facts, sources, or data that weren't already in the work.
+${data.briefText?.trim() ? `\nBRIEF / REQUIREMENTS:\n"""\n${data.briefText.slice(0, 50000)}\n"""\n` : ""}
+WORK TO EDIT:
+"""
+${data.documentText.slice(0, 100000)}
+"""`;
+
+  const promptDynamic = `
 
 WORD COUNT INSTRUCTION: ${wordInstruction}
 
@@ -176,15 +187,10 @@ ${weaknessLines}
 
 MISSING REQUIREMENTS TO ADDRESS (add real content for these, don't just gesture at them):
 ${missingLines}
-${data.briefText?.trim() ? `\nBRIEF / REQUIREMENTS:\n"""\n${data.briefText.slice(0, 50000)}\n"""\n` : ""}
-WORK TO EDIT:
-"""
-${data.documentText.slice(0, 100000)}
-"""
 
 Output ONLY the full revised document text, start to finish — no preamble, no commentary, no markdown code fences, no notes about what you changed.`;
 
-  return { prompt };
+  return { prompt: promptCached + promptDynamic, promptCached, promptDynamic };
 }
 
 export const FormattingRunInput = z.object({
