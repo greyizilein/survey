@@ -40,14 +40,14 @@ export const Route = createFileRoute("/api/formatting-enhance-stream")({
           return new Response(`Invalid input: ${parsed.error.message}`, { status: 400 });
         }
 
-        const { createCodeExecutionAi, CODE_EXECUTION_MODEL, toTextStreamResponseWithErrors } = await import("@/lib/ai-gateway.server");
+        const { createCodeExecutionAi, CODE_EXECUTION_MODEL, toTextStreamResponseWithErrors, buildCachedMessages } = await import("@/lib/ai-gateway.server");
         const { streamText } = await import("ai");
-        const { prompt } = buildEnhancePrompt(parsed.data);
+        const { promptCached, promptDynamic } = buildEnhancePrompt(parsed.data);
 
         try {
           const result = streamText({
             model: createCodeExecutionAi()(CODE_EXECUTION_MODEL),
-            prompt,
+            messages: buildCachedMessages(promptCached, promptDynamic),
             temperature: 0.3,
             maxOutputTokens: 16000,
             onError: ({ error }) => {
