@@ -679,7 +679,7 @@ function AgentPage() {
             <div ref={bottomRef} />
           </Card>
 
-          <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 sm:m-0 sm:rounded-md sm:border sm:shadow-none sm:p-0 sm:bg-transparent shrink-0">
+          <div className="m-2 mt-0 rounded-3xl border bg-card shadow-sm p-2.5 shrink-0">
             {docFiles.length > 0 && (
               <div className="flex flex-wrap gap-1.5 px-1 pb-2">
                 {docFiles.map((f, i) => {
@@ -735,10 +735,10 @@ function AgentPage() {
                 }
               }}
               placeholder="Ask the agent anything…"
-              className="resize-none min-h-0 max-h-40 overflow-y-auto border-0 focus-visible:ring-0 shadow-none px-1 py-1 text-base sm:border sm:shadow-sm sm:px-3 sm:py-2"
+              className="resize-none min-h-[60px] max-h-40 overflow-y-auto border-0 focus-visible:ring-0 shadow-none px-3 pt-2 pb-1 text-base"
               disabled={sending}
             />
-            <div className="flex items-center gap-1 mt-1 sm:mt-2">
+            <div className="flex items-center gap-1 mt-1 pt-1 border-t border-border/40">
               <input
                 ref={docFileInputRef}
                 type="file"
@@ -787,7 +787,7 @@ function AgentPage() {
                       <Upload className="size-5 text-muted-foreground" />
                     )}
                     <span className="text-sm font-medium">
-                      {readingDocs ? "Reading documents…" : "Choose documents"}
+                      {readingDocs ? "Reading documents���" : "Choose documents"}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md
