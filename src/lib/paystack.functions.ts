@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { PLANS, type BillingInterval } from "@/lib/products";
+import { PLANS, fetchUsdToNgnRate, type BillingInterval } from "@/lib/products";
 
 const CheckoutInput = z.object({
   planId: z.string(),
@@ -27,13 +27,18 @@ export const createPaystackCheckout = createServerFn({ method: "POST" })
     const { ensurePlan, initTransaction } = await import("@/lib/paystack.server");
 
     const interval: BillingInterval = data.interval;
-    const amountCents =
+    const usdCents =
       interval === "year" ? plan.yearlyPriceCents : plan.monthlyPriceCents;
-    const currency = "USD"; // Paystack NG accounts can enable USD collection
+
+    // Convert USD → NGN at live rate, then to kobo (Paystack's minor unit = NGN × 100)
+    const usdToNgn = await fetchUsdToNgnRate();
+    const ngnWhole = Math.round((usdCents / 100) * usdToNgn);
+    const amountKobo = ngnWhole * 100;
+    const currency = "NGN";
 
     const paystackPlan = await ensurePlan({
       name: `Paperstudio ${plan.name} — ${interval === "year" ? "Annual" : "Monthly"}`,
-      amountLowestUnit: amountCents,
+      amountLowestUnit: amountKobo,
       interval: interval === "year" ? "annually" : "monthly",
       currency,
     });
@@ -46,7 +51,7 @@ export const createPaystackCheckout = createServerFn({ method: "POST" })
 
     const init = await initTransaction({
       email,
-      amountLowestUnit: amountCents,
+      amountLowestUnit: amountKobo,
       planCode: paystackPlan.plan_code,
       currency,
       callbackUrl,
@@ -72,7 +77,7 @@ export const createPaystackCheckout = createServerFn({ method: "POST" })
       interval,
       status: "pending",
       paystack_plan_code: paystackPlan.plan_code,
-      amount_cents: amountCents,
+      amount_cents: amountKobo,
       currency,
     });
 
