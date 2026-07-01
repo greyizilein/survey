@@ -189,7 +189,7 @@ function PricingPage() {
                 </div>
 
                 {/* CTA */}
-                <CheckoutButton
+                <PaystackCheckoutButton
                   planId={plan.id}
                   planName={plan.name}
                   interval={interval}
@@ -201,7 +201,7 @@ function PricingPage() {
                   )}
                 >
                   Get {plan.name}
-                </CheckoutButton>
+                </PaystackCheckoutButton>
 
                 {/* Features */}
                 <ul className="mt-6 space-y-2.5">
