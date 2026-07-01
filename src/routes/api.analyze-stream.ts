@@ -33,10 +33,10 @@ export const Route = createFileRoute("/api/analyze-stream")({
         }
         const userId = claimsData.claims.sub;
 
-        const quota = await checkQuota(supabaseAdmin, userId);
+        const quota = await checkQuota(supabaseAdmin, userId, "writer");
         if (!quota.allowed) {
           return new Response(
-            JSON.stringify({ error: "quota_exceeded", subscriptionType: quota.subscriptionType, wordsUsed: quota.wordsUsed, limit: quota.limit }),
+            JSON.stringify({ error: quota.reason, subscriptionType: quota.subscriptionType, wordsUsed: quota.wordsUsed, limit: quota.limit }),
             { status: 402, headers: { "Content-Type": "application/json" } },
           );
         }
