@@ -83,6 +83,9 @@ function Landing() {
           muted
           loop
           playsInline
+          preload="auto"
+          // @ts-expect-error fetchpriority is valid but not yet in React types
+          fetchpriority="high"
           aria-hidden
         />
         {/* Dark base scrim — deepens blacks so text always pops */}
@@ -220,7 +223,6 @@ function Landing() {
               tag: "Writing",
               title: "AI-assisted writing",
               desc: "Chapters, reports, and analysis — with your data, sources, and instructions baked in. Export to Word in one click.",
-              video: "/hero.mp4",
               href: "/app/analyze",
               cta: "Start writing",
             },
@@ -228,7 +230,6 @@ function Landing() {
               tag: "Presentations",
               title: "Decks, done for you.",
               desc: "Describe the deck you need and get live, editable slides built and exported to .pptx — ready to open in PowerPoint.",
-              video: "/feature.mp4",
               href: "/app/presentations",
               cta: "Build a deck",
             },
@@ -236,7 +237,6 @@ function Landing() {
               tag: "Interview Studio",
               title: "100 transcripts, zero scheduling.",
               desc: "Upload a discussion guide and get a full AI interview transcript per persona — unique voices, real depth, instantly.",
-              video: "/6000238-uhd_2160_3840_24fps.mp4",
               href: "/app/agent",
               cta: "Run interviews",
             },
@@ -244,28 +244,22 @@ function Landing() {
               tag: "Survey autofill",
               title: "Paste a link. Get answers.",
               desc: "Share any Google Forms URL and Paperstudio fills it in character and submits — across thousands of personas.",
-              video: "/6000429-uhd_2160_3840_24fps.mp4",
               href: "/app/agent",
               cta: "Try autofill",
             },
-          ].map((card) => (
+          ].map((card, cardIdx) => {
+            const cardBgs = ["#0a0f0a", "#0a0a0f", "#0f0a08", "#080f0f"];
+            return (
             <Link
               key={card.tag}
               to={ctaHref}
-              className="group relative flex-none snap-start overflow-hidden rounded-2xl bg-black"
-              style={{ width: "min(80vw, 340px)", minHeight: "480px" }}
+              className="group relative flex-none snap-start overflow-hidden rounded-2xl"
+              style={{ width: "min(80vw, 340px)", minHeight: "480px", background: cardBgs[cardIdx % cardBgs.length] }}
             >
-              {/* Video background */}
-              <video
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                style={{ opacity: 0.5 }}
-                src={card.video}
-                autoPlay muted loop playsInline aria-hidden
-              />
-              {/* Scrim — heavier at bottom for text legibility */}
+              {/* Subtle radial glow */}
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.15) 100%)" }}
+                style={{ background: `radial-gradient(ellipse at 30% 20%, ${LIME}12 0%, transparent 65%)` }}
                 aria-hidden
               />
               {/* Content */}
@@ -286,12 +280,16 @@ function Landing() {
                 </div>
               </div>
             </Link>
-          ))}
+          );
+          })}
         </div>
       </section>
 
       {/* Slides + Video section */}
       <SlidesSection ctaHref={ctaHref} />
+
+      {/* Vertical-scroll slide section */}
+      <VideoSlideSection ctaHref={ctaHref} />
 
       {/* Stats strip */}
       <section className="bg-background py-16">
@@ -305,46 +303,14 @@ function Landing() {
         </div>
       </section>
 
-      {/* Cinematic interlude — full-bleed video */}
-      <section className="dark relative overflow-hidden" style={{ minHeight: "70vh" }}>
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 0.4 }}
-          src="/6000648-uhd_2160_3840_24fps.mp4"
-          autoPlay muted loop playsInline aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)" }}
-          aria-hidden
-        />
-        <div className="relative z-10 mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Built for serious writers</p>
-          <h2 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
-            Writing that used to take days.
-            <br />
-            <span className="text-primary">Done in 12 minutes.</span>
-          </h2>
-          <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
-            Paperstudio was built for one purpose: to eliminate the blank page. Every tool, every output, every export — designed to finish the work.
-          </p>
-        </div>
-      </section>
-
       {/* Testimonials — editorial quotes */}
       <TestimonialsMarquee />
 
-      {/* Final CTA — video background */}
-      <section className="dark relative overflow-hidden bg-black">
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 0.35 }}
-          src="/6000648-uhd_2160_3840_24fps.mp4"
-          autoPlay muted loop playsInline aria-hidden
-        />
+      {/* Final CTA */}
+      <section className="dark relative overflow-hidden bg-foreground">
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at 60% 50%, ${LIME}20 0%, rgba(0,0,0,0.75) 70%)` }}
+          style={{ background: `radial-gradient(ellipse at 60% 50%, ${LIME}18 0%, transparent 70%)` }}
           aria-hidden
         />
         <div className="relative z-10 mx-auto max-w-4xl px-6 py-28 text-center sm:py-36 lg:px-8">
@@ -517,9 +483,144 @@ function TestimonialsMarquee() {
   );
 }
 
+const VIDEO_SLIDES = [
+  {
+    tag: "Built for serious writers",
+    heading: "Writing that used to take days. Done in 12 minutes.",
+    body: "Paperstudio was built for one purpose: to eliminate the blank page. Every tool, every output, every export — designed to finish the work.",
+  },
+  {
+    tag: "AI Writing",
+    heading: "From prompt to polished draft in minutes.",
+    body: "Describe your topic, set the length and tone, and Paperstudio writes a full structured document — complete with sources, analysis, and citations — ready to export.",
+  },
+  {
+    tag: "Presentations",
+    heading: "Decks built while you brief.",
+    body: "Tell Paperstudio what story to tell. It builds the full deck slide by slide and exports to .pptx — open it straight in PowerPoint.",
+  },
+  {
+    tag: "Interview Studio",
+    heading: "100 interviews. Zero scheduling.",
+    body: "Upload a discussion guide and get a full transcript per AI persona — unique voices, real depth, instantly scalable.",
+  },
+  {
+    tag: "Survey Autofill",
+    heading: "Paste a link. Get 1,000 answers.",
+    body: "Share any Google Forms URL and Paperstudio fills it in character and submits — across as many personas as you need.",
+  },
+];
+
+function VideoSlideSection({ ctaHref }: { ctaHref: string }) {
+  const [active, setActive] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Only load + play the video when the section scrolls into view
+  useEffect(() => {
+    const section = sectionRef.current;
+    const video = videoRef.current;
+    if (!section || !video) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.preload = "auto";
+          video.load();
+          video.play().catch(() => {});
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setAnimating(true);
+      setTimeout(() => {
+        setActive((a) => (a + 1) % VIDEO_SLIDES.length);
+        setAnimating(false);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  const slide = VIDEO_SLIDES[active];
+
+  return (
+    <section ref={sectionRef} className="dark relative overflow-hidden" style={{ minHeight: "100vh" }}>
+      {/* Background video — loads only when section enters viewport */}
+      <video
+        ref={videoRef}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        style={{ opacity: 0.5 }}
+        src="/9558213-uhd_4096_2160_25fps.mp4"
+        muted loop playsInline preload="none" aria-hidden
+      />
+      {/* Dark overlay — heavier at bottom */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%)" }}
+        aria-hidden
+      />
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col justify-between px-6 py-16 lg:px-8">
+
+        {/* Top label */}
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">How it works</p>
+
+        {/* Slide text — animates up on change */}
+        <div
+          className="flex flex-col gap-6"
+          style={{
+            opacity: animating ? 0 : 1,
+            transform: animating ? "translateY(24px)" : "translateY(0)",
+            transition: "opacity 0.35s ease, transform 0.35s ease",
+          }}
+        >
+          <span className="inline-flex w-fit items-center rounded-full bg-primary/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary backdrop-blur-sm">
+            {slide.tag}
+          </span>
+          <h2 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
+            {slide.heading}
+          </h2>
+          <p className="max-w-xl text-base leading-relaxed text-white/70 sm:text-lg">
+            {slide.body}
+          </p>
+          <Link
+            to={ctaHref}
+            className="mt-2 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
+          >
+            Try it free <ArrowRight className="size-4" />
+          </Link>
+        </div>
+
+        {/* Bottom — dot + slide indicators */}
+        <div className="flex items-center gap-6">
+          {VIDEO_SLIDES.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => { setAnimating(true); setTimeout(() => { setActive(i); setAnimating(false); }, 400); }}
+              className="group flex flex-col gap-1.5 text-left"
+            >
+              <span className={`block h-[2px] w-10 transition-all duration-300 ${i === active ? "bg-primary" : "bg-white/30 group-hover:bg-white/60"}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${i === active ? "text-primary" : "text-white/40 group-hover:text-white/70"}`}>
+                {s.tag}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SlidesSection({ ctaHref }: { ctaHref: string }) {
   const [active, setActive] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const mobileActiveRef = useRef(0);
 
@@ -592,17 +693,11 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
             </Link>
           </div>
 
-          {/* RIGHT — video */}
-          <div className="relative overflow-hidden rounded-2xl bg-black lg:flex-1 min-h-[340px]">
-            <video
-              ref={videoRef}
-              className="absolute inset-0 h-full w-full object-cover opacity-80"
-              src="/feature.mp4"
-              autoPlay muted loop playsInline aria-hidden
-            />
+          {/* RIGHT — dark panel with slide info */}
+          <div className="relative overflow-hidden rounded-2xl bg-foreground lg:flex-1 min-h-[340px]">
             <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 55%)" }}
+              style={{ background: `radial-gradient(ellipse at 70% 30%, ${LIME}15 0%, transparent 65%)` }}
               aria-hidden
             />
             <div className="absolute bottom-6 left-6 right-6 z-10">
@@ -635,17 +730,12 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
           {slides.map((slide, i) => (
             <div
               key={i}
-              className="relative flex-none snap-start overflow-hidden rounded-2xl bg-black"
+              className="relative flex-none snap-start overflow-hidden rounded-2xl bg-foreground"
               style={{ width: "75vw", minHeight: "400px" }}
             >
-              <video
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-50"
-                src="/feature.mp4"
-                autoPlay muted loop playsInline aria-hidden
-              />
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%)" }}
+                style={{ background: `radial-gradient(ellipse at 30% 20%, ${LIME}15 0%, transparent 65%)` }}
                 aria-hidden
               />
               <div className="absolute inset-0 flex flex-col justify-between p-5">
