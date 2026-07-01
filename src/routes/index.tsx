@@ -305,7 +305,33 @@ function Landing() {
         </div>
       </section>
 
-      {/* Testimonials — infinite dual-marquee */}
+      {/* Cinematic interlude — full-bleed video */}
+      <section className="dark relative overflow-hidden" style={{ minHeight: "70vh" }}>
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: 0.45 }}
+          src="/6000238-uhd_2160_3840_24fps.mp4"
+          autoPlay muted loop playsInline aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.75) 100%)" }}
+          aria-hidden
+        />
+        <div className="relative z-10 mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Built for serious writers</p>
+          <h2 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
+            Writing that used to take days.
+            <br />
+            <span className="text-primary">Done in 12 minutes.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
+            Paperstudio was built for one purpose: to eliminate the blank page. Every tool, every output, every export — designed to finish the work.
+          </p>
+        </div>
+      </section>
+
+      {/* Testimonials — editorial quotes */}
       <TestimonialsMarquee />
 
       {/* Final CTA — video background */}
