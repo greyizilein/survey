@@ -232,7 +232,8 @@ function Landing() {
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Company</h4>
               <ul className="mt-4 space-y-2 text-sm">
-                <li><Link to="/" className="text-foreground/80 hover:text-foreground">About</Link></li>
+                <li><Link to="/about" className="text-foreground/80 hover:text-foreground">About</Link></li>
+                <li><Link to="/contact" className="text-foreground/80 hover:text-foreground">Contact</Link></li>
                 <li><Link to="/auth" className="text-foreground/80 hover:text-foreground">Sign in</Link></li>
               </ul>
             </div>
