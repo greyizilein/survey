@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
+import { checkQuota } from "@/lib/usage-tracking";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const HumanizerInput = z.object({
   text: z.string().min(10).max(50000),
@@ -81,6 +83,15 @@ export const Route = createFileRoute("/api/humanizer-stream")({
         const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
         if (claimsError || !claimsData?.claims?.sub) {
           return new Response("Unauthorized", { status: 401 });
+        }
+        const userId = claimsData.claims.sub;
+
+        const quota = await checkQuota(supabaseAdmin, userId, "writer");
+        if (!quota.allowed) {
+          return new Response(
+            JSON.stringify({ error: quota.reason, subscriptionType: quota.subscriptionType, wordsUsed: quota.wordsUsed, limit: quota.limit }),
+            { status: 402, headers: { "Content-Type": "application/json" } },
+          );
         }
 
         let body: unknown;
