@@ -198,9 +198,9 @@ function Landing() {
         </div>
       </section>
 
-      {/* Features section */}
-      <section className="bg-background text-foreground">
-        <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32 lg:px-8">
+      {/* Features carousel */}
+      <section className="bg-background py-24 sm:py-32 overflow-hidden">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <h2 className="reveal max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
             One workspace for everything you write.
           </h2>
@@ -208,30 +208,85 @@ function Landing() {
             "I went from blank page to a 9,000-word draft I was proud of, in just 12 minutes."
             <span className="mt-2 block not-italic uppercase tracking-wide text-muted-foreground/80">One anonymous user</span>
           </p>
+        </div>
 
-          <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <Feature icon={BarChart3} title="AI-assisted writing" desc="Chapters, reports, and analysis — with your data, sources, and instructions baked in." />
-            <Feature icon={Presentation} title="Presentations" desc="Describe the deck you need and get live, editable slides exported to .pptx." />
-            <Feature icon={MessageSquareText} title="Interview Studio" desc="Upload a guide and get a full interview transcript per AI respondent." />
-            <Feature icon={ClipboardPenLine} title="Survey autofill" desc="Paste a Google Forms link — Paperstudio answers in character and submits." />
-          </div>
-
-          <div className="reveal-scale mt-20 rounded-2xl bg-accent p-10 text-center shadow-md shadow-black/5 sm:p-16">
-            <h3 className="text-3xl font-extrabold tracking-tight text-accent-foreground sm:text-4xl">
-              Export-Ready
-              <br />
-              Great First Drafts
-            </h3>
-            <p className="mx-auto mt-3 max-w-md text-sm text-accent-foreground/80 sm:text-base">
-              One workspace, every format. Paperstudio does the writing.
-            </p>
+        {/* Scrollable track — bleeds to edges on mobile */}
+        <div
+          className="mt-12 flex gap-4 overflow-x-auto px-6 pb-4 lg:px-8 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+        >
+          {[
+            {
+              tag: "Writing",
+              title: "AI-assisted writing",
+              desc: "Chapters, reports, and analysis — with your data, sources, and instructions baked in. Export to Word in one click.",
+              video: "/hero.mp4",
+              href: "/app/analyze",
+              cta: "Start writing",
+            },
+            {
+              tag: "Presentations",
+              title: "Decks, done for you.",
+              desc: "Describe the deck you need and get live, editable slides built and exported to .pptx — ready to open in PowerPoint.",
+              video: "/feature.mp4",
+              href: "/app/presentations",
+              cta: "Build a deck",
+            },
+            {
+              tag: "Interview Studio",
+              title: "100 transcripts, zero scheduling.",
+              desc: "Upload a discussion guide and get a full AI interview transcript per persona — unique voices, real depth, instantly.",
+              video: "/6000238-uhd_2160_3840_24fps.mp4",
+              href: "/app/agent",
+              cta: "Run interviews",
+            },
+            {
+              tag: "Survey autofill",
+              title: "Paste a link. Get answers.",
+              desc: "Share any Google Forms URL and Paperstudio fills it in character and submits — across thousands of personas.",
+              video: "/6000429-uhd_2160_3840_24fps.mp4",
+              href: "/app/agent",
+              cta: "Try autofill",
+            },
+          ].map((card) => (
             <Link
+              key={card.tag}
               to={ctaHref}
-              className="mt-8 inline-flex items-center gap-2 border-2 border-foreground bg-foreground px-7 py-3.5 text-sm font-bold text-background hard-shadow-sm hard-shadow-hover"
+              className="group relative flex-none snap-start overflow-hidden rounded-2xl bg-black"
+              style={{ width: "min(80vw, 340px)", minHeight: "480px" }}
             >
-              {authed ? "Office" : "Get started"} <ArrowRight className="size-4" />
+              {/* Video background */}
+              <video
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                style={{ opacity: 0.5 }}
+                src={card.video}
+                autoPlay muted loop playsInline aria-hidden
+              />
+              {/* Scrim — heavier at bottom for text legibility */}
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.15) 100%)" }}
+                aria-hidden
+              />
+              {/* Content */}
+              <div className="absolute inset-0 flex flex-col justify-between p-6">
+                <span className="inline-flex w-fit items-center rounded-full bg-primary/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary backdrop-blur-sm">
+                  {card.tag}
+                </span>
+                <div>
+                  <h3 className="text-xl font-extrabold leading-tight tracking-tight text-white sm:text-2xl">
+                    {card.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/65">
+                    {card.desc}
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary transition-gap group-hover:gap-2.5">
+                    {card.cta} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </div>
+              </div>
             </Link>
-          </div>
+          ))}
         </div>
       </section>
 
