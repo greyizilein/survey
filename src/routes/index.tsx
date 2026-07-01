@@ -293,6 +293,9 @@ function Landing() {
       {/* Slides + Video section */}
       <SlidesSection ctaHref={ctaHref} />
 
+      {/* Vertical-scroll slide section */}
+      <VideoSlideSection ctaHref={ctaHref} />
+
       {/* Stats strip */}
       <section className="bg-background py-16">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
@@ -510,6 +513,114 @@ function TestimonialsMarquee() {
                 </div>
               </div>
             </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const VIDEO_SLIDES = [
+  {
+    tag: "AI Writing",
+    heading: "From prompt to polished draft in minutes.",
+    body: "Describe your topic, set the length and tone, and Paperstudio writes a full structured document — complete with sources, analysis, and citations — ready to export.",
+  },
+  {
+    tag: "Presentations",
+    heading: "Decks built while you brief.",
+    body: "Tell Paperstudio what story to tell. It builds the full deck slide by slide and exports to .pptx — open it straight in PowerPoint.",
+  },
+  {
+    tag: "Interview Studio",
+    heading: "100 interviews. Zero scheduling.",
+    body: "Upload a discussion guide and get a full transcript per AI persona — unique voices, real depth, instantly scalable.",
+  },
+  {
+    tag: "Survey Autofill",
+    heading: "Paste a link. Get 1,000 answers.",
+    body: "Share any Google Forms URL and Paperstudio fills it in character and submits — across as many personas as you need.",
+  },
+];
+
+function VideoSlideSection({ ctaHref }: { ctaHref: string }) {
+  const [active, setActive] = useState(0);
+  const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setAnimating(true);
+      setTimeout(() => {
+        setActive((a) => (a + 1) % VIDEO_SLIDES.length);
+        setAnimating(false);
+      }, 400);
+    }, 4000);
+    return () => clearInterval(id);
+  }, []);
+
+  const slide = VIDEO_SLIDES[active];
+
+  return (
+    <section className="dark relative overflow-hidden" style={{ minHeight: "100vh" }}>
+      {/* Background video */}
+      <video
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        style={{ opacity: 0.5 }}
+        src="/9558213-uhd_4096_2160_25fps.mp4"
+        autoPlay muted loop playsInline aria-hidden
+      />
+      {/* Dark overlay — heavier at bottom */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%)" }}
+        aria-hidden
+      />
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-5xl flex-col justify-between px-6 py-16 lg:px-8">
+
+        {/* Top label */}
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">How it works</p>
+
+        {/* Slide text — animates up on change */}
+        <div
+          className="flex flex-col gap-6"
+          style={{
+            opacity: animating ? 0 : 1,
+            transform: animating ? "translateY(24px)" : "translateY(0)",
+            transition: "opacity 0.35s ease, transform 0.35s ease",
+          }}
+        >
+          <span className="inline-flex w-fit items-center rounded-full bg-primary/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary backdrop-blur-sm">
+            {slide.tag}
+          </span>
+          <h2 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
+            {slide.heading}
+          </h2>
+          <p className="max-w-xl text-base leading-relaxed text-white/70 sm:text-lg">
+            {slide.body}
+          </p>
+          <Link
+            to={ctaHref}
+            className="mt-2 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
+          >
+            Try it free <ArrowRight className="size-4" />
+          </Link>
+        </div>
+
+        {/* Bottom — dot + slide indicators */}
+        <div className="flex items-center gap-6">
+          {VIDEO_SLIDES.map((s, i) => (
+            <button
+              key={i}
+              onClick={() => { setAnimating(true); setTimeout(() => { setActive(i); setAnimating(false); }, 400); }}
+              className="group flex flex-col gap-1.5 text-left"
+            >
+              <span className={`block h-[2px] w-10 transition-all duration-300 ${i === active ? "bg-primary" : "bg-white/30 group-hover:bg-white/60"}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${i === active ? "text-primary" : "text-white/40 group-hover:text-white/70"}`}>
+                {s.tag}
+              </span>
+            </button>
           ))}
         </div>
       </div>
