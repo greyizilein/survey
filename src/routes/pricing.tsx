@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { PLANS, formatPrice, annualMonthlyRate, type BillingInterval } from "@/lib/products";
 import { PaystackCheckoutButton } from "@/components/paystack-button";
 import { Logo } from "@/components/logo";
+import { EnterpriseRequestForm } from "@/components/enterprise-request-form";
 
 const CONTACT_EMAIL = "xeros.opinion@gmail.com";
 
@@ -48,6 +49,7 @@ function CellValue({ value }: { value: string | boolean }) {
 
 function PricingPage() {
   const [interval, setInterval] = useState<BillingInterval>("month");
+  const [showRequestForm, setShowRequestForm] = useState(false);
 
   const nonEnterprisePlans = PLANS.filter((p) => !p.enterprise);
   const enterprisePlan = PLANS.find((p) => p.enterprise)!;
@@ -250,13 +252,13 @@ function PricingPage() {
             </ul>
           </div>
           <div className="shrink-0">
-            <a
-              href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20enquiry`}
+            <button
+              onClick={() => setShowRequestForm(true)}
               className="flex items-center gap-2 border-2 border-foreground bg-foreground px-7 py-3.5 text-sm font-bold uppercase tracking-widest text-background hard-shadow hard-shadow-hover"
             >
               <Mail className="size-4" />
-              Contact us
-            </a>
+              Get a quote
+            </button>
           </div>
         </div>
       </section>
@@ -325,12 +327,12 @@ function PricingPage() {
           >
             Get started free
           </Link>
-          <a
-            href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20enquiry`}
+          <button
+            onClick={() => setShowRequestForm(true)}
             className="border-2 border-background/30 px-8 py-3.5 text-sm font-bold uppercase tracking-widest text-background/70 hover:border-background/60 hover:text-background transition-colors"
           >
             Talk to us
-          </a>
+          </button>
         </div>
       </section>
 
@@ -342,6 +344,9 @@ function PricingPage() {
           <span>© {new Date().getFullYear()} Paperstudio</span>
         </div>
       </footer>
+      {showRequestForm && (
+        <EnterpriseRequestForm onClose={() => setShowRequestForm(false)} />
+      )}
     </div>
   );
 }
