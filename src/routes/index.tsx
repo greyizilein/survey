@@ -164,7 +164,7 @@ function Landing() {
             of first time users
           </p>
           <div
-            className="relative overflow-hidden border-y-2 border-foreground/15 py-3"
+            className="relative overflow-hidden py-3"
             style={{
               maskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)",
               WebkitMaskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)",
@@ -224,10 +224,10 @@ function Landing() {
       </section>
 
       {/* Stats strip */}
-      <section className="border-y-2 border-foreground/10 bg-background py-16">
+      <section className="bg-background py-16">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-            <Stat value="12 min" label="Avg. time to a full draft" />
+            <Stat value="12 min" label="Avg. time to a 12K draft" />
             <Stat value="9,000+" label="Words per session" />
             <Stat value="99%" label="First-time user satisfaction" />
             <Stat value="5 tools" label="One unified workspace" />
@@ -277,7 +277,7 @@ function Landing() {
             </div>
           </div>
 
-          <div className="mt-12 flex flex-row items-center justify-between gap-3 pt-6 text-xs uppercase tracking-wide text-muted-foreground">
+          <div className="mt-12 flex flex-row items-center justify-between gap-3 text-xs uppercase tracking-wide text-muted-foreground">
             <span>© {new Date().getFullYear()} Paperstudio</span>
             <span>A slice of grey</span>
           </div>
