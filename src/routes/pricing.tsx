@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { Check, Mail, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { Check, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PLANS, formatNgn, annualMonthlyRateNgn, fetchUsdToNgnRate, type BillingInterval } from "@/lib/products";
+import { PLANS, formatPrice, annualMonthlyRate, type BillingInterval } from "@/lib/products";
 import { PaystackCheckoutButton } from "@/components/paystack-button";
 import { Logo } from "@/components/logo";
 
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
       { title: "Pricing — Paperstudio" },
-      { name: "description", content: "Simple, transparent pricing for every stage of your writing. Priced in Naira at live exchange rates." },
+      { name: "description", content: "Simple, transparent pricing for every stage of your writing. Starter from $25/mo." },
     ],
   }),
   component: PricingPage,
@@ -46,15 +46,6 @@ function CellValue({ value }: { value: string | boolean }) {
 
 function PricingPage() {
   const [interval, setInterval] = useState<BillingInterval>("month");
-  const [usdToNgn, setUsdToNgn] = useState<number | null>(null);
-  const [rateLoading, setRateLoading] = useState(true);
-
-  useEffect(() => {
-    fetchUsdToNgnRate().then((rate) => {
-      setUsdToNgn(rate);
-      setRateLoading(false);
-    });
-  }, []);
 
   const nonEnterprisePlans = PLANS.filter((p) => !p.enterprise);
   const enterprisePlan = PLANS.find((p) => p.enterprise)!;
@@ -124,20 +115,6 @@ function PricingPage() {
           </button>
         </div>
 
-        {/* Live rate indicator */}
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-          <RefreshCw className={cn("size-3", rateLoading && "animate-spin")} />
-          {rateLoading ? (
-            <span>Loading live rate…</span>
-          ) : (
-            <span>
-              Prices in NGN at live rate{" "}
-              <span className="font-bold text-foreground">
-                $1 = ₦{usdToNgn?.toLocaleString("en-NG") ?? "—"}
-              </span>
-            </span>
-          )}
-        </div>
       </section>
 
       {/* Plan cards */}
@@ -145,11 +122,10 @@ function PricingPage() {
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {nonEnterprisePlans.map((plan) => {
             const isRecommended = plan.recommended;
-            const rate = usdToNgn ?? 1650; // use fallback while loading
             const price = interval === "year"
-              ? annualMonthlyRateNgn(plan.yearlyPriceCents, rate)
-              : formatNgn(plan.monthlyPriceCents, rate);
-            const annualTotal = formatNgn(plan.yearlyPriceCents, rate);
+              ? annualMonthlyRate(plan.yearlyPriceCents)
+              : formatPrice(plan.monthlyPriceCents, interval);
+            const annualTotal = formatPrice(plan.yearlyPriceCents, "year");
 
             return (
               <div
