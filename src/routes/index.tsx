@@ -455,31 +455,20 @@ function AvatarSvg({ initials, index }: { initials: string; index: number }) {
 }
 
 function TestimonialsMarquee() {
-  const row1 = TESTIMONIALS.slice(0, 5);
-  const row2 = TESTIMONIALS.slice(5);
   return (
-    <section className="overflow-hidden bg-foreground py-20 sm:py-28">
+    <section className="bg-foreground py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <p className="text-xs font-bold uppercase tracking-[0.3em] text-background/50">What people say</p>
         <h2 className="mt-3 max-w-xl text-4xl font-extrabold tracking-tight text-background sm:text-5xl">
           Trusted by writers who ship.
         </h2>
-      </div>
 
-      {/* Row 1 — scrolls left */}
-      <div className="relative mt-12 overflow-hidden">
-        <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
-          {[...row1, ...row1].map((t, i) => (
-            <TestimonialCard key={i} t={t} index={i} />
-          ))}
-        </div>
-      </div>
-
-      {/* Row 2 — scrolls right */}
-      <div className="relative mt-4 overflow-hidden">
-        <div className="flex w-max gap-4" style={{ animation: "marquee-reverse 32s linear infinite" }}>
-          {[...row2, ...row2, ...row2].map((t, i) => (
-            <TestimonialCard key={i} t={t} index={i + 5} />
+        {/* Masonry-style two-column grid */}
+        <div className="mt-12 columns-1 gap-5 sm:columns-2 lg:columns-3">
+          {TESTIMONIALS.map((t, i) => (
+            <div key={i} className="mb-5 break-inside-avoid">
+              <TestimonialCard t={t} index={i} />
+            </div>
           ))}
         </div>
       </div>
@@ -515,10 +504,25 @@ function TestimonialCard({ t, index }: { t: typeof TESTIMONIALS[0]; index: numbe
 function SlidesSection({ ctaHref }: { ctaHref: string }) {
   const [active, setActive] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const mobileActiveRef = useRef(0);
 
-  // Auto-advance every 5 s
+  // Auto-advance accordion (desktop) every 5 s
   useEffect(() => {
     const id = setInterval(() => setActive((a) => (a + 1) % slides.length), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-scroll mobile cards every 3.5 s
+  useEffect(() => {
+    const el = mobileScrollRef.current;
+    if (!el) return;
+    const id = setInterval(() => {
+      const next = (mobileActiveRef.current + 1) % slides.length;
+      mobileActiveRef.current = next;
+      const cardWidth = el.scrollWidth / slides.length;
+      el.scrollTo({ left: cardWidth * next, behavior: "smooth" });
+    }, 3500);
     return () => clearInterval(id);
   }, []);
 
@@ -606,8 +610,9 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
           </div>
         </div>
 
-        {/* Mobile: horizontal snap-scroll cards */}
+        {/* Mobile: auto-scrolling cards */}
         <div
+          ref={mobileScrollRef}
           className="mt-10 flex gap-4 overflow-x-auto pb-4 lg:hidden snap-x snap-mandatory"
           style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", marginLeft: "-1.5rem", marginRight: "-1.5rem", paddingLeft: "1.5rem", paddingRight: "1.5rem" }}
         >
