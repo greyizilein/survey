@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Check, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLANS, formatPrice, annualMonthlyRate, type BillingInterval } from "@/lib/products";
-import { CheckoutButton } from "@/components/stripe-checkout";
+import { PaystackCheckoutButton } from "@/components/paystack-button";
 import { Logo } from "@/components/logo";
 
 export const Route = createFileRoute("/pricing")({
