@@ -2,18 +2,16 @@ import { createFileRoute, Outlet, Link, useLocation, redirect } from "@tanstack/
 import { LayoutDashboard, Users, Building2, FileText, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
+import { checkIsAdmin } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
-    const email = data.user?.email;
-    if (!email) throw redirect({ to: "/auth" });
-    if (ADMIN_EMAIL && email === ADMIN_EMAIL) return;
-    // No match — redirect away
-    throw redirect({ to: "/app/dashboard" });
+    const user = data.user;
+    if (!user) throw redirect({ to: "/auth" });
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) throw redirect({ to: "/app/dashboard" });
   },
   component: AdminLayout,
 });
