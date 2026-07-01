@@ -121,3 +121,34 @@ export function annualMonthlyRate(yearlyPriceCents: number): string {
   const perMonth = yearlyPriceCents / 100 / 12;
   return `$${perMonth % 1 === 0 ? perMonth.toFixed(0) : perMonth.toFixed(2)}`;
 }
+
+/** Format a USD cent amount as ₦ using a live conversion rate. */
+export function formatNgn(usdCents: number, usdToNgn: number): string {
+  const ngn = Math.round((usdCents / 100) * usdToNgn);
+  return `₦${ngn.toLocaleString("en-NG")}`;
+}
+
+export function annualMonthlyRateNgn(yearlyPriceCents: number, usdToNgn: number): string {
+  const perMonth = Math.round((yearlyPriceCents / 100 / 12) * usdToNgn);
+  return `₦${perMonth.toLocaleString("en-NG")}`;
+}
+
+/**
+ * Fetch the live USD → NGN exchange rate.
+ * Uses open.er-api.com (free, no key required, updates daily).
+ * Returns a fallback of 1650 if the fetch fails.
+ */
+export async function fetchUsdToNgnRate(): Promise<number> {
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+      next: { revalidate: 3600 }, // cache for 1 hour (Next.js / Vite SSR compatible)
+    } as RequestInit);
+    if (!res.ok) throw new Error("Rate API error");
+    const json = await res.json();
+    const rate = json?.rates?.NGN;
+    if (typeof rate === "number" && rate > 0) return rate;
+    throw new Error("No NGN rate in response");
+  } catch {
+    return 1650; // sensible fallback if API is unreachable
+  }
+}

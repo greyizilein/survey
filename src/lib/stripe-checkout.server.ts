@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { PLANS } from "./products";
+import { PLANS, fetchUsdToNgnRate } from "./products";
 
 const CheckoutInput = z.object({
   planId: z.string(),
@@ -18,7 +18,12 @@ export const startCheckoutSession = createServerFn({ method: "POST" })
       throw new Error(`Plan "${planId}" not found or not purchasable`);
     }
 
-    const priceCents = interval === "year" ? plan.yearlyPriceCents : plan.monthlyPriceCents;
+    const usdCents = interval === "year" ? plan.yearlyPriceCents : plan.monthlyPriceCents;
+
+    // Fetch live USD → NGN rate and convert to kobo (NGN × 100, Paystack's minor unit)
+    const usdToNgn = await fetchUsdToNgnRate();
+    const ngnAmount = Math.round((usdCents / 100) * usdToNgn); // NGN whole units
+    const kobo = ngnAmount * 100; // Paystack / Stripe NGN uses kobo
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (stripe.checkout.sessions.create as any)({
@@ -27,12 +32,12 @@ export const startCheckoutSession = createServerFn({ method: "POST" })
       line_items: [
         {
           price_data: {
-            currency: "usd",
+            currency: "ngn",
             product_data: {
               name: `Paperstudio ${plan.name}`,
               description: plan.tagline,
             },
-            unit_amount: priceCents,
+            unit_amount: kobo,
             recurring: { interval },
           },
           quantity: 1,
