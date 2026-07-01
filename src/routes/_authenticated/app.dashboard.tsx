@@ -21,7 +21,7 @@ import {
 import { AppShell } from "@/components/app-shell";
 import { AnimatedRing } from "@/components/animated-ring";
 import { getDashboardSummary } from "@/lib/dashboard.functions";
-import { useIsAdmin } from "@/lib/use-admin";
+
 
 export const Route = createFileRoute("/_authenticated/app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Paperstudio" }] }),
@@ -55,8 +55,6 @@ function Dashboard() {
   const getDashboardSummaryFn = useServerFn(getDashboardSummary);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
-  const { data: isAdmin } = useIsAdmin();
-
   useEffect(() => {
     getDashboardSummaryFn()
       .then(setSummary)
@@ -71,7 +69,7 @@ function Dashboard() {
     { label: "Interviews", value: c?.interviewStudies ?? 0, icon: <Mic size={16} />, max: 10, to: undefined },
     { label: "Populations", value: c?.populations ?? 0, icon: <Globe size={16} />, max: 10, to: undefined },
     { label: "Personas", value: c?.personas ?? 0, icon: <Users size={16} />, max: 5000, to: undefined },
-    ...(isAdmin ? [{ label: "Admin", value: 0, icon: <Shield size={16} />, max: 0, to: "/admin" as const }] : []),
+    { label: "Admin", value: 0, icon: <Shield size={16} />, max: 0, to: "/admin" as const },
   ];
 
   const quickActions = [

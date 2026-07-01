@@ -9,12 +9,24 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 const checkIsAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await supabaseAdmin
-      .from("admin_users")
-      .select("id")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    return { isAdmin: !!data };
+    // Primary: ADMIN_EMAIL env var (works before DB migration is run)
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const userEmail = (context.claims as any)?.email as string | undefined;
+    if (adminEmail && userEmail && userEmail === adminEmail) {
+      return { isAdmin: true };
+    }
+
+    // Secondary: admin_users table (may not exist before migration)
+    try {
+      const { data } = await supabaseAdmin
+        .from("admin_users")
+        .select("id")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      return { isAdmin: !!data };
+    } catch {
+      return { isAdmin: false };
+    }
   });
 
 export const Route = createFileRoute("/admin")({
@@ -23,7 +35,7 @@ export const Route = createFileRoute("/admin")({
       const result = await checkIsAdmin();
       if (!result.isAdmin) throw redirect({ to: "/" });
     } catch (e: any) {
-      if (e?.message?.includes("Unauthorized") || e?.isRedirect) throw e;
+      if (e?.isRedirect) throw e;
       throw redirect({ to: "/" });
     }
   },
