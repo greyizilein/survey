@@ -235,6 +235,9 @@ function Landing() {
         </div>
       </section>
 
+      {/* Slides + Video section */}
+      <SlidesSection ctaHref={ctaHref} />
+
       {/* Stats strip */}
       <section className="bg-background py-16">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
@@ -296,6 +299,147 @@ function Landing() {
         </div>
       </footer>
     </div>
+  );
+}
+
+const slides = [
+  {
+    tag: "Writing",
+    heading: "From prompt to polished draft in minutes.",
+    body: "Describe your topic, set the length and tone, and Paperstudio writes a full structured document — complete with sources, analysis, and citations — ready to export.",
+  },
+  {
+    tag: "Presentations",
+    heading: "Decks that actually look designed.",
+    body: "Tell Paperstudio what story you need to tell. It builds every slide, writes the copy, and exports a .pptx file you can open straight in PowerPoint or Google Slides.",
+  },
+  {
+    tag: "Interview Studio",
+    heading: "Hundreds of respondents. Zero scheduling.",
+    body: "Upload your discussion guide and Paperstudio creates detailed AI interview transcripts per persona — each with unique, consistent voices and real depth.",
+  },
+  {
+    tag: "Survey autofill",
+    heading: "Paste a link. Get answers.",
+    body: "Share any Google Forms URL and Paperstudio fills it in character and submits — across thousands of personas, with human-grade variety in every response.",
+  },
+];
+
+function SlidesSection({ ctaHref }: { ctaHref: string }) {
+  const [active, setActive] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Auto-advance every 5 s
+  useEffect(() => {
+    const id = setInterval(() => setActive((a) => (a + 1) % slides.length), 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <section className="bg-background py-24 sm:py-32">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        {/* Section label */}
+        <p className="reveal text-xs font-bold uppercase tracking-[0.3em] text-primary">How it works</p>
+        <h2 className="reveal mt-3 max-w-2xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+          Everything, in one workspace.
+        </h2>
+
+        {/* Two-column layout on desktop */}
+        <div className="mt-14 flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-12">
+
+          {/* LEFT — slides */}
+          <div className="flex flex-col justify-between gap-4 lg:w-[46%]">
+            {slides.map((slide, i) => (
+              <button
+                key={i}
+                onClick={() => setActive(i)}
+                className={`group relative w-full overflow-hidden rounded-2xl border-2 p-6 text-left transition-all duration-300 ${
+                  active === i
+                    ? "border-primary bg-primary/8 shadow-lg shadow-black/5"
+                    : "border-border bg-card hover:border-primary/40"
+                }`}
+              >
+                {/* Active progress bar */}
+                {active === i && (
+                  <span
+                    key={active}
+                    className="absolute bottom-0 left-0 h-[3px] bg-primary"
+                    style={{ animation: "slide-progress 5s linear forwards" }}
+                  />
+                )}
+                <span
+                  className={`inline-block text-[10px] font-bold uppercase tracking-[0.25em] ${
+                    active === i ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  {slide.tag}
+                </span>
+                <h3 className={`mt-2 text-lg font-extrabold leading-tight tracking-tight transition-colors ${
+                  active === i ? "text-foreground" : "text-foreground/60"
+                }`}>
+                  {slide.heading}
+                </h3>
+                {active === i && (
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed animate-fade-up">
+                    {slide.body}
+                  </p>
+                )}
+              </button>
+            ))}
+
+            <Link
+              to={ctaHref}
+              className="mt-2 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
+            >
+              Try it free <ArrowRight className="size-4" />
+            </Link>
+          </div>
+
+          {/* RIGHT — video */}
+          <div className="relative overflow-hidden rounded-2xl bg-black lg:flex-1 min-h-[340px] lg:min-h-0">
+            <video
+              ref={videoRef}
+              className="absolute inset-0 h-full w-full object-cover opacity-80"
+              src="/feature.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-hidden
+            />
+            {/* Overlay gradient so bottom blends nicely */}
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)" }}
+              aria-hidden
+            />
+            {/* Active slide label over the video */}
+            <div className="absolute bottom-6 left-6 right-6 z-10">
+              <span className="inline-block rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary-foreground">
+                {slides[active].tag}
+              </span>
+              <p className="mt-2 text-lg font-extrabold text-white leading-tight">
+                {slides[active].heading}
+              </p>
+            </div>
+
+            {/* Dot indicators */}
+            <div className="absolute right-5 top-5 z-10 flex flex-col gap-1.5">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActive(i)}
+                  className={`rounded-full transition-all duration-300 ${
+                    active === i ? "h-5 w-2 bg-primary" : "h-2 w-2 bg-white/40 hover:bg-white/70"
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
