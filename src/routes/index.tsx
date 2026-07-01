@@ -305,80 +305,15 @@ function Landing() {
         </div>
       </section>
 
-      {/* Cinematic interlude — full-bleed video with quote */}
-      <section className="dark relative overflow-hidden" style={{ minHeight: "70vh" }}>
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 0.4 }}
-          src="/6000648-uhd_2160_3840_24fps.mp4"
-          autoPlay muted loop playsInline aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)" }}
-          aria-hidden
-        />
-        <div className="relative z-10 mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Built for serious writers</p>
-          <h2 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
-            Writing that used to take days.
-            <br />
-            <span className="text-primary">Done in 12 minutes.</span>
-          </h2>
-          <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
-            Paperstudio was built for one purpose: to eliminate the blank page. Every tool, every output, every export — designed to finish the work.
-          </p>
-        </div>
-      </section>
-
-      {/* Social proof — video background */}
-      <section className="dark relative overflow-hidden bg-black py-24 sm:py-32">
-        <video
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 0.25 }}
-          src="/6000238-uhd_2160_3840_24fps.mp4"
-          autoPlay muted loop playsInline aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 100%)" }}
-          aria-hidden
-        />
-        <div className="relative z-10 mx-auto max-w-6xl px-6 lg:px-8">
-          <p className="reveal text-xs font-bold uppercase tracking-[0.3em] text-primary">What people say</p>
-          <h2 className="reveal mt-3 max-w-2xl text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Trusted by writers who ship.
-          </h2>
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { quote: "I submitted a 12,000-word dissertation chapter in an afternoon. Paperstudio did the heavy lifting.", name: "Chidinma O.", role: "Postgraduate researcher" },
-              { quote: "The Interview Studio is magic. I got 50 transcripts with completely distinct voices in under an hour.", name: "Ravi M.", role: "UX researcher" },
-              { quote: "Our team stopped paying for five separate tools. Everything we need is right here.", name: "Sofia L.", role: "Content strategist" },
-              { quote: "The survey autofill alone is worth it. Google Forms with 1,000 responses in minutes.", name: "James T.", role: "Market researcher" },
-              { quote: "Presentations that used to take half a day — Paperstudio builds them while I drink coffee.", name: "Amara K.", role: "Management consultant" },
-              { quote: "The Humaniser is the finishing touch every AI workflow needs. Undetectable every time.", name: "Daniel W.", role: "Freelance copywriter" },
-            ].map((t, i) => (
-              <div
-                key={i}
-                className="reveal-scale rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
-              >
-                <p className="text-sm leading-relaxed text-white/80">&ldquo;{t.quote}&rdquo;</p>
-                <div className="mt-4">
-                  <p className="text-sm font-bold text-white">{t.name}</p>
-                  <p className="text-xs text-white/50">{t.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Testimonials — infinite dual-marquee */}
+      <TestimonialsMarquee />
 
       {/* Final CTA — video background */}
       <section className="dark relative overflow-hidden bg-black">
         <video
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           style={{ opacity: 0.35 }}
-          src="/6000429-uhd_2160_3840_24fps.mp4"
+          src="/6000648-uhd_2160_3840_24fps.mp4"
           autoPlay muted loop playsInline aria-hidden
         />
         <div
@@ -489,6 +424,94 @@ const slides = [
   },
 ];
 
+const TESTIMONIALS = [
+  { quote: "I submitted a 12,000-word dissertation chapter in an afternoon. Paperstudio did the heavy lifting.", name: "Chidinma O.", role: "Postgraduate researcher", initials: "CO" },
+  { quote: "The Interview Studio is magic. I got 50 transcripts with completely distinct voices in under an hour.", name: "Ravi M.", role: "UX researcher", initials: "RM" },
+  { quote: "Our team stopped paying for five separate tools. Everything we need is right here.", name: "Sofia L.", role: "Content strategist", initials: "SL" },
+  { quote: "The survey autofill alone is worth it. Google Forms with 1,000 responses in minutes.", name: "James T.", role: "Market researcher", initials: "JT" },
+  { quote: "Presentations that used to take half a day — Paperstudio builds them while I drink coffee.", name: "Amara K.", role: "Management consultant", initials: "AK" },
+  { quote: "The Humaniser is the finishing touch every AI workflow needs. Undetectable every time.", name: "Daniel W.", role: "Freelance copywriter", initials: "DW" },
+  { quote: "I ran a 200-persona survey in 20 minutes. The depth of responses genuinely surprised me.", name: "Priya N.", role: "Product researcher", initials: "PN" },
+  { quote: "Every report I used to dread writing now takes me 15 minutes. It changed how I work.", name: "Marcus B.", role: "Strategy analyst", initials: "MB" },
+  { quote: "The agent mode is brilliant. I gave it a brief and came back to a finished competitive analysis.", name: "Layla H.", role: "Brand consultant", initials: "LH" },
+  { quote: "Clean exports, no hallucinations on my own data, and genuinely fast. Nothing else comes close.", name: "Tom R.", role: "Academic editor", initials: "TR" },
+];
+
+function AvatarSvg({ initials, index }: { initials: string; index: number }) {
+  const palettes = [
+    ["#1a1a1a", LIME],
+    ["#0f2318", "#4ade80"],
+    ["#1a0f2e", "#a78bfa"],
+    ["#2e1a0f", "#fb923c"],
+    ["#0f1a2e", "#60a5fa"],
+  ];
+  const [bg, fg] = palettes[index % palettes.length];
+  return (
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <rect width="36" height="36" rx="18" fill={bg} />
+      <text x="18" y="23" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="sans-serif" fill={fg}>{initials}</text>
+    </svg>
+  );
+}
+
+function TestimonialsMarquee() {
+  const row1 = TESTIMONIALS.slice(0, 5);
+  const row2 = TESTIMONIALS.slice(5);
+  return (
+    <section className="overflow-hidden bg-foreground py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-background/50">What people say</p>
+        <h2 className="mt-3 max-w-xl text-4xl font-extrabold tracking-tight text-background sm:text-5xl">
+          Trusted by writers who ship.
+        </h2>
+      </div>
+
+      {/* Row 1 — scrolls left */}
+      <div className="relative mt-12 overflow-hidden">
+        <div className="flex w-max animate-marquee gap-4 hover:[animation-play-state:paused]">
+          {[...row1, ...row1].map((t, i) => (
+            <TestimonialCard key={i} t={t} index={i} />
+          ))}
+        </div>
+      </div>
+
+      {/* Row 2 — scrolls right */}
+      <div className="relative mt-4 overflow-hidden">
+        <div className="flex w-max gap-4" style={{ animation: "marquee-reverse 32s linear infinite" }}>
+          {[...row2, ...row2, ...row2].map((t, i) => (
+            <TestimonialCard key={i} t={t} index={i + 5} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TestimonialCard({ t, index }: { t: typeof TESTIMONIALS[0]; index: number }) {
+  return (
+    <div
+      className="flex w-72 flex-none flex-col justify-between rounded-2xl border border-background/10 bg-background/5 p-5 backdrop-blur-sm sm:w-80"
+    >
+      {/* Stars */}
+      <div className="flex gap-0.5 text-primary">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+            <path d="M6 1l1.39 2.82L10.5 4.27l-2.25 2.19.53 3.1L6 8.1l-2.78 1.46.53-3.1L1.5 4.27l3.11-.45z" />
+          </svg>
+        ))}
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-background/75">&ldquo;{t.quote}&rdquo;</p>
+      <div className="mt-4 flex items-center gap-3">
+        <AvatarSvg initials={t.initials} index={index} />
+        <div>
+          <p className="text-sm font-bold text-background">{t.name}</p>
+          <p className="text-xs text-background/50">{t.role}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SlidesSection({ ctaHref }: { ctaHref: string }) {
   const [active, setActive] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -508,76 +531,60 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
           Everything, in one workspace.
         </h2>
 
-        {/* Two-column layout on desktop */}
-        <div className="mt-14 flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-12">
+        {/* Desktop: two-column. Mobile: horizontal scroll carousel */}
+        <div className="mt-14 hidden lg:flex lg:flex-row lg:items-stretch lg:gap-12">
 
-          {/* LEFT — slides */}
-          <div className="flex flex-col justify-between gap-4 lg:w-[46%]">
+          {/* LEFT — accordion list */}
+          <div className="flex flex-col justify-between gap-3 lg:w-[46%]">
             {slides.map((slide, i) => (
               <button
                 key={i}
                 onClick={() => setActive(i)}
-                className={`group relative w-full overflow-hidden rounded-2xl border-2 p-6 text-left transition-all duration-300 ${
-                  active === i
-                    ? "border-primary bg-primary/8 shadow-lg shadow-black/5"
-                    : "border-border bg-card hover:border-primary/40"
+                className={`group relative w-full overflow-hidden border-l-4 py-4 pl-5 pr-4 text-left transition-all duration-300 ${
+                  active === i ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                 }`}
               >
-                {/* Active progress bar */}
                 {active === i && (
                   <span
                     key={active}
-                    className="absolute bottom-0 left-0 h-[3px] bg-primary"
+                    className="absolute bottom-0 left-0 h-[2px] bg-primary"
                     style={{ animation: "slide-progress 5s linear forwards" }}
                   />
                 )}
-                <span
-                  className={`inline-block text-[10px] font-bold uppercase tracking-[0.25em] ${
-                    active === i ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
+                <span className={`text-[10px] font-bold uppercase tracking-[0.25em] ${active === i ? "text-primary" : "text-muted-foreground"}`}>
                   {slide.tag}
                 </span>
-                <h3 className={`mt-2 text-lg font-extrabold leading-tight tracking-tight transition-colors ${
-                  active === i ? "text-foreground" : "text-foreground/60"
-                }`}>
+                <h3 className={`mt-1 text-base font-extrabold leading-tight tracking-tight transition-colors ${active === i ? "text-foreground" : "text-foreground/50"}`}>
                   {slide.heading}
                 </h3>
                 {active === i && (
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed animate-fade-up">
+                  <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed animate-fade-up">
                     {slide.body}
                   </p>
                 )}
               </button>
             ))}
-
             <Link
               to={ctaHref}
-              className="mt-2 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
+              className="mt-4 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
             >
               Try it free <ArrowRight className="size-4" />
             </Link>
           </div>
 
           {/* RIGHT — video */}
-          <div className="relative overflow-hidden rounded-2xl bg-black lg:flex-1 min-h-[340px] lg:min-h-0">
+          <div className="relative overflow-hidden rounded-2xl bg-black lg:flex-1 min-h-[340px]">
             <video
               ref={videoRef}
               className="absolute inset-0 h-full w-full object-cover opacity-80"
               src="/feature.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              aria-hidden
+              autoPlay muted loop playsInline aria-hidden
             />
-            {/* Overlay gradient so bottom blends nicely */}
             <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)" }}
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 55%)" }}
               aria-hidden
             />
-            {/* Active slide label over the video */}
             <div className="absolute bottom-6 left-6 right-6 z-10">
               <span className="inline-block rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary-foreground">
                 {slides[active].tag}
@@ -586,21 +593,61 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
                 {slides[active].heading}
               </p>
             </div>
-
-            {/* Dot indicators */}
             <div className="absolute right-5 top-5 z-10 flex flex-col gap-1.5">
               {slides.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setActive(i)}
-                  className={`rounded-full transition-all duration-300 ${
-                    active === i ? "h-5 w-2 bg-primary" : "h-2 w-2 bg-white/40 hover:bg-white/70"
-                  }`}
+                  className={`rounded-full transition-all duration-300 ${active === i ? "h-5 w-2 bg-primary" : "h-2 w-2 bg-white/40 hover:bg-white/70"}`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Mobile: horizontal snap-scroll cards */}
+        <div
+          className="mt-10 flex gap-4 overflow-x-auto pb-4 lg:hidden snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", marginLeft: "-1.5rem", marginRight: "-1.5rem", paddingLeft: "1.5rem", paddingRight: "1.5rem" }}
+        >
+          {slides.map((slide, i) => (
+            <div
+              key={i}
+              className="relative flex-none snap-start overflow-hidden rounded-2xl bg-black"
+              style={{ width: "75vw", minHeight: "400px" }}
+            >
+              <video
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-50"
+                src="/feature.mp4"
+                autoPlay muted loop playsInline aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%)" }}
+                aria-hidden
+              />
+              <div className="absolute inset-0 flex flex-col justify-between p-5">
+                <span className="inline-flex w-fit items-center rounded-full bg-primary/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary backdrop-blur-sm">
+                  {slide.tag}
+                </span>
+                <div>
+                  <h3 className="text-lg font-extrabold leading-tight tracking-tight text-white">
+                    {slide.heading}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/65">
+                    {slide.body}
+                  </p>
+                  <Link
+                    to={ctaHref}
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary"
+                  >
+                    Try it free <ArrowRight className="size-3.5" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
