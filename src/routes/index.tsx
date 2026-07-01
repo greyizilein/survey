@@ -250,6 +250,105 @@ function Landing() {
         </div>
       </section>
 
+      {/* Cinematic interlude — full-bleed video with quote */}
+      <section className="dark relative overflow-hidden" style={{ minHeight: "70vh" }}>
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: 0.4 }}
+          src="/6000648-uhd_2160_3840_24fps.mp4"
+          autoPlay muted loop playsInline aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)" }}
+          aria-hidden
+        />
+        <div className="relative z-10 mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-primary">Built for serious writers</p>
+          <h2 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
+            Writing that used to take days.
+            <br />
+            <span className="text-primary">Done in 12 minutes.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-xl text-base text-white/70 sm:text-lg">
+            Paperstudio was built for one purpose: to eliminate the blank page. Every tool, every output, every export — designed to finish the work.
+          </p>
+        </div>
+      </section>
+
+      {/* Social proof — video background */}
+      <section className="dark relative overflow-hidden bg-black py-24 sm:py-32">
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: 0.25 }}
+          src="/6000238-uhd_2160_3840_24fps.mp4"
+          autoPlay muted loop playsInline aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 100%)" }}
+          aria-hidden
+        />
+        <div className="relative z-10 mx-auto max-w-6xl px-6 lg:px-8">
+          <p className="reveal text-xs font-bold uppercase tracking-[0.3em] text-primary">What people say</p>
+          <h2 className="reveal mt-3 max-w-2xl text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+            Trusted by writers who ship.
+          </h2>
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { quote: "I submitted a 12,000-word dissertation chapter in an afternoon. Paperstudio did the heavy lifting.", name: "Chidinma O.", role: "Postgraduate researcher" },
+              { quote: "The Interview Studio is magic. I got 50 transcripts with completely distinct voices in under an hour.", name: "Ravi M.", role: "UX researcher" },
+              { quote: "Our team stopped paying for five separate tools. Everything we need is right here.", name: "Sofia L.", role: "Content strategist" },
+              { quote: "The survey autofill alone is worth it. Google Forms with 1,000 responses in minutes.", name: "James T.", role: "Market researcher" },
+              { quote: "Presentations that used to take half a day — Paperstudio builds them while I drink coffee.", name: "Amara K.", role: "Management consultant" },
+              { quote: "The Humaniser is the finishing touch every AI workflow needs. Undetectable every time.", name: "Daniel W.", role: "Freelance copywriter" },
+            ].map((t, i) => (
+              <div
+                key={i}
+                className="reveal-scale rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+              >
+                <p className="text-sm leading-relaxed text-white/80">&ldquo;{t.quote}&rdquo;</p>
+                <div className="mt-4">
+                  <p className="text-sm font-bold text-white">{t.name}</p>
+                  <p className="text-xs text-white/50">{t.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA — video background */}
+      <section className="dark relative overflow-hidden bg-black">
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: 0.35 }}
+          src="/6000429-uhd_2160_3840_24fps.mp4"
+          autoPlay muted loop playsInline aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at 60% 50%, ${LIME}20 0%, rgba(0,0,0,0.75) 70%)` }}
+          aria-hidden
+        />
+        <div className="relative z-10 mx-auto max-w-4xl px-6 py-28 text-center sm:py-36 lg:px-8">
+          <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-6xl">
+            Your next draft is
+            <br />
+            <span className="text-primary">12 minutes away.</span>
+          </h2>
+          <p className="mx-auto mt-6 max-w-lg text-base text-white/70 sm:text-lg">
+            No setup. No templates. Just describe what you need and Paperstudio handles the rest.
+          </p>
+          <Link
+            to={ctaHref}
+            className="mt-10 inline-flex items-center gap-2 border-2 border-primary bg-primary px-8 py-4 text-sm font-bold uppercase tracking-widest text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/30"
+          >
+            Start writing free <ArrowRight className="size-4" />
+          </Link>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="bg-background text-foreground">
         <div className="mx-auto max-w-6xl px-6 py-14 lg:px-8">
@@ -322,6 +421,16 @@ const slides = [
     tag: "Survey autofill",
     heading: "Paste a link. Get answers.",
     body: "Share any Google Forms URL and Paperstudio fills it in character and submits — across thousands of personas, with human-grade variety in every response.",
+  },
+  {
+    tag: "AI Agent",
+    heading: "Open-ended tasks. Handled completely.",
+    body: "Give the agent a complex brief — a report, a competitor analysis, a literature review — and it reasons, researches, and delivers a complete result without handholding.",
+  },
+  {
+    tag: "Humaniser",
+    heading: "AI-written. Undetectably human.",
+    body: "Run any Paperstudio output through the Humaniser to strip AI patterns, vary sentence rhythm, and produce text that passes every detector — instantly.",
   },
 ];
 

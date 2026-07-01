@@ -95,6 +95,37 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Video banner */}
+        <div className="mt-5 sm:mt-8 relative overflow-hidden rounded-xl sm:rounded-2xl bg-black" style={{ minHeight: "180px" }}>
+          <video
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-50"
+            src="/8503286-hd_1920_1080_25fps.mp4"
+            autoPlay muted loop playsInline aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "linear-gradient(to right, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 100%)" }}
+            aria-hidden
+          />
+          <div className="relative z-10 flex h-full flex-col justify-center px-6 py-8 sm:px-8">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-primary">Your workspace</p>
+            <h2 className="mt-1 text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+              {summary?.displayName ? `Good to have you back, ${summary.displayName}.` : "Ready when you are."}
+            </h2>
+            <p className="mt-1 max-w-sm text-sm text-white/60">
+              Every tool you need to write, present, research, and submit — right here.
+            </p>
+            <div className="mt-4 flex gap-3">
+              <Link to="/app/analyze" className="inline-flex items-center gap-1.5 bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary-foreground transition-opacity hover:opacity-90">
+                Start writing <ArrowUpRight size={12} />
+              </Link>
+              <Link to="/app/presentations" className="inline-flex items-center gap-1.5 border border-white/30 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:border-white/60">
+                New deck
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Stat ring cards */}
         <div className="mt-5 sm:mt-8 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {statCards.map((s) => (
