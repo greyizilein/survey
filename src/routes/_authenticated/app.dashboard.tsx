@@ -15,11 +15,13 @@ import {
   Bot,
   ClipboardPenLine,
   ArrowUpRight,
+  Shield,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { AnimatedRing } from "@/components/animated-ring";
 import { getDashboardSummary } from "@/lib/dashboard.functions";
+import { useIsAdmin } from "@/lib/use-admin";
 
 export const Route = createFileRoute("/_authenticated/app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · Paperstudio" }] }),
@@ -53,6 +55,7 @@ function Dashboard() {
   const getDashboardSummaryFn = useServerFn(getDashboardSummary);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: isAdmin } = useIsAdmin();
 
   useEffect(() => {
     getDashboardSummaryFn()
@@ -63,11 +66,12 @@ function Dashboard() {
 
   const c = summary?.counts;
   const statCards = [
-    { label: "Chats", value: c?.chats ?? 0, icon: <MessageSquareText size={16} />, max: 50 },
-    { label: "Projects", value: c?.projects ?? 0, icon: <FolderOpen size={16} />, max: 20 },
-    { label: "Interviews", value: c?.interviewStudies ?? 0, icon: <Mic size={16} />, max: 10 },
-    { label: "Populations", value: c?.populations ?? 0, icon: <Globe size={16} />, max: 10 },
-    { label: "Personas", value: c?.personas ?? 0, icon: <Users size={16} />, max: 5000 },
+    { label: "Chats", value: c?.chats ?? 0, icon: <MessageSquareText size={16} />, max: 50, to: undefined },
+    { label: "Projects", value: c?.projects ?? 0, icon: <FolderOpen size={16} />, max: 20, to: undefined },
+    { label: "Interviews", value: c?.interviewStudies ?? 0, icon: <Mic size={16} />, max: 10, to: undefined },
+    { label: "Populations", value: c?.populations ?? 0, icon: <Globe size={16} />, max: 10, to: undefined },
+    { label: "Personas", value: c?.personas ?? 0, icon: <Users size={16} />, max: 5000, to: undefined },
+    ...(isAdmin ? [{ label: "Admin", value: 0, icon: <Shield size={16} />, max: 0, to: "/admin" as const }] : []),
   ];
 
   const quickActions = [
@@ -94,7 +98,7 @@ function Dashboard() {
         </div>
 
         {/* Stat ring cards */}
-        <div className="mt-5 sm:mt-8 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-5 sm:mt-8 grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {statCards.map((s) => (
             <StatRingCard key={s.label} {...s} loading={loading} />
           ))}
@@ -189,21 +193,21 @@ function StatRingCard({
   max,
   icon,
   loading,
+  to,
 }: {
   label: string;
   value: number;
   max: number;
   icon: React.ReactNode;
   loading: boolean;
+  to?: string;
 }) {
   const [display, setDisplay] = useState(0);
+  const isLink = !!to;
   const pct = max ? Math.min(Math.round((value / max) * 100), 100) : 0;
 
   useEffect(() => {
-    if (!value) {
-      setDisplay(0);
-      return;
-    }
+    if (!value) { setDisplay(0); return; }
     const dur = 800;
     const start = performance.now();
     const step = (now: number) => {
@@ -217,15 +221,15 @@ function StatRingCard({
 
   const formatted = display >= 1000 ? `${(display / 1000).toFixed(1)}k` : `${display}`;
 
-  return (
-    <div className="flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border border-border bg-card p-2.5 sm:p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40">
+  const inner = (
+    <>
       <div className="relative shrink-0">
-        <AnimatedRing size={40} strokeWidth={4} percent={pct} color="hsl(var(--primary))" className="sm:hidden">
+        <AnimatedRing size={40} strokeWidth={4} percent={isLink ? 100 : pct} color="hsl(var(--primary))" className="sm:hidden">
           <foreignObject x={4} y={4} width={32} height={32}>
             <div className="flex h-full w-full items-center justify-center text-foreground">{icon}</div>
           </foreignObject>
         </AnimatedRing>
-        <AnimatedRing size={52} strokeWidth={4} percent={pct} color="hsl(var(--primary))" className="hidden sm:block">
+        <AnimatedRing size={52} strokeWidth={4} percent={isLink ? 100 : pct} color="hsl(var(--primary))" className="hidden sm:block">
           <foreignObject x={10} y={10} width={32} height={32}>
             <div className="flex h-full w-full items-center justify-center text-foreground">{icon}</div>
           </foreignObject>
@@ -236,9 +240,22 @@ function StatRingCard({
           {label}
         </div>
         <div className="text-lg sm:text-xl font-black leading-tight text-foreground">
-          {loading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : formatted}
+          {isLink ? (
+            <span className="text-primary text-xs font-bold uppercase tracking-widest">Open</span>
+          ) : loading ? (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          ) : (
+            formatted
+          )}
         </div>
       </div>
-    </div>
+    </>
   );
+
+  const cls = "flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border border-border bg-card p-2.5 sm:p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40";
+
+  if (to) {
+    return <Link to={to} className={cls}>{inner}</Link>;
+  }
+  return <div className={cls}>{inner}</div>;
 }
