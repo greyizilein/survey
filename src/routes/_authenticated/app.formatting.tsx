@@ -266,8 +266,8 @@ function FormattingPage() {
     setExporting(true);
     try {
       const blob =
-        format === "docx" ? await exportFormattedDocx(resultBody, resultCover)
-        : format === "pdf" ? await exportFormattedPdf(resultBody, resultCover)
+        format === "docx" ? await exportFormattedDocx(resultBody, resultCover, undefined, styleGuide)
+        : format === "pdf" ? await exportFormattedPdf(resultBody, resultCover, undefined, styleGuide)
         : await exportFormattedPptx(resultBody, resultCover);
       downloadBlob(blob, `${baseFilename()}.${format}`);
     } catch (e) {

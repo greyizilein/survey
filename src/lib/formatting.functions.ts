@@ -242,17 +242,53 @@ ${fieldLines}
 ${data.instructions?.trim() ? `\nADDITIONAL USER INSTRUCTIONS:\n${data.instructions.trim()}\n` : ""}
 Do the following, in order:
 
-1. Emit a single line, before anything else: \`@@COVERPAGE@@\` followed by a compact JSON object with exactly this shape: {"title": string, "documentType": string, "fields": [{"label": string, "value": string}, ...]}. The "fields" array should be the submission details above (label them naturally, e.g. "Student Number" not "student_number"), in a sensible cover-page order (name first, then identifiers, then course/institution, then date last). Pick a clear title for the work itself (infer it from the document if it has no explicit title).
+1. Emit a single line, before anything else: \`@@COVERPAGE@@\` followed by a compact JSON object with exactly this shape: {"title": string, "documentType": string, "fields": [{"label": string, "value": string}, ...]}. The "fields" array must contain the submission details above (label them naturally, e.g. "Student Number" not "student_number"), in cover-page order: full name first, then student/ID numbers, then course/module code, module title, institution, instructor/supervisor name, and date last. Infer the title from the document if it has no explicit title — never use a generic placeholder.
 
-2. Then write out the FULL body of the work, reformatted to ${data.styleGuide} conventions:
-   - Preserve every substantive sentence and argument exactly — you are not rewriting, condensing, or expanding the writing itself.
-   - Fix heading structure so it's consistent and hierarchical (use markdown #, ##, ### for section levels) — this drives the table of contents, so headings must be real section breaks, not decorative text.
-   - Reformat in-text citations and the reference/bibliography list to strict, correct ${data.styleGuide} style. Fix inconsistent or malformed citations. Alphabetize/order the reference list per ${data.styleGuide} rules. Never invent a source that wasn't already cited somewhere in the work.
-   - If the brief requires sections that are entirely absent from the work (e.g. an abstract, a declaration, an appendix), add a clearly headed placeholder section noting what's missing and what the brief requires there — never fabricate the missing content itself.
-   - Tables in the original work should be reproduced as markdown tables (| col | col |).
-   - Do not include a title page, your own table of contents, or a restated reference list outside the body's final References/Bibliography section — those are handled separately.
+2. Then write out the FULL body of the work, reformatted to strict ${data.styleGuide} conventions. Apply every rule below without exception:
 
-Output nothing except the @@COVERPAGE@@ line followed by the reformatted body. No preamble, no commentary, no sign-off.`;
+   HEADINGS & STRUCTURE
+   - Use markdown heading levels (#, ##, ###, ####) consistently and hierarchically. Level 1 (#) for major sections (Introduction, Literature Review, Methodology, Results, Discussion, Conclusion, References). Level 2 (##) for subsections. Level 3 (###) for sub-subsections. Level 4 (####) sparingly.
+   - Every heading must be a real section break, not a decorative label — the table of contents is built from them.
+   - For APA: Level 1 headings should be on their own line, bold, centered. Level 2: left-aligned, bold. Level 3: left-aligned, bold italic. Level 4: indented, bold.
+
+   PARAGRAPHS
+   - Body paragraphs are indented (first line 0.5 inch) with no blank line between them — this is enforced by the exporter; just write clean paragraphs separated by a blank line.
+   - Block quotations (40+ words): indent the entire quotation 0.5 inch from the left margin with no additional first-line indent. Use a separate paragraph.
+
+   ABSTRACT (if applicable)
+   - If the document type requires an abstract (e.g. research paper, dissertation, thesis), include a section headed exactly "Abstract" (level 1 heading). The abstract body is a single un-indented paragraph. An "Keywords:" line follows on the next line.
+
+   TABLES
+   - Reproduce every table from the original as a markdown table (| col | col | with | --- | separator row).
+   - Number tables consecutively: each table must be preceded by its label on its own line, e.g. "Table 1" (no punctuation, no italic). If the table has a descriptive title, put it on the line after the label, in italic.
+   - After the table, add a "Note." line (if any general note applies) indented and in normal weight.
+   - APA/Chicago: no vertical borders — horizontal lines only (top, below header, bottom); the exporter applies this automatically.
+
+   FIGURES & IMAGES
+   - If the original contains image placeholders (@@FIGURE@@ markers) or describes figures, retain the placeholder exactly — do not remove or reorder @@FIGURE@@ lines.
+   - Precede each @@FIGURE@@ line with "Figure N" on its own line (where N is the running count).
+   - The caption (italicised in the output) should be embedded in the @@FIGURE@@ JSON as "caption": "...".
+
+   LISTS
+   - Use markdown bullet lists (- item) for unordered lists and numbered lists (1. item) for ordered/sequential content.
+   - Hanging indent on list items is enforced by the exporter.
+
+   CITATIONS & REFERENCES
+   - Reformat every in-text citation to strict, correct ${data.styleGuide} style.
+   - The final section must be headed exactly "References" (APA/Harvard/IEEE), "Works Cited" (MLA), or "Bibliography" (Chicago) — use the correct term for the style.
+   - The reference list must be double-spaced with a 0.5-inch hanging indent (first line flush, continuation lines indented) — the exporter enforces this for any section headed "References", "Works Cited", or "Bibliography".
+   - Sort/order per ${data.styleGuide} rules (APA/MLA/Harvard = alphabetical by author surname; Chicago = alphabetical; IEEE = order of citation).
+   - Never invent a source. Never alter author names, dates, or titles. Fix only formatting/punctuation.
+   - If a cited source is missing from the reference list (or vice versa), flag it inline with [CITATION MISSING] or [REFERENCE MISSING] rather than inventing or silently dropping it.
+
+   MISSING REQUIRED SECTIONS
+   - If the brief explicitly requires a section that is entirely absent (e.g. an abstract, a declaration of originality, an appendix), add a clearly headed placeholder paragraph stating what is missing and what the brief requires — never fabricate the missing content.
+
+   WHAT NOT TO CHANGE
+   - Preserve every substantive sentence, argument, data point, and example exactly. You are the publisher, not the editor or writer.
+   - Do not include a title page, your own table of contents, or a second reference list — those are handled separately by the exporter.
+
+Output nothing except the @@COVERPAGE@@ line on line 1, followed immediately by the reformatted body. No preamble, no commentary, no sign-off, no markdown code fences.`;
 
   return { prompt: promptCached + promptDynamic, promptCached, promptDynamic };
 }
