@@ -9,14 +9,14 @@ export const MODEL_TIER_LABELS: Record<ModelTier, string> = {
 };
 
 export const MODEL_TIER_DESCRIPTIONS: Record<ModelTier, string> = {
-  fast: "Claude Haiku 3.5 — quick, affordable answers with native web search.",
-  pro: "Claude Sonnet 4.6 — data analysis with code execution, no extended thinking.",
-  max: "Claude Sonnet 4.6 — full extended thinking for the most complex analysis.",
+  fast: "Claude Sonnet 4.5 — fast Sonnet for quick drafts and everyday writing.",
+  pro: "Claude Sonnet 4.6 — stronger writing quality with code execution.",
+  max: "Claude Sonnet 4.6 — full adaptive reasoning for complex, high-stakes work.",
 };
 
 /** Text-generation model id per tier, resolved through the AI Gateway. */
 export const TEXT_MODEL_BY_TIER: Record<ModelTier, string> = {
-  fast: "anthropic/claude-haiku-3-5",
+  fast: "anthropic/claude-sonnet-4-5",
   pro: "anthropic/claude-sonnet-4-6",
   max: "anthropic/claude-sonnet-4-6",
 };
