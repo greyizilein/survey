@@ -73,7 +73,7 @@ function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* HERO */}
-      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-black px-5 pb-6 pt-5 text-foreground sm:px-8 md:min-h-[84svh]">
+      <section className="dark relative flex min-h-[100svh] flex-col overflow-hidden bg-black px-5 pb-6 pt-5 text-white sm:px-8 md:min-h-[84svh]">
         {/* Video background */}
         <video
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
