@@ -6,6 +6,8 @@ import { PLANS, formatPrice, annualMonthlyRate, type BillingInterval } from "@/l
 import { PaystackCheckoutButton } from "@/components/paystack-button";
 import { Logo } from "@/components/logo";
 
+const CONTACT_EMAIL = "xeros.opinion@gmail.com";
+
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
@@ -249,7 +251,7 @@ function PricingPage() {
           </div>
           <div className="shrink-0">
             <a
-              href="mailto:hello@paperstudio.ai?subject=Enterprise%20enquiry"
+              href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20enquiry`}
               className="flex items-center gap-2 border-2 border-foreground bg-foreground px-7 py-3.5 text-sm font-bold uppercase tracking-widest text-background hard-shadow hard-shadow-hover"
             >
               <Mail className="size-4" />
@@ -324,7 +326,7 @@ function PricingPage() {
             Get started free
           </Link>
           <a
-            href="mailto:hello@paperstudio.ai?subject=Enterprise%20enquiry"
+            href={`mailto:${CONTACT_EMAIL}?subject=Enterprise%20enquiry`}
             className="border-2 border-background/30 px-8 py-3.5 text-sm font-bold uppercase tracking-widest text-background/70 hover:border-background/60 hover:text-background transition-colors"
           >
             Talk to us
@@ -336,7 +338,7 @@ function PricingPage() {
       <footer className="border-t-2 border-border px-6 py-8 text-center text-xs text-muted-foreground sm:px-10">
         <div className="flex flex-wrap items-center justify-center gap-6">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
-          <a href="mailto:hello@paperstudio.ai" className="hover:text-foreground transition-colors">hello@paperstudio.ai</a>
+          <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-foreground transition-colors">{CONTACT_EMAIL}</a>
           <span>© {new Date().getFullYear()} Paperstudio</span>
         </div>
       </footer>
