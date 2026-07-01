@@ -1,8 +1,6 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
   ClipboardPenLine,
-  Users,
-  FolderKanban,
   LogOut,
   Menu,
   MessageSquareText,
@@ -19,6 +17,7 @@ import {
   Crown,
   CreditCard,
   Shield,
+  Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -67,9 +66,8 @@ const nav = [
   { to: "/app/folders", label: "Folders", icon: Folder },
   { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
-  { to: "/app/personas", label: "Persona Studio", icon: Users },
-  { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/analyze", label: "Writing", icon: BarChart3 },
+  { to: "/app/humanize", label: "Humanizer", icon: Wand2 },
   { action: "corrections" as const, label: "Corrections", icon: ClipboardCheck },
   { to: "/app/formatting", label: "Formatting", icon: FileCheck2 },
   { to: "/app/presentations", label: "Presentations", icon: Presentation },

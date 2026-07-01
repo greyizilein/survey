@@ -19,6 +19,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as BillingSuccessRouteImport } from './routes/billing.success'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
+import { Route as ApiHumanizerStreamRouteImport } from './routes/api.humanizer-stream'
 import { Route as ApiFormattingStreamRouteImport } from './routes/api.formatting-stream'
 import { Route as ApiFormattingEnhanceStreamRouteImport } from './routes/api.formatting-enhance-stream'
 import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.apply-corrections-stream'
@@ -34,6 +35,7 @@ import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_authenticated/app.presentations'
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
+import { Route as AuthenticatedAppHumanizeRouteImport } from './routes/_authenticated/app.humanize'
 import { Route as AuthenticatedAppFormattingRouteImport } from './routes/_authenticated/app.formatting'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
 import { Route as AuthenticatedAppDashboardRouteImport } from './routes/_authenticated/app.dashboard'
@@ -91,6 +93,11 @@ const BillingSuccessRoute = BillingSuccessRouteImport.update({
 const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
   id: '/api/presentations-stream',
   path: '/api/presentations-stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHumanizerStreamRoute = ApiHumanizerStreamRouteImport.update({
+  id: '/api/humanizer-stream',
+  path: '/api/humanizer-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFormattingStreamRoute = ApiFormattingStreamRouteImport.update({
@@ -176,6 +183,12 @@ const AuthenticatedAppInterviewsRoute =
     path: '/interviews',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
+const AuthenticatedAppHumanizeRoute =
+  AuthenticatedAppHumanizeRouteImport.update({
+    id: '/humanize',
+    path: '/humanize',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
 const AuthenticatedAppFormattingRoute =
   AuthenticatedAppFormattingRouteImport.update({
     id: '/formatting',
@@ -244,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
+  '/api/humanizer-stream': typeof ApiHumanizerStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/billing/success': typeof BillingSuccessRoute
   '/admin/': typeof AdminIndexRoute
@@ -252,6 +266,7 @@ export interface FileRoutesByFullPath {
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/formatting': typeof AuthenticatedAppFormattingRoute
+  '/app/humanize': typeof AuthenticatedAppHumanizeRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
@@ -278,6 +293,7 @@ export interface FileRoutesByTo {
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
+  '/api/humanizer-stream': typeof ApiHumanizerStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/billing/success': typeof BillingSuccessRoute
   '/admin': typeof AdminIndexRoute
@@ -286,6 +302,7 @@ export interface FileRoutesByTo {
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/formatting': typeof AuthenticatedAppFormattingRoute
+  '/app/humanize': typeof AuthenticatedAppHumanizeRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
@@ -314,6 +331,7 @@ export interface FileRoutesById {
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
+  '/api/humanizer-stream': typeof ApiHumanizerStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
   '/billing/success': typeof BillingSuccessRoute
   '/admin/': typeof AdminIndexRoute
@@ -322,6 +340,7 @@ export interface FileRoutesById {
   '/_authenticated/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
   '/_authenticated/app/formatting': typeof AuthenticatedAppFormattingRoute
+  '/_authenticated/app/humanize': typeof AuthenticatedAppHumanizeRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
   '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
@@ -351,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/apply-corrections-stream'
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
+    | '/api/humanizer-stream'
     | '/api/presentations-stream'
     | '/billing/success'
     | '/admin/'
@@ -359,6 +379,7 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/fill'
     | '/app/formatting'
+    | '/app/humanize'
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
@@ -385,6 +406,7 @@ export interface FileRouteTypes {
     | '/api/apply-corrections-stream'
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
+    | '/api/humanizer-stream'
     | '/api/presentations-stream'
     | '/billing/success'
     | '/admin'
@@ -393,6 +415,7 @@ export interface FileRouteTypes {
     | '/app/dashboard'
     | '/app/fill'
     | '/app/formatting'
+    | '/app/humanize'
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
@@ -420,6 +443,7 @@ export interface FileRouteTypes {
     | '/api/apply-corrections-stream'
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
+    | '/api/humanizer-stream'
     | '/api/presentations-stream'
     | '/billing/success'
     | '/admin/'
@@ -428,6 +452,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/dashboard'
     | '/_authenticated/app/fill'
     | '/_authenticated/app/formatting'
+    | '/_authenticated/app/humanize'
     | '/_authenticated/app/interviews'
     | '/_authenticated/app/personas'
     | '/_authenticated/app/presentations'
@@ -453,6 +478,7 @@ export interface RootRouteChildren {
   ApiApplyCorrectionsStreamRoute: typeof ApiApplyCorrectionsStreamRoute
   ApiFormattingEnhanceStreamRoute: typeof ApiFormattingEnhanceStreamRoute
   ApiFormattingStreamRoute: typeof ApiFormattingStreamRoute
+  ApiHumanizerStreamRoute: typeof ApiHumanizerStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
   ApiPublicPaystackWebhookRoute: typeof ApiPublicPaystackWebhookRoute
@@ -528,6 +554,13 @@ declare module '@tanstack/react-router' {
       path: '/api/presentations-stream'
       fullPath: '/api/presentations-stream'
       preLoaderRoute: typeof ApiPresentationsStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/humanizer-stream': {
+      id: '/api/humanizer-stream'
+      path: '/api/humanizer-stream'
+      fullPath: '/api/humanizer-stream'
+      preLoaderRoute: typeof ApiHumanizerStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/formatting-stream': {
@@ -635,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppInterviewsRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
+    '/_authenticated/app/humanize': {
+      id: '/_authenticated/app/humanize'
+      path: '/humanize'
+      fullPath: '/app/humanize'
+      preLoaderRoute: typeof AuthenticatedAppHumanizeRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
     '/_authenticated/app/formatting': {
       id: '/_authenticated/app/formatting'
       path: '/formatting'
@@ -723,6 +763,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppDashboardRoute: typeof AuthenticatedAppDashboardRoute
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
   AuthenticatedAppFormattingRoute: typeof AuthenticatedAppFormattingRoute
+  AuthenticatedAppHumanizeRoute: typeof AuthenticatedAppHumanizeRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
   AuthenticatedAppPresentationsRoute: typeof AuthenticatedAppPresentationsRoute
@@ -738,6 +779,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppDashboardRoute: AuthenticatedAppDashboardRoute,
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
   AuthenticatedAppFormattingRoute: AuthenticatedAppFormattingRoute,
+  AuthenticatedAppHumanizeRoute: AuthenticatedAppHumanizeRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
   AuthenticatedAppPresentationsRoute: AuthenticatedAppPresentationsRoute,
@@ -790,6 +832,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiApplyCorrectionsStreamRoute: ApiApplyCorrectionsStreamRoute,
   ApiFormattingEnhanceStreamRoute: ApiFormattingEnhanceStreamRoute,
   ApiFormattingStreamRoute: ApiFormattingStreamRoute,
+  ApiHumanizerStreamRoute: ApiHumanizerStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
   BillingSuccessRoute: BillingSuccessRoute,
   ApiPublicPaystackWebhookRoute: ApiPublicPaystackWebhookRoute,

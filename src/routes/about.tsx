@@ -132,7 +132,7 @@ function AboutPage() {
         <div className="mx-auto max-w-5xl">
           <span className="text-xs font-bold uppercase tracking-widest text-primary">Values</span>
           <h2 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">What we believe.</h2>
-          <div className="mt-14 grid gap-0 divide-y-2 divide-border border-y-2 border-border">
+          <div className="mt-14 grid gap-0">
             {values.map((v) => (
               <div key={v.label} className="grid gap-4 py-8 sm:grid-cols-[4rem_1fr_2fr] sm:gap-10 sm:py-10">
                 <span className="text-xs font-bold uppercase tracking-widest text-primary">{v.label}</span>

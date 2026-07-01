@@ -1,43 +1,19 @@
 import { createFileRoute, Outlet, Link, useLocation, redirect } from "@tanstack/react-router";
 import { LayoutDashboard, Users, Building2, FileText, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabase } from "@/integrations/supabase/client";
 
-// Server fn to check if current user is admin
-const checkIsAdmin = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    // Primary: ADMIN_EMAIL env var (works before DB migration is run)
-    const adminEmail = process.env.ADMIN_EMAIL;
-    const userEmail = (context.claims as any)?.email as string | undefined;
-    if (adminEmail && userEmail && userEmail === adminEmail) {
-      return { isAdmin: true };
-    }
-
-    // Secondary: admin_users table (may not exist before migration)
-    try {
-      const { data } = await supabaseAdmin
-        .from("admin_users")
-        .select("id")
-        .eq("user_id", context.userId)
-        .maybeSingle();
-      return { isAdmin: !!data };
-    } catch {
-      return { isAdmin: false };
-    }
-  });
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string | undefined;
 
 export const Route = createFileRoute("/admin")({
+  ssr: false,
   beforeLoad: async () => {
-    try {
-      const result = await checkIsAdmin();
-      if (!result.isAdmin) throw redirect({ to: "/" });
-    } catch (e: any) {
-      if (e?.isRedirect) throw e;
-      throw redirect({ to: "/" });
-    }
+    const { data } = await supabase.auth.getUser();
+    const email = data.user?.email;
+    if (!email) throw redirect({ to: "/auth" });
+    if (ADMIN_EMAIL && email === ADMIN_EMAIL) return;
+    // No match — redirect away
+    throw redirect({ to: "/app/dashboard" });
   },
   component: AdminLayout,
 });

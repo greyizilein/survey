@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -14,6 +14,7 @@ import {
   AlertCircle,
   ArrowLeft,
   MessageSquareText,
+  Users,
 } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
@@ -352,11 +353,19 @@ function InterviewStudio() {
               transcript you can download as VTT, Word, PDF, text, or Markdown.
             </p>
           </div>
-          {stage !== "intake" && (
-            <Button variant="outline" size="sm" onClick={reset}>
-              <Plus className="mr-2 size-4" /> New study
-            </Button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              to="/app/personas"
+              className="flex items-center gap-1.5 border-2 border-border px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+            >
+              <Users className="size-3.5" /> Persona Studio
+            </Link>
+            {stage !== "intake" && (
+              <Button variant="outline" size="sm" onClick={reset}>
+                <Plus className="mr-2 size-4" /> New study
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* ---------------- Intake ---------------- */}
