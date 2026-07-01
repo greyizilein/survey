@@ -309,13 +309,13 @@ function Landing() {
       <section className="dark relative overflow-hidden" style={{ minHeight: "70vh" }}>
         <video
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: 0.45 }}
-          src="/6000238-uhd_2160_3840_24fps.mp4"
+          style={{ opacity: 0.4 }}
+          src="/6000648-uhd_2160_3840_24fps.mp4"
           autoPlay muted loop playsInline aria-hidden
         />
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.75) 100%)" }}
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)" }}
           aria-hidden
         />
         <div className="relative z-10 mx-auto flex min-h-[70vh] max-w-4xl flex-col items-center justify-center px-6 py-24 text-center">
