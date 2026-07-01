@@ -47,10 +47,10 @@ export function createCodeExecutionAi() {
 export const CODE_EXECUTION_MODEL = "claude-sonnet-4-6";
 
 /**
- * Direct Anthropic model string for Fast tier (Sonnet 4.5). No provider prefix — used with
+ * Direct Anthropic model string for Fast tier (Sonnet 4.6). No provider prefix — used with
  * createCodeExecutionAi(), not the gateway, so native tools (webSearch, webFetch) work.
  */
-export const FAST_MODEL = "claude-sonnet-4-5";
+export const FAST_MODEL = "claude-sonnet-4-6";
 
 /**
  * Fixed cheap model for mechanical reading/extraction tasks (e.g. scanning a brief for

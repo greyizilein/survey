@@ -178,8 +178,12 @@ export async function getOrCreateAgentId(tier: "fast" | "pro" | "max" = "max"): 
     ...mcpServers.map((s) => ({ type: "mcp_toolset" as const, mcp_server_name: s.name })),
   ];
 
-  // All tiers use the same model — model_configuration is not supported on the Agents API.
-  const modelConfig = { model: "claude-sonnet-4-6" };
+  // model_configuration (thinking) is not supported on the Agents API.
+  // Max uses Sonnet 5.5; Fast and Pro use Sonnet 4.6. Thinking is applied in text generation only.
+  const modelConfig =
+    tier === "max"
+      ? { model: "claude-sonnet-5-5" }
+      : { model: "claude-sonnet-4-6" };
 
   const existing = await findExisting(client.beta.agents.list(), AGENT_NAME);
   if (existing) {
