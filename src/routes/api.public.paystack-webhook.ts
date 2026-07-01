@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/public/paystack-webhook")({
           reference,
           amount_cents: amount,
           currency,
-          raw: payload as unknown as Record<string, unknown>,
+          raw: payload as never,
         });
 
         try {
