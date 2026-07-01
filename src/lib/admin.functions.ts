@@ -13,6 +13,23 @@ async function requireAdmin(userId: string) {
   if (error || !data) throw new Error("Forbidden: admin access only");
 }
 
+// ── Server fn: returns true only if the calling user is in admin_users ───────
+export const checkIsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<boolean> => {
+    const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "xeros.opinion@gmail.com";
+    // Check admin_users table first (source of truth)
+    const { data } = await supabaseAdmin
+      .from("admin_users")
+      .select("id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (data) return true;
+    // Fallback: check against the server-side ADMIN_EMAIL env var
+    const { data: userData } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    return userData?.user?.email === ADMIN_EMAIL;
+  });
+
 // ── Metrics ──────────────────────────────────────────────────────────────────
 export const getAdminMetrics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
