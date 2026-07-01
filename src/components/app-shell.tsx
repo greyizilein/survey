@@ -17,7 +17,7 @@ import {
   Crown,
   CreditCard,
   Shield,
-  Wand2,
+  Eraser,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ const nav = [
   { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
   { to: "/app/analyze", label: "Writing", icon: BarChart3 },
-  { to: "/app/humanize", label: "Humanizer", icon: Wand2 },
+  { to: "/app/humanize", label: "Humanizer", icon: Eraser },
   { action: "corrections" as const, label: "Corrections", icon: ClipboardCheck },
   { to: "/app/formatting", label: "Formatting", icon: FileCheck2 },
   { to: "/app/presentations", label: "Presentations", icon: Presentation },

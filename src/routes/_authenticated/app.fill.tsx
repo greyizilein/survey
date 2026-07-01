@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Clipboard, Download, ExternalLink, FolderKanban, Loader2, Wand2 } from "lucide-react";
+import { Clipboard, Download, ExternalLink, FolderKanban, Loader2, PenLine } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -311,7 +311,7 @@ function FillPage() {
             </div>
 
             <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto">
-              {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+              {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
               {loading ? "Generating fill-ready answers..." : "Generate answers for this form"}
             </Button>
           </div>
@@ -328,7 +328,7 @@ function FillPage() {
                 {run.direct_submit || autoFillConfigQ.data?.configured ? (
                   <div className="flex flex-col gap-1">
                     <Button onClick={autoFillAll} disabled={filling}>
-                      {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+                      {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
                       {filling ? "Submitting..." : `Submit ${run.responses.length} responses to the form`}
                     </Button>
                     {filling && countdown !== null && countdown > 2 && (

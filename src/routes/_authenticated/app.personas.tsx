@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { listPersonas, generatePersonas, deletePersona, listPopulations, createPopulation, deletePopulation } from "@/lib/personas.functions";
 import { toast } from "sonner";
-import { Trash2, Sparkles, Search, Users } from "lucide-react";
+import { Trash2, PenLine, Search, Users } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/personas")({
   head: () => ({ meta: [{ title: "Persona Studio · Paperstudio" }] }),
@@ -123,7 +123,7 @@ function PersonaStudio() {
         </Card>
 
         <Card className="mt-6 p-4 sm:p-6">
-          <h2 className="font-semibold mb-3 flex items-center gap-2"><Sparkles className="size-4 text-primary" /> Generate personas</h2>
+          <h2 className="font-semibold mb-3 flex items-center gap-2"><PenLine className="size-4 text-primary" /> Generate personas</h2>
           <div className="grid gap-3 md:grid-cols-[1fr,150px,auto] md:items-end">
             <div>
               <Label>Brief</Label>

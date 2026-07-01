@@ -6,7 +6,7 @@ import {
   Settings,
   Loader2,
   User,
-  Sparkles,
+  SlidersHorizontal,
   ShieldCheck,
   Fingerprint,
   TriangleAlert,
@@ -86,7 +86,7 @@ function SettingsPage() {
                 <User className="size-4" /> Profile
               </TabsTrigger>
               <TabsTrigger value="preferences" className="gap-1.5">
-                <Sparkles className="size-4" /> Preferences
+                <SlidersHorizontal className="size-4" /> Preferences
               </TabsTrigger>
               <TabsTrigger value="security" className="gap-1.5">
                 <ShieldCheck className="size-4" /> Security

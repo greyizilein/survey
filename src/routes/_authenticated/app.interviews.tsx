@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import {
   Upload,
   Loader2,
-  Sparkles,
+  PenLine,
   FileText,
   Trash2,
   Download,
@@ -524,7 +524,7 @@ function InterviewStudio() {
                 {analyzing ? (
                   <Loader2 className="mr-2 size-4 animate-spin" />
                 ) : (
-                  <Sparkles className="mr-2 size-4" />
+                  <PenLine className="mr-2 size-4" />
                 )}
                 {analyzing ? "Reading your documents..." : "Analyze documents"}
               </Button>
@@ -726,7 +726,7 @@ function InterviewStudio() {
               {creating ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : (
-                <Sparkles className="mr-2 size-4" />
+                <PenLine className="mr-2 size-4" />
               )}
               {creating ? "Building respondents..." : `Generate ${count} interviews`}
             </Button>
