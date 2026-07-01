@@ -83,6 +83,9 @@ function Landing() {
           muted
           loop
           playsInline
+          preload="auto"
+          // @ts-expect-error fetchpriority is valid but not yet in React types
+          fetchpriority="high"
           aria-hidden
         />
         {/* Dark base scrim — deepens blacks so text always pops */}
@@ -511,6 +514,28 @@ const VIDEO_SLIDES = [
 function VideoSlideSection({ ctaHref }: { ctaHref: string }) {
   const [active, setActive] = useState(0);
   const [animating, setAnimating] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Only load + play the video when the section scrolls into view
+  useEffect(() => {
+    const section = sectionRef.current;
+    const video = videoRef.current;
+    if (!section || !video) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          video.preload = "auto";
+          video.load();
+          video.play().catch(() => {});
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -526,13 +551,14 @@ function VideoSlideSection({ ctaHref }: { ctaHref: string }) {
   const slide = VIDEO_SLIDES[active];
 
   return (
-    <section className="dark relative overflow-hidden" style={{ minHeight: "100vh" }}>
-      {/* Background video */}
+    <section ref={sectionRef} className="dark relative overflow-hidden" style={{ minHeight: "100vh" }}>
+      {/* Background video — loads only when section enters viewport */}
       <video
+        ref={videoRef}
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         style={{ opacity: 0.5 }}
         src="/9558213-uhd_4096_2160_25fps.mp4"
-        autoPlay muted loop playsInline aria-hidden
+        muted loop playsInline preload="none" aria-hidden
       />
       {/* Dark overlay — heavier at bottom */}
       <div
