@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
-import { FileCheck2, Upload, Loader2, FileDown, X, Sparkles, ClipboardCheck, Copy, Check, Wand2 } from "lucide-react";
+import { FileCheck2, Upload, Loader2, FileDown, X, FileText, ClipboardCheck, Copy, Check, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -412,7 +412,7 @@ function FormattingPage() {
               </div>
 
               <Button onClick={analyze} disabled={reading || workFiles.length === 0} className="w-full gap-2">
-                {reading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {reading ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
                 {reading ? "Reading your documents…" : "Check what's needed"}
               </Button>
             </Card>
@@ -474,7 +474,7 @@ function FormattingPage() {
                   Leave as-is, just format
                 </Button>
                 <Button onClick={enhanceWork} disabled={enhancing} className="flex-1 gap-2">
-                  {enhancing ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                  {enhancing ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />}
                   {enhancing ? "Enhancing…" : "Enhance first"}
                 </Button>
               </div>

@@ -7,7 +7,7 @@ import {
   Copy,
   Download,
   Loader2,
-  Wand2,
+  Eraser,
   FileText,
   X,
   CheckCheck,
@@ -177,12 +177,10 @@ function HumanizerPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <Wand2 className="size-5 text-primary" />
+                <Eraser className="size-5 text-primary" />
                 <h1 className="text-xl font-extrabold uppercase tracking-widest">Humanizer</h1>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Two-model pipeline — restructure then naturalise. Maintains word count and quality.
-              </p>
+
             </div>
 
             {/* Intensity selector */}
@@ -276,7 +274,7 @@ function HumanizerPage() {
                 {loading ? (
                   <><Loader2 className="size-4 animate-spin" /> Humanizing...</>
                 ) : (
-                  <><Wand2 className="size-4" /> Humanize</>
+                  <><Eraser className="size-4" /> Humanize</>
                 )}
               </button>
             </div>
@@ -333,7 +331,7 @@ function HumanizerPage() {
               {!outputText && !loading && !error && (
                 <div className="flex h-full items-center justify-center">
                   <div className="text-center">
-                    <Wand2 className="mx-auto size-10 text-muted-foreground/30" />
+                    <Eraser className="mx-auto size-10 text-muted-foreground/30" />
                     <p className="mt-3 text-sm text-muted-foreground">Humanized output will appear here</p>
                   </div>
                 </div>
