@@ -121,24 +121,12 @@ function HumanizerPage() {
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No response stream");
       const decoder = new TextDecoder();
-      let accumulated = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-
-        // Parse SSE chunks
-        const lines = accumulated.split("\n");
-        accumulated = lines.pop() ?? "";
-        for (const line of lines) {
-          if (line.startsWith("0:")) {
-            try {
-              const chunk = JSON.parse(line.slice(2));
-              setOutputText(prev => prev + chunk);
-            } catch { /* skip malformed */ }
-          }
-        }
+        const chunk = decoder.decode(value, { stream: true });
+        setOutputText(prev => prev + chunk);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Humanization failed");
