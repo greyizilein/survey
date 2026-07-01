@@ -16,9 +16,18 @@ export function getModelTier(): ModelTier {
   return raw === "fast" || raw === "pro" || raw === "max" ? raw : "max";
 }
 
-/** Text model for the current tier — use this instead of DEFAULT_MODEL in new call sites. */
+/** Text model for the current tier — bare Anthropic model string. */
 export function textModelForTier(tier: ModelTier = getModelTier()): string {
   return TEXT_MODEL_BY_TIER[tier];
+}
+
+/**
+ * Returns a model instance for text generation using the direct Anthropic API
+ * (ANTHROPIC_API_KEY), bypassing the AI Gateway entirely. All three tiers go
+ * through this — Fast uses claude-sonnet-4-5, Pro and Max use claude-sonnet-4-6.
+ */
+export function textModelInstance(tier: ModelTier = getModelTier()) {
+  return createCodeExecutionAi()(TEXT_MODEL_BY_TIER[tier]);
 }
 
 /** Image model for the current tier — use this instead of FIGURE_IMAGE_MODEL in new call sites. */
