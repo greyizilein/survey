@@ -14,11 +14,11 @@ export const MODEL_TIER_DESCRIPTIONS: Record<ModelTier, string> = {
   max: "Claude Sonnet 4.6 — full adaptive reasoning for complex, high-stakes work.",
 };
 
-/** Text-generation model id per tier — bare Anthropic model strings, used with createCodeExecutionAi(). */
+/** Text-generation model id per tier, resolved through the AI Gateway. */
 export const TEXT_MODEL_BY_TIER: Record<ModelTier, string> = {
-  fast: "claude-sonnet-4-5",
-  pro: "claude-sonnet-4-6",
-  max: "claude-sonnet-4-6",
+  fast: "anthropic/claude-sonnet-4-5",
+  pro: "anthropic/claude-sonnet-4-6",
+  max: "anthropic/claude-sonnet-4-6",
 };
 
 /** Image-generation model id per tier, resolved through the AI Gateway. */
