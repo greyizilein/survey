@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { AnalyzeChatInput, buildAnalyzePrompt } from "@/lib/analyze.functions";
+import { checkQuota } from "@/lib/usage-tracking";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/api/analyze-stream")({
@@ -28,6 +30,15 @@ export const Route = createFileRoute("/api/analyze-stream")({
         const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
         if (claimsError || !claimsData?.claims?.sub) {
           return new Response("Unauthorized", { status: 401 });
+        }
+        const userId = claimsData.claims.sub;
+
+        const quota = await checkQuota(supabaseAdmin, userId);
+        if (!quota.allowed) {
+          return new Response(
+            JSON.stringify({ error: "quota_exceeded", subscriptionType: quota.subscriptionType, wordsUsed: quota.wordsUsed, limit: quota.limit }),
+            { status: 402, headers: { "Content-Type": "application/json" } },
+          );
         }
 
         let body: unknown;
