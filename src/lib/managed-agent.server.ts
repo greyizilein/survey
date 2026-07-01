@@ -166,11 +166,14 @@ export async function getOrCreateAgentId(tier: "fast" | "pro" | "max" = "max"): 
     ...mcpServers.map((s) => ({ type: "mcp_toolset" as const, mcp_server_name: s.name })),
   ];
 
-  // Max tier uses Sonnet 5.5 for fast, high-quality responses.
-  // Fast and Pro use standard-tier models to balance speed and cost.
+  // Fast: Sonnet 4.6, no thinking — direct, premium-quality output.
+  // Pro: Sonnet 4.6 with adaptive thinking — deeper reasoning on complex tasks.
+  // Max: Sonnet 5.5 with adaptive thinking — latest model, exceptional quality.
   const modelConfig =
     tier === "max"
-      ? { model: "claude-sonnet-5-5" }
+      ? { model: "claude-sonnet-5-5", model_configuration: { thinking: { type: "adaptive", effort: "high" } } }
+      : tier === "pro"
+      ? { model: "claude-sonnet-4-6", model_configuration: { thinking: { type: "adaptive", effort: "medium" } } }
       : { model: "claude-sonnet-4-6" };
 
   const existing = await findExisting(client.beta.agents.list(), AGENT_NAME);
