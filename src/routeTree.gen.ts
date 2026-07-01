@@ -9,21 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as BillingSuccessRouteImport } from './routes/billing.success'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
+import { Route as ApiHumanizerStreamRouteImport } from './routes/api.humanizer-stream'
 import { Route as ApiFormattingStreamRouteImport } from './routes/api.formatting-stream'
 import { Route as ApiFormattingEnhanceStreamRouteImport } from './routes/api.formatting-enhance-stream'
 import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.apply-corrections-stream'
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminRequestsRouteImport } from './routes/admin/requests'
+import { Route as AdminEnterpriseRouteImport } from './routes/admin/enterprise'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as ApiPublicPaystackWebhookRouteImport } from './routes/api.public.paystack-webhook'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenticated/app.projects'
 import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_authenticated/app.presentations'
 import { Route as AuthenticatedAppPersonasRouteImport } from './routes/_authenticated/app.personas'
 import { Route as AuthenticatedAppInterviewsRouteImport } from './routes/_authenticated/app.interviews'
+import { Route as AuthenticatedAppHumanizeRouteImport } from './routes/_authenticated/app.humanize'
 import { Route as AuthenticatedAppFormattingRouteImport } from './routes/_authenticated/app.formatting'
 import { Route as AuthenticatedAppFillRouteImport } from './routes/_authenticated/app.fill'
 import { Route as AuthenticatedAppDashboardRouteImport } from './routes/_authenticated/app.dashboard'
@@ -34,9 +46,29 @@ import { Route as AuthenticatedAppFoldersIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppProjectsIdRouteImport } from './routes/_authenticated/app.projects.$id'
 import { Route as AuthenticatedAppFoldersIdRouteImport } from './routes/_authenticated/app.folders.$id'
 
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -48,9 +80,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const BillingSuccessRoute = BillingSuccessRouteImport.update({
+  id: '/billing/success',
+  path: '/billing/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
   id: '/api/presentations-stream',
   path: '/api/presentations-stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHumanizerStreamRoute = ApiHumanizerStreamRouteImport.update({
+  id: '/api/humanizer-stream',
+  path: '/api/humanizer-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiFormattingStreamRoute = ApiFormattingStreamRouteImport.update({
@@ -80,11 +127,32 @@ const ApiAgentStreamRoute = ApiAgentStreamRouteImport.update({
   path: '/api/agent-stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminRequestsRoute = AdminRequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminEnterpriseRoute = AdminEnterpriseRouteImport.update({
+  id: '/enterprise',
+  path: '/enterprise',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   id: '/app',
   path: '/app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicPaystackWebhookRoute =
+  ApiPublicPaystackWebhookRouteImport.update({
+    id: '/api/public/paystack-webhook',
+    path: '/api/public/paystack-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAppSettingsRoute =
   AuthenticatedAppSettingsRouteImport.update({
     id: '/settings',
@@ -113,6 +181,12 @@ const AuthenticatedAppInterviewsRoute =
   AuthenticatedAppInterviewsRouteImport.update({
     id: '/interviews',
     path: '/interviews',
+    getParentRoute: () => AuthenticatedAppRoute,
+  } as any)
+const AuthenticatedAppHumanizeRoute =
+  AuthenticatedAppHumanizeRouteImport.update({
+    id: '/humanize',
+    path: '/humanize',
     getParentRoute: () => AuthenticatedAppRoute,
   } as any)
 const AuthenticatedAppFormattingRoute =
@@ -169,24 +243,36 @@ const AuthenticatedAppFoldersIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/pricing': typeof PricingRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
+  '/admin/enterprise': typeof AdminEnterpriseRoute
+  '/admin/requests': typeof AdminRequestsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
+  '/api/humanizer-stream': typeof ApiHumanizerStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/billing/success': typeof BillingSuccessRoute
+  '/admin/': typeof AdminIndexRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/formatting': typeof AuthenticatedAppFormattingRoute
+  '/app/humanize': typeof AuthenticatedAppHumanizeRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/folders/': typeof AuthenticatedAppFoldersIndexRoute
@@ -194,23 +280,34 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/pricing': typeof PricingRoute
   '/app': typeof AuthenticatedAppRouteWithChildren
+  '/admin/enterprise': typeof AdminEnterpriseRoute
+  '/admin/requests': typeof AdminRequestsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
+  '/api/humanizer-stream': typeof ApiHumanizerStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/billing/success': typeof BillingSuccessRoute
+  '/admin': typeof AdminIndexRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/app/fill': typeof AuthenticatedAppFillRoute
   '/app/formatting': typeof AuthenticatedAppFormattingRoute
+  '/app/humanize': typeof AuthenticatedAppHumanizeRoute
   '/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/folders': typeof AuthenticatedAppFoldersIndexRoute
@@ -220,24 +317,36 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/about': typeof AboutRoute
+  '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
+  '/pricing': typeof PricingRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteWithChildren
+  '/admin/enterprise': typeof AdminEnterpriseRoute
+  '/admin/requests': typeof AdminRequestsRoute
+  '/admin/users': typeof AdminUsersRoute
   '/api/agent-stream': typeof ApiAgentStreamRoute
   '/api/analyze-stream': typeof ApiAnalyzeStreamRoute
   '/api/apply-corrections-stream': typeof ApiApplyCorrectionsStreamRoute
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
+  '/api/humanizer-stream': typeof ApiHumanizerStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/billing/success': typeof BillingSuccessRoute
+  '/admin/': typeof AdminIndexRoute
   '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/_authenticated/app/dashboard': typeof AuthenticatedAppDashboardRoute
   '/_authenticated/app/fill': typeof AuthenticatedAppFillRoute
   '/_authenticated/app/formatting': typeof AuthenticatedAppFormattingRoute
+  '/_authenticated/app/humanize': typeof AuthenticatedAppHumanizeRoute
   '/_authenticated/app/interviews': typeof AuthenticatedAppInterviewsRoute
   '/_authenticated/app/personas': typeof AuthenticatedAppPersonasRoute
   '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/_authenticated/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/_authenticated/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/_authenticated/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/_authenticated/app/folders/': typeof AuthenticatedAppFoldersIndexRoute
@@ -247,24 +356,36 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
+    | '/admin'
     | '/auth'
+    | '/contact'
+    | '/pricing'
     | '/app'
+    | '/admin/enterprise'
+    | '/admin/requests'
+    | '/admin/users'
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
+    | '/api/humanizer-stream'
     | '/api/presentations-stream'
+    | '/billing/success'
+    | '/admin/'
     | '/app/agent'
     | '/app/analyze'
     | '/app/dashboard'
     | '/app/fill'
     | '/app/formatting'
+    | '/app/humanize'
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
     | '/app/projects'
     | '/app/settings'
+    | '/api/public/paystack-webhook'
     | '/app/folders/$id'
     | '/app/projects/$id'
     | '/app/folders/'
@@ -272,23 +393,34 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/auth'
+    | '/contact'
+    | '/pricing'
     | '/app'
+    | '/admin/enterprise'
+    | '/admin/requests'
+    | '/admin/users'
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
+    | '/api/humanizer-stream'
     | '/api/presentations-stream'
+    | '/billing/success'
+    | '/admin'
     | '/app/agent'
     | '/app/analyze'
     | '/app/dashboard'
     | '/app/fill'
     | '/app/formatting'
+    | '/app/humanize'
     | '/app/interviews'
     | '/app/personas'
     | '/app/presentations'
     | '/app/settings'
+    | '/api/public/paystack-webhook'
     | '/app/folders/$id'
     | '/app/projects/$id'
     | '/app/folders'
@@ -297,24 +429,36 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/about'
+    | '/admin'
     | '/auth'
+    | '/contact'
+    | '/pricing'
     | '/_authenticated/app'
+    | '/admin/enterprise'
+    | '/admin/requests'
+    | '/admin/users'
     | '/api/agent-stream'
     | '/api/analyze-stream'
     | '/api/apply-corrections-stream'
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
+    | '/api/humanizer-stream'
     | '/api/presentations-stream'
+    | '/billing/success'
+    | '/admin/'
     | '/_authenticated/app/agent'
     | '/_authenticated/app/analyze'
     | '/_authenticated/app/dashboard'
     | '/_authenticated/app/fill'
     | '/_authenticated/app/formatting'
+    | '/_authenticated/app/humanize'
     | '/_authenticated/app/interviews'
     | '/_authenticated/app/personas'
     | '/_authenticated/app/presentations'
     | '/_authenticated/app/projects'
     | '/_authenticated/app/settings'
+    | '/api/public/paystack-webhook'
     | '/_authenticated/app/folders/$id'
     | '/_authenticated/app/projects/$id'
     | '/_authenticated/app/folders/'
@@ -324,22 +468,57 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AboutRoute: typeof AboutRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ContactRoute: typeof ContactRoute
+  PricingRoute: typeof PricingRoute
   ApiAgentStreamRoute: typeof ApiAgentStreamRoute
   ApiAnalyzeStreamRoute: typeof ApiAnalyzeStreamRoute
   ApiApplyCorrectionsStreamRoute: typeof ApiApplyCorrectionsStreamRoute
   ApiFormattingEnhanceStreamRoute: typeof ApiFormattingEnhanceStreamRoute
   ApiFormattingStreamRoute: typeof ApiFormattingStreamRoute
+  ApiHumanizerStreamRoute: typeof ApiHumanizerStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
+  BillingSuccessRoute: typeof BillingSuccessRoute
+  ApiPublicPaystackWebhookRoute: typeof ApiPublicPaystackWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -356,11 +535,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/billing/success': {
+      id: '/billing/success'
+      path: '/billing/success'
+      fullPath: '/billing/success'
+      preLoaderRoute: typeof BillingSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/presentations-stream': {
       id: '/api/presentations-stream'
       path: '/api/presentations-stream'
       fullPath: '/api/presentations-stream'
       preLoaderRoute: typeof ApiPresentationsStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/humanizer-stream': {
+      id: '/api/humanizer-stream'
+      path: '/api/humanizer-stream'
+      fullPath: '/api/humanizer-stream'
+      preLoaderRoute: typeof ApiHumanizerStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/formatting-stream': {
@@ -398,12 +598,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/requests': {
+      id: '/admin/requests'
+      path: '/requests'
+      fullPath: '/admin/requests'
+      preLoaderRoute: typeof AdminRequestsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/enterprise': {
+      id: '/admin/enterprise'
+      path: '/enterprise'
+      fullPath: '/admin/enterprise'
+      preLoaderRoute: typeof AdminEnterpriseRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_authenticated/app': {
       id: '/_authenticated/app'
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/paystack-webhook': {
+      id: '/api/public/paystack-webhook'
+      path: '/api/public/paystack-webhook'
+      fullPath: '/api/public/paystack-webhook'
+      preLoaderRoute: typeof ApiPublicPaystackWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/settings': {
       id: '/_authenticated/app/settings'
@@ -438,6 +666,13 @@ declare module '@tanstack/react-router' {
       path: '/interviews'
       fullPath: '/app/interviews'
       preLoaderRoute: typeof AuthenticatedAppInterviewsRouteImport
+      parentRoute: typeof AuthenticatedAppRoute
+    }
+    '/_authenticated/app/humanize': {
+      id: '/_authenticated/app/humanize'
+      path: '/humanize'
+      fullPath: '/app/humanize'
+      preLoaderRoute: typeof AuthenticatedAppHumanizeRouteImport
       parentRoute: typeof AuthenticatedAppRoute
     }
     '/_authenticated/app/formatting': {
@@ -528,6 +763,7 @@ interface AuthenticatedAppRouteChildren {
   AuthenticatedAppDashboardRoute: typeof AuthenticatedAppDashboardRoute
   AuthenticatedAppFillRoute: typeof AuthenticatedAppFillRoute
   AuthenticatedAppFormattingRoute: typeof AuthenticatedAppFormattingRoute
+  AuthenticatedAppHumanizeRoute: typeof AuthenticatedAppHumanizeRoute
   AuthenticatedAppInterviewsRoute: typeof AuthenticatedAppInterviewsRoute
   AuthenticatedAppPersonasRoute: typeof AuthenticatedAppPersonasRoute
   AuthenticatedAppPresentationsRoute: typeof AuthenticatedAppPresentationsRoute
@@ -543,6 +779,7 @@ const AuthenticatedAppRouteChildren: AuthenticatedAppRouteChildren = {
   AuthenticatedAppDashboardRoute: AuthenticatedAppDashboardRoute,
   AuthenticatedAppFillRoute: AuthenticatedAppFillRoute,
   AuthenticatedAppFormattingRoute: AuthenticatedAppFormattingRoute,
+  AuthenticatedAppHumanizeRoute: AuthenticatedAppHumanizeRoute,
   AuthenticatedAppInterviewsRoute: AuthenticatedAppInterviewsRoute,
   AuthenticatedAppPersonasRoute: AuthenticatedAppPersonasRoute,
   AuthenticatedAppPresentationsRoute: AuthenticatedAppPresentationsRoute,
@@ -566,16 +803,39 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AdminRouteChildren {
+  AdminEnterpriseRoute: typeof AdminEnterpriseRoute
+  AdminRequestsRoute: typeof AdminRequestsRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminEnterpriseRoute: AdminEnterpriseRoute,
+  AdminRequestsRoute: AdminRequestsRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AboutRoute: AboutRoute,
+  AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRoute,
+  ContactRoute: ContactRoute,
+  PricingRoute: PricingRoute,
   ApiAgentStreamRoute: ApiAgentStreamRoute,
   ApiAnalyzeStreamRoute: ApiAnalyzeStreamRoute,
   ApiApplyCorrectionsStreamRoute: ApiApplyCorrectionsStreamRoute,
   ApiFormattingEnhanceStreamRoute: ApiFormattingEnhanceStreamRoute,
   ApiFormattingStreamRoute: ApiFormattingStreamRoute,
+  ApiHumanizerStreamRoute: ApiHumanizerStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
+  BillingSuccessRoute: BillingSuccessRoute,
+  ApiPublicPaystackWebhookRoute: ApiPublicPaystackWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

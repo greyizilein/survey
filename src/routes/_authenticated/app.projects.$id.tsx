@@ -18,7 +18,7 @@ import { listPersonas } from "@/lib/personas.functions";
 import { runSimulation, getSimulationResults, generateVtt, updateResponseAnswer } from "@/lib/simulations.functions";
 import { autoFillForm, isAutofillServiceConfigured } from "@/lib/autofill.functions";
 import { toast } from "sonner";
-import { ChevronLeft, Play, Download, FileDown, Link2, FileText, Wand2 } from "lucide-react";
+import { ChevronLeft, Play, Download, FileDown, Link2, FileText, PenLine } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/projects/$id")({
   head: () => ({ meta: [{ title: "Project · Paperstudio" }] }),
@@ -307,7 +307,7 @@ function ProjectWorkspace() {
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">{r.personas?.country}</Badge>
                           <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => openAndFill(r.answers ?? [])}>
-                            <Wand2 className="size-3 mr-1" /> Auto-fill
+                            <PenLine className="size-3 mr-1" /> Auto-fill
                           </Button>
                         </div>
                       </div>

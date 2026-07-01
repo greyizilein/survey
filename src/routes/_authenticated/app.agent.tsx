@@ -40,6 +40,7 @@ import { getFolderContext } from "@/lib/folders.functions";
 import { ChatHistoryMenu } from "@/components/chat-history-menu";
 import { FolderBadge } from "@/components/folder-badge";
 import { IngestBadge, ingestIconClass, type IngestStatus } from "@/components/ingest-status";
+import { SmartPromptButton } from "@/components/smart-prompt-button";
 import { useAutosizeTextarea } from "@/lib/use-autosize-textarea";
 
 function readAsBase64(file: File): Promise<string> {
@@ -254,6 +255,88 @@ function AgentPage() {
 
   function stopGenerating() {
     abortRef.current?.abort();
+  }
+
+  /**
+   * Smart Prompt: reads all uploaded documents and background context, then either
+   * asks any questions it needs or — if it has everything — builds and executes the
+   * perfect prompt for the work immediately.
+   */
+  function sendSmartPrompt() {
+    const hasContext = docTexts.length > 0 || folderContext;
+    const instruction = hasContext
+      ? "Read everything I have uploaded and the background context carefully. If you have all the information you need, build and execute the perfect detailed prompt for this work right now — skip asking questions if the materials are sufficient. If something essential is genuinely missing, ask only those targeted questions first, then proceed."
+      : "I want to start a piece of work. Ask me any questions you need to understand exactly what's required — rubric, audience, length, format, constraints — then build and execute a detailed prompt that will produce a perfect result.";
+    setInput(instruction);
+    // Use setTimeout so setInput flushes before send reads it
+    setTimeout(() => {
+      setInput("");
+      setSending(true);
+      const syntheticText = instruction;
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: syntheticText },
+        { role: "assistant", content: "" },
+      ]);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      (async () => {
+        try {
+          const id = await ensureSession();
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (!token) throw new Error("Not authenticated");
+
+          const folderBlock = folderContext ? `${folderContext}\n\n` : "";
+          const docContext = docTexts.length
+            ? `${folderBlock}Uploaded document context:\n${budgetDocTexts(docTexts, 60000)}\n\nUSER REQUEST:\n${syntheticText}`
+            : folderBlock
+              ? `${folderBlock}USER REQUEST:\n${syntheticText}`
+              : syntheticText;
+
+          const res = await fetch("/api/agent-stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ sessionId: id, message: docContext }),
+            signal: controller.signal,
+          });
+          if (!res.ok || !res.body) {
+            const errText = await res.text().catch(() => "");
+            throw new Error(errText || "The agent didn't respond");
+          }
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let raw = "";
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            raw += decoder.decode(value, { stream: true });
+            const { display, files } = splitFileMarkers(raw);
+            setMessages((prev) => {
+              const copy = [...prev];
+              copy[copy.length - 1] = { role: "assistant", content: display, files };
+              return copy;
+            });
+          }
+        } catch (err) {
+          if ((err as Error)?.name === "AbortError") return;
+          console.error("[agent] smart prompt send failed:", err);
+          toast.error(err instanceof Error ? err.message : "Something went wrong");
+          setMessages((prev) => {
+            const copy = [...prev];
+            copy[copy.length - 1] = {
+              ...copy[copy.length - 1],
+              content: copy[copy.length - 1].content || "Something went wrong. Please try again.",
+            };
+            return copy;
+          });
+        } finally {
+          setSending(false);
+        }
+      })();
+    }, 0);
   }
 
   async function handleDownloadFile(fileId: string) {
@@ -613,7 +696,7 @@ function AgentPage() {
                 >
                   {m.content ? (
                     <div
-                      className="prose prose-sm max-w-none min-w-0 break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
+                      className="prose prose-sm max-w-none min-w-0 break-words [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-2 [&_h1]:leading-tight [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-1 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:mt-3 [&_h4]:uppercase [&_h4]:tracking-wide [&_h4]:text-muted-foreground [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:leading-relaxed [&_blockquote]:border-l-4 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:whitespace-nowrap"
                       dangerouslySetInnerHTML={{
                         __html: blocksToHtml(parseMarkdownLite(m.content)),
                       }}
@@ -743,7 +826,7 @@ function AgentPage() {
                 ref={docFileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.webp,.mp3,.m4a,.wav,.ogg"
                 className="hidden"
                 onChange={(e) => {
                   const fs = Array.from(e.target.files ?? []);
@@ -790,12 +873,12 @@ function AgentPage() {
                       {readingDocs ? "Reading documents���" : "Choose documents"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      PDF, Word (.docx), PowerPoint (.pptx), Excel (.xlsx/.xls), .txt, or .md
+                      PDF, Word, PowerPoint, Excel, CSV, TXT, images (JPG/PNG/WEBP), or audio (MP3/M4A/WAV)
                     </span>
                     <input
                       type="file"
                       multiple
-                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown"
+                      accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.webp,.mp3,.m4a,.wav,.ogg"
                       className="hidden"
                       onChange={(e) => {
                         const fs = Array.from(e.target.files ?? []);
@@ -848,6 +931,11 @@ function AgentPage() {
                   )}
                 </PopoverContent>
               </Popover>
+
+              <SmartPromptButton
+                onClick={sendSmartPrompt}
+                disabled={sending}
+              />
 
               <div className="ml-auto">
                 {sending ? (

@@ -1,8 +1,6 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
   ClipboardPenLine,
-  Users,
-  FolderKanban,
   LogOut,
   Menu,
   MessageSquareText,
@@ -17,6 +15,9 @@ import {
   Zap,
   Gem,
   Crown,
+  CreditCard,
+  Shield,
+  Eraser,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import { SupervisorFeedbackModal } from "@/components/supervisor-feedback-modal"
 import { useEffect, useState, type ReactNode } from "react";
 import { useModelTier } from "@/lib/use-model-tier";
 import { MODEL_TIER_LABELS, MODEL_TIER_DESCRIPTIONS, type ModelTier } from "@/lib/model-tier";
+import { useIsAdmin } from "@/lib/use-admin";
 
 const TIER_ICON: Record<ModelTier, typeof Zap> = { fast: Zap, pro: Gem, max: Crown };
 
@@ -64,9 +66,8 @@ const nav = [
   { to: "/app/folders", label: "Folders", icon: Folder },
   { to: "/app/fill", label: "Fill a survey", icon: ClipboardPenLine },
   { to: "/app/interviews", label: "Interview Studio", icon: MessageSquareText },
-  { to: "/app/personas", label: "Persona Studio", icon: Users },
-  { to: "/app/projects", label: "Projects", icon: FolderKanban },
   { to: "/app/analyze", label: "Writing", icon: BarChart3 },
+  { to: "/app/humanize", label: "Humanizer", icon: Eraser },
   { action: "corrections" as const, label: "Corrections", icon: ClipboardCheck },
   { to: "/app/formatting", label: "Formatting", icon: FileCheck2 },
   { to: "/app/presentations", label: "Presentations", icon: Presentation },
@@ -88,6 +89,7 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   const [tier, setTier] = useModelTier();
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
+  const { data: isAdmin } = useIsAdmin();
 
   useEffect(() => {
     setOpen(false);
@@ -225,6 +227,20 @@ export function AppShell({
         {renderFloatingNav()}
         <div className="border-t border-white/10 p-2">
           <Link
+            to="/pricing"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <CreditCard className="size-4" /> Pricing
+          </Link>
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              <Shield className="size-4" /> Admin
+            </Link>
+          )}
+          <Link
             to="/app/settings"
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl text-white/70 hover:bg-white/5 hover:text-white transition-colors"
           >
@@ -281,6 +297,34 @@ export function AppShell({
       )}
       {!collapsed && <TierPicker tier={tier} setTier={setTier} />}
       {renderNav(!collapsed)}
+      <Link
+        to="/pricing"
+        title={collapsed ? "Pricing" : undefined}
+        className={cn(
+          "mx-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 transition-all",
+          collapsed && "justify-center",
+          pathname.startsWith("/pricing")
+            ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
+            : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground",
+        )}
+      >
+        <CreditCard className="size-4 shrink-0" /> {!collapsed && "Pricing"}
+      </Link>
+      {isAdmin && (
+        <Link
+          to="/admin"
+          title={collapsed ? "Admin" : undefined}
+          className={cn(
+            "mx-3 flex items-center gap-2.5 px-3 py-2 text-sm font-medium border-2 transition-all",
+            collapsed && "justify-center",
+            pathname.startsWith("/admin")
+              ? "bg-sidebar-primary text-sidebar-primary-foreground border-sidebar-foreground translate-x-0.5"
+              : "border-transparent text-sidebar-foreground/70 hover:border-sidebar-border hover:text-sidebar-foreground",
+          )}
+        >
+          <Shield className="size-4 shrink-0" /> {!collapsed && "Admin"}
+        </Link>
+      )}
       <Link
         to="/app/settings"
         title={collapsed ? "Settings" : undefined}

@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Clipboard, Download, ExternalLink, Loader2, Wand2 } from "lucide-react";
+import { Clipboard, Download, ExternalLink, FolderKanban, Loader2, PenLine } from "lucide-react";
 
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -153,13 +153,21 @@ function FillPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
-        <div className="mb-6 max-w-3xl">
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Fill a survey
-          </h1>
-          <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-            Paperstudio creates realistic respondents and fills the form for you — questions, choices, and open-ended answers, written in character.
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              Fill a survey
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground sm:text-base">
+              Paperstudio creates realistic respondents and fills the form for you — questions, choices, and open-ended answers, written in character.
+            </p>
+          </div>
+          <Link
+            to="/app/projects"
+            className="flex shrink-0 items-center gap-1.5 border-2 border-border px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+          >
+            <FolderKanban className="size-3.5" /> Projects
+          </Link>
         </div>
 
         <Card className="p-4 sm:p-6">
@@ -303,7 +311,7 @@ function FillPage() {
             </div>
 
             <Button onClick={startFill} disabled={loading} size="lg" className="w-full sm:w-auto">
-              {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+              {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
               {loading ? "Generating fill-ready answers..." : "Generate answers for this form"}
             </Button>
           </div>
@@ -320,7 +328,7 @@ function FillPage() {
                 {run.direct_submit || autoFillConfigQ.data?.configured ? (
                   <div className="flex flex-col gap-1">
                     <Button onClick={autoFillAll} disabled={filling}>
-                      {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+                      {filling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PenLine className="mr-2 size-4" />}
                       {filling ? "Submitting..." : `Submit ${run.responses.length} responses to the form`}
                     </Button>
                     {filling && countdown !== null && countdown > 2 && (

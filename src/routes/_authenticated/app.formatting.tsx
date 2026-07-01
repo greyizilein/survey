@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
-import { FileCheck2, Upload, Loader2, FileDown, Menu, X, Sparkles, ClipboardCheck, Copy, Check, Wand2 } from "lucide-react";
+import { FileCheck2, Upload, Loader2, FileDown, X, FileText, ClipboardCheck, Copy, Check, PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -266,8 +266,8 @@ function FormattingPage() {
     setExporting(true);
     try {
       const blob =
-        format === "docx" ? await exportFormattedDocx(resultBody, resultCover)
-        : format === "pdf" ? await exportFormattedPdf(resultBody, resultCover)
+        format === "docx" ? await exportFormattedDocx(resultBody, resultCover, undefined, styleGuide)
+        : format === "pdf" ? await exportFormattedPdf(resultBody, resultCover, undefined, styleGuide)
         : await exportFormattedPptx(resultBody, resultCover);
       downloadBlob(blob, `${baseFilename()}.${format}`);
     } catch (e) {
@@ -301,9 +301,6 @@ function FormattingPage() {
       {(openMobileMenu) => (
         <div className="mx-auto max-w-3xl p-4 sm:p-6 space-y-5">
           <h1 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
-            <button onClick={openMobileMenu} className="md:hidden -ml-1.5 p-1.5 shrink-0 text-muted-foreground" aria-label="Open menu">
-              <Menu className="size-5" />
-            </button>
             <FileCheck2 className="size-5 shrink-0 hidden sm:block" /> Formatting
           </h1>
           <p className="text-sm text-muted-foreground -mt-3">
@@ -311,7 +308,7 @@ function FormattingPage() {
           </p>
 
           {step === "upload" && (
-            <Card className="p-4 sm:p-5 space-y-5">
+            <Card className="p-4 sm:p-5 space-y-5 overflow-hidden">
               <div
                 className={cn(
                   "space-y-2 rounded-md border-2 border-dashed p-2 transition-colors",
@@ -339,14 +336,15 @@ function FormattingPage() {
                 }}
               >
                 <Label>Your work (required)</Label>
-                <input ref={workInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown" className="hidden"
+                <input ref={workInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.webp,.mp3,.m4a,.wav,.ogg" className="hidden"
                   onChange={(e) => addWorkFiles(Array.from(e.target.files ?? []))} />
                 <Button
                   variant="outline"
                   onClick={() => workInputRef.current?.click()}
-                  className={cn("w-full justify-start gap-2 border-dashed", isDraggingWork && "border-primary bg-primary/5")}
+                  className={cn("w-full justify-start gap-2 border-dashed overflow-hidden", isDraggingWork && "border-primary bg-primary/5")}
                 >
-                  <Upload className="size-4" /> {isDraggingWork ? "Drop files here" : "Upload document(s) to submit, or drag and drop"}
+                  <Upload className="size-4 shrink-0" />
+                  <span className="truncate">{isDraggingWork ? "Drop files here" : "Upload document(s) to submit, or drag and drop"}</span>
                 </Button>
                 {workFiles.length > 0 && (
                   <ul className="text-sm space-y-1">
@@ -389,14 +387,15 @@ function FormattingPage() {
                 }}
               >
                 <Label>Brief / requirements (optional, but helps a lot)</Label>
-                <input ref={briefInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown" className="hidden"
+                <input ref={briefInputRef} type="file" multiple accept=".pdf,.docx,.pptx,.xlsx,.xls,.csv,.txt,.md,.markdown,.jpg,.jpeg,.png,.gif,.webp,.mp3,.m4a,.wav,.ogg" className="hidden"
                   onChange={(e) => addBriefFiles(Array.from(e.target.files ?? []))} />
                 <Button
                   variant="outline"
                   onClick={() => briefInputRef.current?.click()}
-                  className={cn("w-full justify-start gap-2 border-dashed", isDraggingBrief && "border-primary bg-primary/5")}
+                  className={cn("w-full justify-start gap-2 border-dashed overflow-hidden", isDraggingBrief && "border-primary bg-primary/5")}
                 >
-                  <Upload className="size-4" /> {isDraggingBrief ? "Drop files here" : "Upload brief / rubric / submission instructions, or drag and drop"}
+                  <Upload className="size-4 shrink-0" />
+                  <span className="truncate">{isDraggingBrief ? "Drop files here" : "Upload brief / rubric / submission instructions, or drag and drop"}</span>
                 </Button>
                 {briefFiles.length > 0 && (
                   <ul className="text-sm space-y-1">
@@ -413,7 +412,7 @@ function FormattingPage() {
               </div>
 
               <Button onClick={analyze} disabled={reading || workFiles.length === 0} className="w-full gap-2">
-                {reading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {reading ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
                 {reading ? "Reading your documents…" : "Check what's needed"}
               </Button>
             </Card>
@@ -475,7 +474,7 @@ function FormattingPage() {
                   Leave as-is, just format
                 </Button>
                 <Button onClick={enhanceWork} disabled={enhancing} className="flex-1 gap-2">
-                  {enhancing ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
+                  {enhancing ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />}
                   {enhancing ? "Enhancing…" : "Enhance first"}
                 </Button>
               </div>
