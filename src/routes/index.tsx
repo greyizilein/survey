@@ -425,79 +425,69 @@ const slides = [
 ];
 
 const TESTIMONIALS = [
-  { quote: "I submitted a 12,000-word dissertation chapter in an afternoon. Paperstudio did the heavy lifting.", name: "Chidinma O.", role: "Postgraduate researcher", initials: "CO" },
-  { quote: "The Interview Studio is magic. I got 50 transcripts with completely distinct voices in under an hour.", name: "Ravi M.", role: "UX researcher", initials: "RM" },
-  { quote: "Our team stopped paying for five separate tools. Everything we need is right here.", name: "Sofia L.", role: "Content strategist", initials: "SL" },
-  { quote: "The survey autofill alone is worth it. Google Forms with 1,000 responses in minutes.", name: "James T.", role: "Market researcher", initials: "JT" },
-  { quote: "Presentations that used to take half a day — Paperstudio builds them while I drink coffee.", name: "Amara K.", role: "Management consultant", initials: "AK" },
-  { quote: "The Humaniser is the finishing touch every AI workflow needs. Undetectable every time.", name: "Daniel W.", role: "Freelance copywriter", initials: "DW" },
-  { quote: "I ran a 200-persona survey in 20 minutes. The depth of responses genuinely surprised me.", name: "Priya N.", role: "Product researcher", initials: "PN" },
-  { quote: "Every report I used to dread writing now takes me 15 minutes. It changed how I work.", name: "Marcus B.", role: "Strategy analyst", initials: "MB" },
-  { quote: "The agent mode is brilliant. I gave it a brief and came back to a finished competitive analysis.", name: "Layla H.", role: "Brand consultant", initials: "LH" },
-  { quote: "Clean exports, no hallucinations on my own data, and genuinely fast. Nothing else comes close.", name: "Tom R.", role: "Academic editor", initials: "TR" },
+  {
+    quote: "I submitted a 12,000-word dissertation chapter in an afternoon. Paperstudio did the heavy lifting — every source, every citation, exactly right.",
+    name: "Chidinma O.",
+    role: "Postgraduate researcher",
+    avatar: "/avatar-chidinma.png",
+  },
+  {
+    quote: "The Interview Studio is unlike anything else. 50 transcripts with completely distinct voices, in under an hour. The depth genuinely surprised me.",
+    name: "Ravi M.",
+    role: "UX researcher",
+    avatar: "/avatar-ravi.png",
+  },
+  {
+    quote: "Our team stopped paying for five separate tools. Everything we need is right here, and the output quality is better than anything we had before.",
+    name: "Sofia L.",
+    role: "Content strategist",
+    avatar: "/avatar-sofia.png",
+  },
 ];
-
-function AvatarSvg({ initials, index }: { initials: string; index: number }) {
-  const palettes = [
-    ["#1a1a1a", LIME],
-    ["#0f2318", "#4ade80"],
-    ["#1a0f2e", "#a78bfa"],
-    ["#2e1a0f", "#fb923c"],
-    ["#0f1a2e", "#60a5fa"],
-  ];
-  const [bg, fg] = palettes[index % palettes.length];
-  return (
-    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-      <rect width="36" height="36" rx="18" fill={bg} />
-      <text x="18" y="23" textAnchor="middle" fontSize="13" fontWeight="700" fontFamily="sans-serif" fill={fg}>{initials}</text>
-    </svg>
-  );
-}
 
 function TestimonialsMarquee() {
   return (
-    <section className="bg-foreground py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <p className="text-xs font-bold uppercase tracking-[0.3em] text-background/50">What people say</p>
-        <h2 className="mt-3 max-w-xl text-4xl font-extrabold tracking-tight text-background sm:text-5xl">
+    <section className="bg-background py-20 sm:py-28">
+      <div className="mx-auto max-w-5xl px-6 lg:px-8">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">What people say</p>
+        <h2 className="mt-3 max-w-xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
           Trusted by writers who ship.
         </h2>
 
-        {/* Masonry-style two-column grid */}
-        <div className="mt-12 columns-1 gap-5 sm:columns-2 lg:columns-3">
+        <div className="mt-16 flex flex-col gap-16">
           {TESTIMONIALS.map((t, i) => (
-            <div key={i} className="mb-5 break-inside-avoid">
-              <TestimonialCard t={t} index={i} />
+            <div key={i} className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-10">
+              {/* Big opening quote mark */}
+              <div
+                className="hidden select-none text-[5rem] font-black leading-none text-primary sm:block"
+                aria-hidden
+                style={{ lineHeight: 1, marginTop: "-0.2em" }}
+              >
+                &ldquo;
+              </div>
+              <div className="flex-1">
+                <p className="text-xl font-medium leading-relaxed text-foreground sm:text-2xl">
+                  <span className="text-primary sm:hidden" aria-hidden>&ldquo;</span>
+                  {t.quote}
+                  <span className="text-primary sm:hidden" aria-hidden>&rdquo;</span>
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <img
+                    src={t.avatar}
+                    alt={t.name}
+                    className="size-10 rounded-full object-cover ring-2 ring-primary/30"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.role}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
         </div>
       </div>
     </section>
-  );
-}
-
-function TestimonialCard({ t, index }: { t: typeof TESTIMONIALS[0]; index: number }) {
-  return (
-    <div
-      className="flex w-72 flex-none flex-col justify-between rounded-2xl border border-background/10 bg-background/5 p-5 backdrop-blur-sm sm:w-80"
-    >
-      {/* Stars */}
-      <div className="flex gap-0.5 text-primary">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
-            <path d="M6 1l1.39 2.82L10.5 4.27l-2.25 2.19.53 3.1L6 8.1l-2.78 1.46.53-3.1L1.5 4.27l3.11-.45z" />
-          </svg>
-        ))}
-      </div>
-      <p className="mt-3 text-sm leading-relaxed text-background/75">&ldquo;{t.quote}&rdquo;</p>
-      <div className="mt-4 flex items-center gap-3">
-        <AvatarSvg initials={t.initials} index={index} />
-        <div>
-          <p className="text-sm font-bold text-background">{t.name}</p>
-          <p className="text-xs text-background/50">{t.role}</p>
-        </div>
-      </div>
-    </div>
   );
 }
 
