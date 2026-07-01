@@ -104,7 +104,7 @@ export async function extractText(base64: string, filename: string): Promise<str
             {
               type: "image",
               image: bytes,
-              mimeType: mediaType,
+              mediaType,
             },
             {
               type: "text",
@@ -135,9 +135,9 @@ export async function extractText(base64: string, filename: string): Promise<str
           role: "user",
           content: [
             {
-              type: "audio",
-              audio: bytes,
-              mimeType: mediaType,
+              type: "file",
+              data: bytes,
+              mediaType,
             },
             {
               type: "text",
