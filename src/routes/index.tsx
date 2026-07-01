@@ -508,76 +508,60 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
           Everything, in one workspace.
         </h2>
 
-        {/* Two-column layout on desktop */}
-        <div className="mt-14 flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-12">
+        {/* Desktop: two-column. Mobile: horizontal scroll carousel */}
+        <div className="mt-14 hidden lg:flex lg:flex-row lg:items-stretch lg:gap-12">
 
-          {/* LEFT — slides */}
-          <div className="flex flex-col justify-between gap-4 lg:w-[46%]">
+          {/* LEFT — accordion list */}
+          <div className="flex flex-col justify-between gap-3 lg:w-[46%]">
             {slides.map((slide, i) => (
               <button
                 key={i}
                 onClick={() => setActive(i)}
-                className={`group relative w-full overflow-hidden rounded-2xl border-2 p-6 text-left transition-all duration-300 ${
-                  active === i
-                    ? "border-primary bg-primary/8 shadow-lg shadow-black/5"
-                    : "border-border bg-card hover:border-primary/40"
+                className={`group relative w-full overflow-hidden border-l-4 py-4 pl-5 pr-4 text-left transition-all duration-300 ${
+                  active === i ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                 }`}
               >
-                {/* Active progress bar */}
                 {active === i && (
                   <span
                     key={active}
-                    className="absolute bottom-0 left-0 h-[3px] bg-primary"
+                    className="absolute bottom-0 left-0 h-[2px] bg-primary"
                     style={{ animation: "slide-progress 5s linear forwards" }}
                   />
                 )}
-                <span
-                  className={`inline-block text-[10px] font-bold uppercase tracking-[0.25em] ${
-                    active === i ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
+                <span className={`text-[10px] font-bold uppercase tracking-[0.25em] ${active === i ? "text-primary" : "text-muted-foreground"}`}>
                   {slide.tag}
                 </span>
-                <h3 className={`mt-2 text-lg font-extrabold leading-tight tracking-tight transition-colors ${
-                  active === i ? "text-foreground" : "text-foreground/60"
-                }`}>
+                <h3 className={`mt-1 text-base font-extrabold leading-tight tracking-tight transition-colors ${active === i ? "text-foreground" : "text-foreground/50"}`}>
                   {slide.heading}
                 </h3>
                 {active === i && (
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed animate-fade-up">
+                  <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed animate-fade-up">
                     {slide.body}
                   </p>
                 )}
               </button>
             ))}
-
             <Link
               to={ctaHref}
-              className="mt-2 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
+              className="mt-4 inline-flex w-fit items-center gap-2 border-2 border-primary bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hard-shadow-sm hard-shadow-hover"
             >
               Try it free <ArrowRight className="size-4" />
             </Link>
           </div>
 
           {/* RIGHT — video */}
-          <div className="relative overflow-hidden rounded-2xl bg-black lg:flex-1 min-h-[340px] lg:min-h-0">
+          <div className="relative overflow-hidden rounded-2xl bg-black lg:flex-1 min-h-[340px]">
             <video
               ref={videoRef}
               className="absolute inset-0 h-full w-full object-cover opacity-80"
               src="/feature.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              aria-hidden
+              autoPlay muted loop playsInline aria-hidden
             />
-            {/* Overlay gradient so bottom blends nicely */}
             <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)" }}
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 55%)" }}
               aria-hidden
             />
-            {/* Active slide label over the video */}
             <div className="absolute bottom-6 left-6 right-6 z-10">
               <span className="inline-block rounded-full bg-primary px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-primary-foreground">
                 {slides[active].tag}
@@ -586,21 +570,61 @@ function SlidesSection({ ctaHref }: { ctaHref: string }) {
                 {slides[active].heading}
               </p>
             </div>
-
-            {/* Dot indicators */}
             <div className="absolute right-5 top-5 z-10 flex flex-col gap-1.5">
               {slides.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setActive(i)}
-                  className={`rounded-full transition-all duration-300 ${
-                    active === i ? "h-5 w-2 bg-primary" : "h-2 w-2 bg-white/40 hover:bg-white/70"
-                  }`}
+                  className={`rounded-full transition-all duration-300 ${active === i ? "h-5 w-2 bg-primary" : "h-2 w-2 bg-white/40 hover:bg-white/70"}`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Mobile: horizontal snap-scroll cards */}
+        <div
+          className="mt-10 flex gap-4 overflow-x-auto pb-4 lg:hidden snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch", marginLeft: "-1.5rem", marginRight: "-1.5rem", paddingLeft: "1.5rem", paddingRight: "1.5rem" }}
+        >
+          {slides.map((slide, i) => (
+            <div
+              key={i}
+              className="relative flex-none snap-start overflow-hidden rounded-2xl bg-black"
+              style={{ width: "75vw", minHeight: "400px" }}
+            >
+              <video
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-50"
+                src="/feature.mp4"
+                autoPlay muted loop playsInline aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 60%)" }}
+                aria-hidden
+              />
+              <div className="absolute inset-0 flex flex-col justify-between p-5">
+                <span className="inline-flex w-fit items-center rounded-full bg-primary/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary backdrop-blur-sm">
+                  {slide.tag}
+                </span>
+                <div>
+                  <h3 className="text-lg font-extrabold leading-tight tracking-tight text-white">
+                    {slide.heading}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/65">
+                    {slide.body}
+                  </p>
+                  <Link
+                    to={ctaHref}
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary"
+                  >
+                    Try it free <ArrowRight className="size-3.5" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
