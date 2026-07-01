@@ -13,6 +13,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BillingSuccessRouteImport } from './routes/billing.success'
 import { Route as ApiPresentationsStreamRouteImport } from './routes/api.presentations-stream'
 import { Route as ApiFormattingStreamRouteImport } from './routes/api.formatting-stream'
 import { Route as ApiFormattingEnhanceStreamRouteImport } from './routes/api.formatting-enhance-stream'
@@ -20,6 +21,7 @@ import { Route as ApiApplyCorrectionsStreamRouteImport } from './routes/api.appl
 import { Route as ApiAnalyzeStreamRouteImport } from './routes/api.analyze-stream'
 import { Route as ApiAgentStreamRouteImport } from './routes/api.agent-stream'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
+import { Route as ApiPublicPaystackWebhookRouteImport } from './routes/api.public.paystack-webhook'
 import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app.settings'
 import { Route as AuthenticatedAppProjectsRouteImport } from './routes/_authenticated/app.projects'
 import { Route as AuthenticatedAppPresentationsRouteImport } from './routes/_authenticated/app.presentations'
@@ -52,6 +54,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BillingSuccessRoute = BillingSuccessRouteImport.update({
+  id: '/billing/success',
+  path: '/billing/success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPresentationsStreamRoute = ApiPresentationsStreamRouteImport.update({
@@ -91,6 +98,12 @@ const AuthenticatedAppRoute = AuthenticatedAppRouteImport.update({
   path: '/app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicPaystackWebhookRoute =
+  ApiPublicPaystackWebhookRouteImport.update({
+    id: '/api/public/paystack-webhook',
+    path: '/api/public/paystack-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAppSettingsRoute =
   AuthenticatedAppSettingsRouteImport.update({
     id: '/settings',
@@ -184,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
@@ -194,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/folders/': typeof AuthenticatedAppFoldersIndexRoute
@@ -210,6 +225,7 @@ export interface FileRoutesByTo {
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/app/agent': typeof AuthenticatedAppAgentRoute
   '/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/app/dashboard': typeof AuthenticatedAppDashboardRoute
@@ -219,6 +235,7 @@ export interface FileRoutesByTo {
   '/app/personas': typeof AuthenticatedAppPersonasRoute
   '/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/app/folders': typeof AuthenticatedAppFoldersIndexRoute
@@ -237,6 +254,7 @@ export interface FileRoutesById {
   '/api/formatting-enhance-stream': typeof ApiFormattingEnhanceStreamRoute
   '/api/formatting-stream': typeof ApiFormattingStreamRoute
   '/api/presentations-stream': typeof ApiPresentationsStreamRoute
+  '/billing/success': typeof BillingSuccessRoute
   '/_authenticated/app/agent': typeof AuthenticatedAppAgentRoute
   '/_authenticated/app/analyze': typeof AuthenticatedAppAnalyzeRoute
   '/_authenticated/app/dashboard': typeof AuthenticatedAppDashboardRoute
@@ -247,6 +265,7 @@ export interface FileRoutesById {
   '/_authenticated/app/presentations': typeof AuthenticatedAppPresentationsRoute
   '/_authenticated/app/projects': typeof AuthenticatedAppProjectsRouteWithChildren
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRoute
+  '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/_authenticated/app/folders/$id': typeof AuthenticatedAppFoldersIdRoute
   '/_authenticated/app/projects/$id': typeof AuthenticatedAppProjectsIdRoute
   '/_authenticated/app/folders/': typeof AuthenticatedAppFoldersIndexRoute
@@ -265,6 +284,7 @@ export interface FileRouteTypes {
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
     | '/api/presentations-stream'
+    | '/billing/success'
     | '/app/agent'
     | '/app/analyze'
     | '/app/dashboard'
@@ -275,6 +295,7 @@ export interface FileRouteTypes {
     | '/app/presentations'
     | '/app/projects'
     | '/app/settings'
+    | '/api/public/paystack-webhook'
     | '/app/folders/$id'
     | '/app/projects/$id'
     | '/app/folders/'
@@ -291,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
     | '/api/presentations-stream'
+    | '/billing/success'
     | '/app/agent'
     | '/app/analyze'
     | '/app/dashboard'
@@ -300,6 +322,7 @@ export interface FileRouteTypes {
     | '/app/personas'
     | '/app/presentations'
     | '/app/settings'
+    | '/api/public/paystack-webhook'
     | '/app/folders/$id'
     | '/app/projects/$id'
     | '/app/folders'
@@ -317,6 +340,7 @@ export interface FileRouteTypes {
     | '/api/formatting-enhance-stream'
     | '/api/formatting-stream'
     | '/api/presentations-stream'
+    | '/billing/success'
     | '/_authenticated/app/agent'
     | '/_authenticated/app/analyze'
     | '/_authenticated/app/dashboard'
@@ -327,6 +351,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/presentations'
     | '/_authenticated/app/projects'
     | '/_authenticated/app/settings'
+    | '/api/public/paystack-webhook'
     | '/_authenticated/app/folders/$id'
     | '/_authenticated/app/projects/$id'
     | '/_authenticated/app/folders/'
@@ -344,6 +369,8 @@ export interface RootRouteChildren {
   ApiFormattingEnhanceStreamRoute: typeof ApiFormattingEnhanceStreamRoute
   ApiFormattingStreamRoute: typeof ApiFormattingStreamRoute
   ApiPresentationsStreamRoute: typeof ApiPresentationsStreamRoute
+  BillingSuccessRoute: typeof BillingSuccessRoute
+  ApiPublicPaystackWebhookRoute: typeof ApiPublicPaystackWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -374,6 +401,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/billing/success': {
+      id: '/billing/success'
+      path: '/billing/success'
+      fullPath: '/billing/success'
+      preLoaderRoute: typeof BillingSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/presentations-stream': {
@@ -424,6 +458,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app'
       preLoaderRoute: typeof AuthenticatedAppRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/paystack-webhook': {
+      id: '/api/public/paystack-webhook'
+      path: '/api/public/paystack-webhook'
+      fullPath: '/api/public/paystack-webhook'
+      preLoaderRoute: typeof ApiPublicPaystackWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/settings': {
       id: '/_authenticated/app/settings'
@@ -597,17 +638,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFormattingEnhanceStreamRoute: ApiFormattingEnhanceStreamRoute,
   ApiFormattingStreamRoute: ApiFormattingStreamRoute,
   ApiPresentationsStreamRoute: ApiPresentationsStreamRoute,
+  BillingSuccessRoute: BillingSuccessRoute,
+  ApiPublicPaystackWebhookRoute: ApiPublicPaystackWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

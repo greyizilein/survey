@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Check, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PLANS, formatPrice, annualMonthlyRate, type BillingInterval } from "@/lib/products";
-import { CheckoutButton } from "@/components/stripe-checkout";
+import { PaystackCheckoutButton } from "@/components/paystack-button";
 import { Logo } from "@/components/logo";
 
 export const Route = createFileRoute("/pricing")({
@@ -189,7 +189,7 @@ function PricingPage() {
                 </div>
 
                 {/* CTA */}
-                <CheckoutButton
+                <PaystackCheckoutButton
                   planId={plan.id}
                   planName={plan.name}
                   interval={interval}
@@ -201,7 +201,7 @@ function PricingPage() {
                   )}
                 >
                   Get {plan.name}
-                </CheckoutButton>
+                </PaystackCheckoutButton>
 
                 {/* Features */}
                 <ul className="mt-6 space-y-2.5">
