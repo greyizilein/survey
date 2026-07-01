@@ -73,24 +73,53 @@ function Landing() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* HERO */}
-      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-background px-5 pb-6 pt-5 text-foreground sm:px-8 md:min-h-[84svh]">
+      <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-black px-5 pb-6 pt-5 text-foreground sm:px-8 md:min-h-[84svh]">
+        {/* Video background */}
+        <video
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          style={{ opacity: 0.45 }}
+          src="/hero.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden
+        />
+        {/* Dark base scrim — deepens blacks so text always pops */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 50%, rgba(0,0,0,0.72) 100%)" }}
+          aria-hidden
+        />
+        {/* Lime brand tint — subtle colour cast matching the accent */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at 30% 40%, ${LIME}18 0%, transparent 65%)` }}
+          aria-hidden
+        />
+        {/* Edge vignette for depth */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%)" }}
+          aria-hidden
+        />
         {/* Header */}
         <header className="relative z-20 flex items-center justify-between animate-fade-up">
           <Link to="/" className="flex items-center gap-2">
             <Logo className="size-9" />
-            <span className="text-sm font-bold tracking-tight text-foreground">PAPERSTUDIO</span>
+            <span className="text-sm font-bold tracking-tight text-white">PAPERSTUDIO</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link
               to="/pricing"
-              className="hidden sm:inline-flex border-2 border-foreground/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-foreground/70 hover:text-foreground transition-colors"
+              className="hidden sm:inline-flex border-2 border-white/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white transition-colors"
             >
               Pricing
             </Link>
             {!authed && (
               <Link
                 to="/auth"
-                className="hidden sm:inline-flex border-2 border-foreground/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-foreground transition-colors"
+                className="hidden sm:inline-flex border-2 border-white/25 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white transition-colors"
               >
                 Sign in
               </Link>
@@ -104,36 +133,19 @@ function Landing() {
           </div>
         </header>
 
-        {/* Ambient glows — animated pulse */}
-        <div
-          className="pointer-events-none absolute -left-32 top-1/4 size-[28rem] rounded-full blur-[120px] animate-glow-pulse"
-          style={{ background: `${LIME}33` }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -right-24 top-10 size-[22rem] rounded-full blur-[100px] animate-glow-pulse"
-          style={{ background: `${LIME}22`, animationDelay: "-1.5s" }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute left-1/2 top-0 h-[60vh] w-[80vw] -translate-x-1/2 opacity-70 animate-glow-pulse"
-          style={{ background: `radial-gradient(ellipse at top, ${LIME}33, transparent 60%)`, animationDelay: "-3s" }}
-          aria-hidden
-        />
-
         {/* Centered headline — staggered reveal */}
         <div className="relative z-10 mx-auto flex flex-1 max-w-4xl flex-col items-center justify-center text-center">
-          <span className="inline-flex items-center gap-2 border-2 border-primary bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-primary backdrop-blur animate-fade-up animate-scale-in">
+          <span className="inline-flex items-center gap-2 border-2 border-primary bg-primary/20 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.25em] text-primary backdrop-blur animate-fade-up animate-scale-in">
             <Sparkles className="size-3" /> Writing, on autopilot
           </span>
 
-          <h1 className="mt-6 text-[clamp(2.75rem,11vw,8rem)] font-extrabold leading-[0.95] tracking-tight text-foreground animate-fade-up-delay-1">
+          <h1 className="mt-6 text-[clamp(2.75rem,11vw,8rem)] font-extrabold leading-[0.95] tracking-tight text-white animate-fade-up-delay-1">
             Describe it.
             <br />
             <span className="text-primary">Paperstudio writes it.</span>
           </h1>
 
-          <p className="mx-auto mt-6 max-w-2xl text-base text-muted-foreground sm:text-xl animate-fade-up-delay-2">
+          <p className="mx-auto mt-6 max-w-2xl text-base text-white/70 sm:text-xl animate-fade-up-delay-2">
             Everything you need to finish your work, in one workspace built around how easy work should be done. Plan, Draft, WRITE. Push.
           </p>
 
@@ -148,7 +160,7 @@ function Landing() {
             {!authed && (
               <Link
                 to="/auth"
-                className="inline-flex items-center gap-2 border-2 border-foreground/40 px-6 py-3.5 text-sm font-bold text-foreground transition-colors hover:border-foreground"
+                className="inline-flex items-center gap-2 border-2 border-white/40 px-6 py-3.5 text-sm font-bold text-white transition-colors hover:border-white"
               >
                 See a demo
               </Link>
@@ -158,7 +170,7 @@ function Landing() {
 
         {/* Marquee */}
         <div className="relative z-10 mt-auto pt-10 md:pt-14 animate-fade-up-delay-4">
-          <p className="mb-3 text-center text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+          <p className="mb-3 text-center text-[11px] uppercase tracking-[0.3em] text-white/40">
             Loved by 99%
             <br />
             of first time users
@@ -174,7 +186,7 @@ function Landing() {
               {[...marqueeItems, ...marqueeItems].map((item, i) => (
                 <div
                   key={i}
-                  className="flex shrink-0 items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground"
+                  className="flex shrink-0 items-center gap-2 text-sm font-bold uppercase tracking-widest text-white/50"
                 >
                   <item.icon className="size-4 text-primary" />
                   <span>{item.label}</span>
