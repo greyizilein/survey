@@ -246,6 +246,15 @@
   to { transform: translateX(-50%); }
 }
 
+/* Feature cards: full-viewport on mobile, fixed size on desktop */
+@media (min-width: 1024px) {
+  .feature-card {
+    width: 280px !important;
+    min-height: 420px !important;
+    border-radius: 1rem !important;
+  }
+}
+
 @keyframes marquee-reverse {
   from { transform: translateX(-50%); }
   to { transform: translateX(0); }
