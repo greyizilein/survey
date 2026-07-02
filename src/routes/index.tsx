@@ -266,17 +266,35 @@ function Landing() {
               className="feature-card group relative flex-none snap-start overflow-hidden"
               style={{
                 width: "100vw",
-                minHeight: "100svh",
+                minHeight: "75svh",
                 background: card.bg,
               }}
             >
-              {/* Decorative giant word — desktop accent, subtle on mobile */}
+              {/* Mobile: photo in upper half, hidden on desktop */}
+              <div className="absolute inset-0 lg:hidden">
+                <img
+                  src="/feature-photo.png"
+                  alt=""
+                  className="h-full w-full object-cover object-top"
+                  style={{ opacity: 0.45 }}
+                  aria-hidden
+                />
+                {/* Gradient: transparent top → solid bg at bottom so text is legible */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(to bottom, transparent 25%, ${card.bg}cc 55%, ${card.bg} 75%)`,
+                  }}
+                />
+              </div>
+
+              {/* Decorative giant word — desktop: visible as texture, mobile: hidden (photo takes that role) */}
               <div
-                className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden select-none"
+                className="pointer-events-none absolute inset-0 hidden items-center justify-center overflow-hidden select-none lg:flex"
                 aria-hidden
               >
                 <span
-                  className="font-extrabold leading-none tracking-tighter opacity-[0.07] lg:opacity-[0.11]"
+                  className="font-extrabold leading-none tracking-tighter opacity-[0.11]"
                   style={{
                     fontSize: "clamp(5rem, 22vw, 14rem)",
                     color: card.accent,
@@ -295,7 +313,7 @@ function Landing() {
                 aria-hidden
               />
 
-              {/* Content — VideoSlideSection style: tag top, heading+body+cta bottom */}
+              {/* Content: tag top-left, heading+body+cta bottom */}
               <div className="absolute inset-0 flex flex-col justify-between p-6 lg:p-8">
                 {/* Top */}
                 <span
@@ -307,15 +325,15 @@ function Landing() {
 
                 {/* Bottom */}
                 <div>
-                  <h3 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl lg:text-2xl lg:leading-snug">
+                  <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl lg:text-2xl lg:leading-snug">
                     {card.title}
                   </h3>
-                  <p className="mt-3 text-base leading-relaxed text-white/65 lg:text-sm">
+                  <p className="mt-2 text-sm leading-relaxed text-white/65">
                     {card.desc}
                   </p>
                   <Link
                     to={card.href}
-                    className="mt-6 inline-flex items-center gap-2 border-2 px-5 py-2.5 text-sm font-bold transition-colors"
+                    className="mt-5 inline-flex items-center gap-2 border-2 px-5 py-2.5 text-sm font-bold transition-colors"
                     style={{ borderColor: card.accent, color: card.accent, background: `${card.accent}18` }}
                     onClick={(e) => e.stopPropagation()}
                   >
