@@ -213,9 +213,9 @@ function Landing() {
           </p>
         </div>
 
-        {/* Scrollable track — bleeds to edges on mobile */}
+        {/* Scrollable track */}
         <div
-          className="mt-12 flex gap-4 overflow-x-auto px-6 pb-4 lg:px-8 snap-x snap-mandatory"
+          className="mt-12 flex gap-0 overflow-x-auto snap-x snap-mandatory lg:gap-5 lg:px-6 lg:pb-4 lg:overflow-visible lg:flex-wrap"
           style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
         >
           {[
@@ -225,6 +225,9 @@ function Landing() {
               desc: "Chapters, reports, and analysis — with your data, sources, and instructions baked in. Export to Word in one click.",
               href: "/app/analyze",
               cta: "Start writing",
+              accent: LIME,
+              decorWord: "WRITE",
+              bg: "#0a0f0a",
             },
             {
               tag: "Presentations",
@@ -232,6 +235,9 @@ function Landing() {
               desc: "Describe the deck you need and get live, editable slides built and exported to .pptx — ready to open in PowerPoint.",
               href: "/app/presentations",
               cta: "Build a deck",
+              accent: "#60a5fa",
+              decorWord: "PRESENT",
+              bg: "#080a12",
             },
             {
               tag: "Interview Studio",
@@ -239,6 +245,9 @@ function Landing() {
               desc: "Upload a discussion guide and get a full AI interview transcript per persona — unique voices, real depth, instantly.",
               href: "/app/agent",
               cta: "Run interviews",
+              accent: "#fb923c",
+              decorWord: "INTERVIEW",
+              bg: "#120a06",
             },
             {
               tag: "Survey autofill",
@@ -246,42 +255,76 @@ function Landing() {
               desc: "Share any Google Forms URL and Paperstudio fills it in character and submits — across thousands of personas.",
               href: "/app/agent",
               cta: "Try autofill",
+              accent: "#a78bfa",
+              decorWord: "SURVEY",
+              bg: "#0a080f",
             },
-          ].map((card, cardIdx) => {
-            const cardBgs = ["#0a0f0a", "#0a0a0f", "#0f0a08", "#080f0f"];
-            return (
+          ].map((card, cardIdx) => (
             <Link
               key={card.tag}
               to={ctaHref}
-              className="group relative flex-none snap-start overflow-hidden rounded-2xl"
-              style={{ width: "min(80vw, 340px)", minHeight: "480px", background: cardBgs[cardIdx % cardBgs.length] }}
+              className="feature-card group relative flex-none snap-start overflow-hidden"
+              style={{
+                width: "100vw",
+                minHeight: "100svh",
+                background: card.bg,
+              }}
             >
-              {/* Subtle radial glow */}
+              {/* Decorative giant word — desktop accent, subtle on mobile */}
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden select-none"
+                aria-hidden
+              >
+                <span
+                  className="font-extrabold leading-none tracking-tighter opacity-[0.07] lg:opacity-[0.11]"
+                  style={{
+                    fontSize: "clamp(5rem, 22vw, 14rem)",
+                    color: card.accent,
+                    transform: "rotate(-12deg)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {card.decorWord}
+                </span>
+              </div>
+
+              {/* Radial glow from top-left */}
               <div
                 className="pointer-events-none absolute inset-0"
-                style={{ background: `radial-gradient(ellipse at 30% 20%, ${LIME}12 0%, transparent 65%)` }}
+                style={{ background: `radial-gradient(ellipse at 15% 15%, ${card.accent}22 0%, transparent 60%)` }}
                 aria-hidden
               />
-              {/* Content */}
-              <div className="absolute inset-0 flex flex-col justify-between p-6">
-                <span className="inline-flex w-fit items-center rounded-full bg-primary/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary backdrop-blur-sm">
+
+              {/* Content — VideoSlideSection style: tag top, heading+body+cta bottom */}
+              <div className="absolute inset-0 flex flex-col justify-between p-6 lg:p-8">
+                {/* Top */}
+                <span
+                  className="inline-flex w-fit items-center rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm"
+                  style={{ background: `${card.accent}22`, color: card.accent }}
+                >
                   {card.tag}
                 </span>
+
+                {/* Bottom */}
                 <div>
-                  <h3 className="text-xl font-extrabold leading-tight tracking-tight text-white sm:text-2xl">
+                  <h3 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl lg:text-2xl lg:leading-snug">
                     {card.title}
                   </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-white/65">
+                  <p className="mt-3 text-base leading-relaxed text-white/65 lg:text-sm">
                     {card.desc}
                   </p>
-                  <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-primary transition-gap group-hover:gap-2.5">
-                    {card.cta} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </span>
+                  <Link
+                    to={card.href}
+                    className="mt-6 inline-flex items-center gap-2 border-2 px-5 py-2.5 text-sm font-bold transition-colors"
+                    style={{ borderColor: card.accent, color: card.accent, background: `${card.accent}18` }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {card.cta} <ArrowRight className="size-4" />
+                  </Link>
                 </div>
               </div>
             </Link>
-          );
-          })}
+          ))}
         </div>
       </section>
 
