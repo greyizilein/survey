@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_conversations: {
         Row: {
           agent_session_id: string | null
@@ -57,6 +78,134 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      enterprise_members: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          email: string
+          enterprise_id: string
+          full_name: string | null
+          id: string
+          paystack_reference: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          word_allocation: number | null
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          email: string
+          enterprise_id: string
+          full_name?: string | null
+          id?: string
+          paystack_reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          word_allocation?: number | null
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          email?: string
+          enterprise_id?: string
+          full_name?: string | null
+          id?: string
+          paystack_reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          word_allocation?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enterprise_members_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enterprise_requests: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          message: string | null
+          status: string
+          team_size: string | null
+          use_case: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          message?: string | null
+          status?: string
+          team_size?: string | null
+          use_case?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          message?: string | null
+          status?: string
+          team_size?: string | null
+          use_case?: string | null
+        }
+        Relationships: []
+      }
+      enterprises: {
+        Row: {
+          billing_interval: string
+          contact_email: string
+          contact_name: string | null
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          price_usd_cents: number
+          status: string
+          updated_at: string
+          word_allocation: number
+        }
+        Insert: {
+          billing_interval?: string
+          contact_email: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          price_usd_cents?: number
+          status?: string
+          updated_at?: string
+          word_allocation?: number
+        }
+        Update: {
+          billing_interval?: string
+          contact_email?: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          price_usd_cents?: number
+          status?: string
+          updated_at?: string
+          word_allocation?: number
+        }
+        Relationships: []
       }
       folder_files: {
         Row: {
@@ -408,24 +557,38 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string | null
+          enterprise_member_id: string | null
           id: string
+          subscription_type: string
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          enterprise_member_id?: string | null
           id: string
+          subscription_type?: string
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          enterprise_member_id?: string | null
           id?: string
+          subscription_type?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_enterprise_member_id_fkey"
+            columns: ["enterprise_member_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
@@ -680,9 +843,40 @@ export type Database = {
           },
         ]
       }
+      usage_events: {
+        Row: {
+          created_at: string
+          feature: string
+          id: string
+          user_id: string
+          word_count: number
+        }
+        Insert: {
+          created_at?: string
+          feature: string
+          id?: string
+          user_id: string
+          word_count?: number
+        }
+        Update: {
+          created_at?: string
+          feature?: string
+          id?: string
+          user_id?: string
+          word_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      user_monthly_usage: {
+        Row: {
+          month: string | null
+          user_id: string | null
+          words_used: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
